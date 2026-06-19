@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -31,6 +32,7 @@ class DemoArchive:
     event: str | None
     match_date: date | None
     dem_paths: list[Path]
+    work_dir: Path | None = None  # temp dir to clean up once the match is ingested
 
 
 def _impersonated_session():
@@ -152,8 +154,8 @@ def iter_team_demo_archives(
                 continue
             id_match = re.search(r"/matches/(\d+)", match_url)
             match_id = id_match.group(1) if id_match else match_url.rstrip("/").split("/")[-1]
-            dem_paths = _download_and_extract(
-                f"{settings.hltv_base_url}{demo_links[0]}", match_id, map_id
+            work_dir, dem_paths = _download_and_extract(
+                f"{settings.hltv_base_url}{demo_links[0]}", match_id
             )
         except HLTVError:
             continue  # skip a failed match, keep going
@@ -164,6 +166,7 @@ def iter_team_demo_archives(
                 event=None,
                 match_date=None,
                 dem_paths=dem_paths,
+                work_dir=work_dir,
             )
 
 
@@ -175,10 +178,10 @@ def download_team_demos(
     )
 
 
-def _download_and_extract(
-        demo_url: str, match_id: str, map_id: str | None = None
-) -> list[Path]:
-    # Download a GOTV ``.rar`` and extract its ``.dem`` members
+def _download_and_extract(demo_url: str, match_id: str) -> tuple[Path, list[Path]]:
+    # Download a GOTV ``.rar`` and extract *every* ``.dem`` member. The archive
+    # holds all maps of the series, so we ingest them all rather than discard
+    # the ones we already paid to download. Returns (work_dir, dem_paths).
 
     settings = get_settings()
     try:
@@ -194,18 +197,13 @@ def _download_and_extract(
     archive = work / "demo.rar"
     archive.write_bytes(resp.content)
 
-    map_token = (map_id or "").lower().removeprefix("de_")
-
     try:
         with rarfile.RarFile(archive) as rf:
             members = rf.namelist()
     except Exception as exc:
         raise HLTVError(f"failed to read GOTV archive: {exc}") from exc
 
-    wanted = [
-        m for m in members
-        if m.lower().endswith(".dem") and (not map_token or map_token in m.lower())
-    ]
+    wanted = [m for m in members if m.lower().endswith(".dem")]
 
     out: list[Path] = []
     for member in wanted:
@@ -219,4 +217,10 @@ def _download_and_extract(
             stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
             raise HLTVError(f"failed to extract GOTV archive: {stderr}") from exc
         out.append(work / member)
-    return out
+    return work, out
+
+
+def cleanup_archive(archive: DemoArchive) -> None:
+    """Delete a match's temp download dir (the ``.rar`` and extracted ``.dem``)."""
+    if archive.work_dir is not None:
+        shutil.rmtree(archive.work_dir, ignore_errors=True)

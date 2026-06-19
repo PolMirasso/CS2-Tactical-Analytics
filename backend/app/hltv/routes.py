@@ -61,29 +61,33 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 body.team_id, body.map_id, body.date_range
         ):
             matches += 1
-            for dem_path in archive.dem_paths:
-                demo_map = client.map_from_filename(dem_path.name) or body.map_id
-                with session_scope() as session:
-                    owner = session.get(User, owner_id)
-                    with dem_path.open("rb") as fh:
-                        demo = demo_service.store_upload(
-                            session,
-                            owner,
-                            fh,
-                            filename=dem_path.name,
-                            source=DemoSource.HLTV,
-                            visibility=body.visibility,
-                            map_id=demo_map,
-                            team=body.team_name,
-                            hltv_match_id=archive.match_id,
-                        )
-                    demo_service.parse_and_store(session, demo)
-                    demo_ids.append(demo.id)
-                _update(
-                    matches=matches,
-                    demos_ingested=len(demo_ids),
-                    demo_ids=",".join(map(str, demo_ids)),
-                )
+            try:
+                for dem_path in archive.dem_paths:
+                    demo_map = client.map_from_filename(dem_path.name) or body.map_id
+                    with session_scope() as session:
+                        owner = session.get(User, owner_id)
+                        with dem_path.open("rb") as fh:
+                            demo = demo_service.store_upload(
+                                session,
+                                owner,
+                                fh,
+                                filename=dem_path.name,
+                                source=DemoSource.HLTV,
+                                visibility=body.visibility,
+                                map_id=demo_map,
+                                team=body.team_name,
+                                hltv_match_id=archive.match_id,
+                            )
+                        demo_service.parse_and_store(session, demo)
+                        demo_ids.append(demo.id)
+                    _update(
+                        matches=matches,
+                        demos_ingested=len(demo_ids),
+                        demo_ids=",".join(map(str, demo_ids)),
+                    )
+            finally:
+                # Drop the multi-GB download once its demos are stored.
+                client.cleanup_archive(archive)
     except client.HLTVError as exc:
         _update(status=str(JobStatus.FAILED), error=str(exc)[:500])
         return
