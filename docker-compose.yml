@@ -1,3 +1,13 @@
+# Single compose for the whole stack (backend + frontend + infra).
+#
+# Usage:
+#   docker compose up -d                  # infra + api only (db, api, flaresolverr)
+#   docker compose --profile dev up -d    # + frontend with Vite HMR (web-dev)
+#   docker compose --profile prod up -d   # + frontend as a static nginx build (web)
+#
+# Compose-level vars (POSTGRES_*, VITE_API_BASE_URL) come from the root .env.
+# Backend app secrets (CS2_*) live in backend/.env and are loaded via env_file.
+
 services:
   db:
     image: postgres:16-alpine
@@ -21,12 +31,12 @@ services:
 
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     image: cs2-tactical-analytics-backend
     container_name: cs2-backend
     env_file:
-      - .env
+      - ./backend/.env
     environment:
       # Override the host from .env (localhost) to reach the postgres service
       # over the compose network.
@@ -51,13 +61,57 @@ services:
 
   # Cloudflare challenge solver required by HLTV /results + GOTV downloads.
   # Reachable from the api service at http://flaresolverr:8191 over the
-  # compose network (CS2_FLARESOLVERR_URL in .env).
+  # compose network (CS2_FLARESOLVERR_URL in backend/.env).
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: cs2-flaresolverr
     ports:
       - "8191:8191"
     restart: unless-stopped
+
+  # --- Frontend: pick ONE via profile -------------------------------------
+
+  # Production: static React build served by nginx.
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    image: cs2-tactical-analytics-frontend
+    container_name: cs2-frontend
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+    profiles: [ "prod" ]
+    healthcheck:
+      test: [ "CMD", "wget", "-qO", "/dev/null", "http://localhost/" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Development: Vite dev server with Hot Module Replacement. Source is bind
+  # mounted so edits reload instantly; node_modules lives in an anonymous volume
+  # so host and container deps never clash.
+  web-dev:
+    image: node:22-alpine
+    container_name: cs2-frontend-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    profiles: [ "dev" ]
 
 volumes:
   pg_data:
