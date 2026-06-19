@@ -77,6 +77,33 @@ class UploadResult(BaseModel):
     utility_events: int
 
 
+# demo analysis (parsed rounds + utility)
+class UtilityEventOut(BaseModel):
+    id: int
+    util_type: str
+    zone: str | None
+    region: str | None
+    round_time_s: float
+    team: str | None  # side that threw it ("t" / "ct")
+
+
+class RoundOut(BaseModel):
+    id: int
+    round_number: int
+    map_id: str
+    team: str | None
+    opponent: str | None
+    buy_type: str
+    equip_value: int
+    target_site: str
+    utility: list[UtilityEventOut]
+
+
+class DemoAnalysisOut(BaseModel):
+    demo: DemoOut
+    rounds: list[RoundOut]
+
+
 # HLTV
 class TeamHit(BaseModel):
     id: str

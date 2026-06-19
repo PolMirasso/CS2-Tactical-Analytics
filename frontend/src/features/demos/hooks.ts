@@ -11,6 +11,13 @@ export function useDemo(id: number) {
   return useQuery({ queryKey: [...KEY, id], queryFn: () => demosApi.get(id) })
 }
 
+export function useDemoAnalysis(id: number) {
+  return useQuery({
+    queryKey: [...KEY, id, 'analysis'],
+    queryFn: () => demosApi.analysis(id),
+  })
+}
+
 export function useUploadDemo() {
   const qc = useQueryClient()
   return useMutation({

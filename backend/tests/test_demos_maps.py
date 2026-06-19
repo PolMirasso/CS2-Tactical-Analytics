@@ -19,6 +19,20 @@ def test_upload_parses_rounds_and_utility(client):
     assert body["utility_events"] > 0
 
 
+def test_demo_analysis_returns_rounds_and_utility(client):
+    token = register_and_login(client, "analysis@example.com")
+    up = _upload(client, token, map_id="de_mirage", team="Vitality", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    resp = client.get(f"/demos/{demo_id}/analysis", headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["demo"]["id"] == demo_id
+    assert len(body["rounds"]) == 24
+    assert any(len(r["utility"]) > 0 for r in body["rounds"])
+    r0 = body["rounds"][0]
+    assert {"round_number", "buy_type", "target_site", "utility"} <= set(r0)
+
+
 def test_reparse_is_idempotent(client):
     token = register_and_login(client, "reparser@example.com")
     up = _upload(client, token, map_id="de_inferno", team="G2", visibility="private")
