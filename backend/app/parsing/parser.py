@@ -78,7 +78,20 @@ def _site_from_bomb(bomb_site: str | None) -> str:
 def _grenade_type(raw: str | None) -> UtilityType | None:
     if not raw:
         return None
-    return _GRENADE_MAP.get(str(raw).lower().replace(" ", ""))
+    # awpy reports engine class names (``CSmokeGrenadeProjectile``); sample data
+    # uses short tokens (``smoke``). Match both by substring.
+    s = str(raw).lower()
+    if "decoy" in s:
+        return None
+    if "flash" in s:
+        return UtilityType.FLASH
+    if "smoke" in s:
+        return UtilityType.SMOKE
+    if "incendiary" in s or "molotov" in s or "inferno" in s or "firebomb" in s:
+        return UtilityType.MOLOTOV
+    if "he" in s and "grenade" in s:
+        return UtilityType.HE
+    return _GRENADE_MAP.get(s.replace(" ", ""))
 
 
 def parse_demo(
@@ -87,11 +100,13 @@ def parse_demo(
     """Parse a demo into a :class:`ParsedDemo`. Raises :class:`ParseError` on failure."""
     if get_settings().use_sample_data:
         return generate_sample(map_id=map_hint, team=team_hint)
-    return _parse_with_awpy(path, map_hint=map_hint)
+    return _parse_with_awpy(path, map_hint=map_hint, team_hint=team_hint)
 
 
 # awpy path
-def _parse_with_awpy(path: Path, *, map_hint: str | None) -> ParsedDemo:
+def _parse_with_awpy(
+        path: Path, *, map_hint: str | None, team_hint: str | None = None
+) -> ParsedDemo:
     try:
         import polars as pl
         from awpy import Demo
@@ -118,8 +133,9 @@ def _parse_with_awpy(path: Path, *, map_hint: str | None) -> ParsedDemo:
 
     tickrate = float(getattr(demo, "tickrate", 128) or 128)
     rounds: list[RoundData] = []
-    team_votes: dict[str, int] = {}
-    opp_votes: dict[str, int] = {}
+    # Both clans appear on T and CT across a match (sides swap at the half), so
+    # tally every clan we see regardless of side and resolve the matchup later.
+    clan_votes: dict[str, int] = {}
 
     for r in rounds_df.iter_rows(named=True):
         rnum = int(r["round_num"])
@@ -128,10 +144,9 @@ def _parse_with_awpy(path: Path, *, map_hint: str | None) -> ParsedDemo:
         equip = _sum_equip(t_rows)
         team = _mode_clan(t_rows)
         opp = _mode_clan(_round_side_rows(pl, ticks_df, rnum, freeze_end, "ct"))
-        if team:
-            team_votes[team] = team_votes.get(team, 0) + 1
-        if opp:
-            opp_votes[opp] = opp_votes.get(opp, 0) + 1
+        for clan in (team, opp):
+            if clan:
+                clan_votes[clan] = clan_votes.get(clan, 0) + 1
         rounds.append(
             RoundData(
                 round_number=rnum,
@@ -145,17 +160,49 @@ def _parse_with_awpy(path: Path, *, map_hint: str | None) -> ParsedDemo:
 
     utility = _extract_utility(pl, demo, rounds_df, ticks_df, map_id, tickrate)
 
-    team = max(team_votes, key=team_votes.get) if team_votes else None
-    opponent = max(opp_votes, key=opp_votes.get) if opp_votes else None
+    team, opponent = _resolve_matchup(clan_votes, team_hint)
     return ParsedDemo(map_id=map_id, team=team, opponent=opponent, rounds=rounds, utility=utility)
+
+
+def _resolve_matchup(
+        clan_votes: dict[str, int], team_hint: str | None
+) -> tuple[str | None, str | None]:
+    """Pick (team, opponent) as two *distinct* clans from the match.
+
+    Team identity cannot be read off a single side because sides swap at the
+    half, so we work from the distinct clan names seen across the whole match.
+    When a hint is given we anchor the team to the closest-matching clan; the
+    opponent is always the most-seen *other* clan, so the two never collapse to
+    the same name.
+    """
+    clans = sorted(clan_votes, key=lambda c: clan_votes[c], reverse=True)
+    if not clans:
+        return team_hint, None
+    team = _match_hint(clans, team_hint) if team_hint else clans[0]
+    opponent = next((c for c in clans if c != team), None)
+    return team, opponent
+
+
+def _match_hint(clans: list[str], hint: str) -> str:
+    """Return the clan whose name best matches ``hint`` (else the most-seen one)."""
+    norm = hint.strip().lower()
+    if norm:
+        for clan in clans:
+            if clan.strip().lower() == norm:
+                return clan
+        for clan in clans:
+            cl = clan.strip().lower()
+            if norm in cl or cl in norm:
+                return clan
+    return clans[0]
 
 
 def _round_side_rows(pl, ticks_df, round_num: int, freeze_end, side: str):
     """Rows for one side at the first in-play tick of a round (peak buy state)."""
     try:
         rdf = ticks_df.filter(pl.col("round_num") == round_num)
-        if "team_name" in rdf.columns:
-            rdf = rdf.filter(pl.col("team_name") == side)
+        if "side" in rdf.columns:
+            rdf = rdf.filter(pl.col("side") == side)
         if rdf.is_empty():
             return rdf
         first_tick = rdf.filter(pl.col("tick") >= freeze_end)
@@ -196,8 +243,27 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
     }
     side_lookup = _build_side_lookup(pl, ticks_df)
 
+    # ``grenades`` is a per-tick projectile trajectory (>1M rows); collapse it to
+    # one event per thrown grenade, keeping the resting/detonation position (last
+    # known X/Y) and the throw time (first tick).
+    try:
+        events = (
+            grenades.filter(pl.col("X").is_not_null() & pl.col("Y").is_not_null())
+            .sort("tick")
+            .group_by(["round_num", "entity_id"])
+            .agg(
+                pl.col("grenade_type").first().alias("grenade_type"),
+                pl.col("thrower_steamid").first().alias("thrower_steamid"),
+                pl.col("tick").min().alias("throw_tick"),
+                pl.col("X").last().alias("X"),
+                pl.col("Y").last().alias("Y"),
+            )
+        )
+    except Exception:
+        return []
+
     out: list[UtilData] = []
-    for g in grenades.iter_rows(named=True):
+    for g in events.iter_rows(named=True):
         rnum = g.get("round_num")
         util = _grenade_type(g.get("grenade_type"))
         if rnum is None or util is None:
@@ -206,7 +272,7 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
         x, y = g.get("X"), g.get("Y")
         zone = classify_point(map_id, x, y) if x is not None and y is not None else None
         freeze_end = freeze_by_round.get(rnum, 0)
-        round_time = max(0.0, (float(g.get("tick", freeze_end)) - float(freeze_end)) / tickrate)
+        round_time = max(0.0, (float(g.get("throw_tick", freeze_end)) - float(freeze_end)) / tickrate)
         side = side_lookup.get((rnum, g.get("thrower_steamid")), "")
         out.append(
             UtilData(
@@ -223,12 +289,12 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
 
 def _build_side_lookup(pl, ticks_df) -> dict[tuple[int, object], str]:
     lookup: dict[tuple[int, object], str] = {}
-    if ticks_df is None or not {"round_num", "steamid", "team_name"} <= set(ticks_df.columns):
+    if ticks_df is None or not {"round_num", "steamid", "side"} <= set(ticks_df.columns):
         return lookup
     try:
-        slim = ticks_df.select(["round_num", "steamid", "team_name"]).unique()
+        slim = ticks_df.select(["round_num", "steamid", "side"]).unique()
         for row in slim.iter_rows(named=True):
-            lookup[(int(row["round_num"]), row["steamid"])] = row["team_name"]
+            lookup[(int(row["round_num"]), row["steamid"])] = row["side"]
     except Exception:
         pass
     return lookup
