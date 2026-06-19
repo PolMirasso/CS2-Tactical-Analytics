@@ -1,0 +1,92 @@
+{
+  "app": {
+    "title": "CS2 Tactical Analytics"
+  },
+  "nav": {
+    "demos": "Demos",
+    "hltv": "HLTV",
+    "groups": "Grupos",
+    "maps": "Mapas",
+    "logout": "Cerrar sesión"
+  },
+  "common": {
+    "loading": "Cargando…",
+    "error": "Algo ha ido mal",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "submit": "Enviar",
+    "search": "Buscar",
+    "none": "—",
+    "actions": "Acciones",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "auth": {
+    "loginTitle": "Iniciar sesión",
+    "registerTitle": "Crear cuenta",
+    "email": "Correo",
+    "password": "Contraseña",
+    "login": "Entrar",
+    "register": "Registrarse",
+    "needAccount": "¿No tienes cuenta? Regístrate",
+    "haveAccount": "¿Ya tienes cuenta? Inicia sesión",
+    "invalidCredentials": "Credenciales inválidas"
+  },
+  "demos": {
+    "title": "Demos",
+    "uploadTitle": "Subir demo",
+    "file": "Fichero (.dem)",
+    "map": "Mapa",
+    "team": "Equipo",
+    "opponent": "Rival",
+    "event": "Evento",
+    "visibility": "Visibilidad",
+    "status": "Estado",
+    "source": "Origen",
+    "size": "Tamaño",
+    "created": "Creado",
+    "reparse": "Reparsear",
+    "empty": "Aún no hay demos.",
+    "uploaded": "Subido: {{rounds}} rondas, {{utility}} eventos de utility",
+    "deleteConfirm": "¿Eliminar este demo?"
+  },
+  "hltv": {
+    "title": "Descarga de HLTV",
+    "adminOnly": "Solo los administradores pueden iniciar descargas de HLTV.",
+    "searchPlaceholder": "Buscar equipo por nombre…",
+    "selectTeam": "Equipo seleccionado",
+    "dateRange": "Rango de fechas",
+    "startDownload": "Iniciar descarga",
+    "jobs": "Trabajos de descarga",
+    "matches": "Partidos",
+    "ingested": "Demos ingestados",
+    "noJobs": "Aún no hay trabajos de descarga.",
+    "range": {
+      "last_month": "Último mes",
+      "last_3_months": "Últimos 3 meses",
+      "last_6_months": "Últimos 6 meses",
+      "last_12_months": "Últimos 12 meses"
+    }
+  },
+  "groups": {
+    "title": "Grupos",
+    "create": "Crear grupo",
+    "name": "Nombre del grupo",
+    "members": "Miembros",
+    "owner": "Propietario",
+    "invite": "Invitar",
+    "inviteEmail": "Correo del invitado",
+    "invitations": "Mis invitaciones",
+    "from": "De",
+    "accept": "Aceptar",
+    "decline": "Rechazar",
+    "noGroups": "Todavía no estás en ningún grupo.",
+    "noInvitations": "No tienes invitaciones pendientes."
+  },
+  "maps": {
+    "title": "Mapas",
+    "zones": "zonas",
+    "region": "Región"
+  }
+}

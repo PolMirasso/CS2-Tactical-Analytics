@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+
+# Secrets / local config - VITE_API_BASE_URL is passed as a build arg instead.
+.env
+.env.*
+!.env.example
+
+.git
+*.log
+.DS_Store

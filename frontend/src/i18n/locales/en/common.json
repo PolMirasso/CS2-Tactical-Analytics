@@ -1,0 +1,92 @@
+{
+  "app": {
+    "title": "CS2 Tactical Analytics"
+  },
+  "nav": {
+    "demos": "Demos",
+    "hltv": "HLTV",
+    "groups": "Groups",
+    "maps": "Maps",
+    "logout": "Log out"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "submit": "Submit",
+    "search": "Search",
+    "none": "—",
+    "actions": "Actions",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "registerTitle": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "login": "Sign in",
+    "register": "Register",
+    "needAccount": "Need an account? Register",
+    "haveAccount": "Already have an account? Sign in",
+    "invalidCredentials": "Invalid credentials"
+  },
+  "demos": {
+    "title": "Demos",
+    "uploadTitle": "Upload demo",
+    "file": "File (.dem)",
+    "map": "Map",
+    "team": "Team",
+    "opponent": "Opponent",
+    "event": "Event",
+    "visibility": "Visibility",
+    "status": "Status",
+    "source": "Source",
+    "size": "Size",
+    "created": "Created",
+    "reparse": "Re-parse",
+    "empty": "No demos yet.",
+    "uploaded": "Uploaded: {{rounds}} rounds, {{utility}} utility events",
+    "deleteConfirm": "Delete this demo?"
+  },
+  "hltv": {
+    "title": "HLTV download",
+    "adminOnly": "Only admins can start HLTV downloads.",
+    "searchPlaceholder": "Search team by name…",
+    "selectTeam": "Selected team",
+    "dateRange": "Date range",
+    "startDownload": "Start download",
+    "jobs": "Download jobs",
+    "matches": "Matches",
+    "ingested": "Demos ingested",
+    "noJobs": "No download jobs yet.",
+    "range": {
+      "last_month": "Last month",
+      "last_3_months": "Last 3 months",
+      "last_6_months": "Last 6 months",
+      "last_12_months": "Last 12 months"
+    }
+  },
+  "groups": {
+    "title": "Groups",
+    "create": "Create group",
+    "name": "Group name",
+    "members": "Members",
+    "owner": "Owner",
+    "invite": "Invite",
+    "inviteEmail": "Invitee email",
+    "invitations": "My invitations",
+    "from": "From",
+    "accept": "Accept",
+    "decline": "Decline",
+    "noGroups": "You are not in any group yet.",
+    "noInvitations": "No pending invitations."
+  },
+  "maps": {
+    "title": "Maps",
+    "zones": "zones",
+    "region": "Region"
+  }
+}
