@@ -160,6 +160,26 @@ def list_visible(session: Session, user: User) -> list[Demo]:
     )
 
 
+def load_analysis(
+        session: Session, demo: Demo
+) -> list[tuple[Round, list[UtilityEvent]]]:
+    """Return the demo's rounds (ordered) each paired with its utility events."""
+    rounds = list(
+        session.scalars(
+            select(Round).where(Round.demo_id == demo.id).order_by(Round.round_number)
+        )
+    )
+    utils = list(
+        session.scalars(select(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
+    )
+    by_round: dict[int, list[UtilityEvent]] = {}
+    for u in utils:
+        by_round.setdefault(u.round_id, []).append(u)
+    for events in by_round.values():
+        events.sort(key=lambda e: e.round_time_s)
+    return [(r, by_round.get(r.id, [])) for r in rounds]
+
+
 def get_visible(session: Session, user: User, demo_id: int) -> Demo:
     demo = session.get(Demo, demo_id)
     if demo is None:

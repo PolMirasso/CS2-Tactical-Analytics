@@ -17,7 +17,7 @@
     "delete": "Eliminar",
     "submit": "Enviar",
     "search": "Buscar",
-    "none": "—",
+    "none": "-",
     "actions": "Acciones",
     "yes": "Sí",
     "no": "No"
@@ -49,7 +49,16 @@
     "reparse": "Reparsear",
     "empty": "Aún no hay demos.",
     "uploaded": "Subido: {{rounds}} rondas, {{utility}} eventos de utility",
-    "deleteConfirm": "¿Eliminar este demo?"
+    "deleteConfirm": "¿Eliminar este demo?",
+    "summary": "Resumen",
+    "rounds": "Rondas",
+    "buy": "Compra",
+    "site": "Site",
+    "utility": "Utility",
+    "noUtility": "Sin utility",
+    "noRounds": "Este demo no tiene rondas parseadas.",
+    "siteDistribution": "Distribución de sites",
+    "totalUtility": "Utility total"
   },
   "hltv": {
     "title": "Descarga de HLTV",

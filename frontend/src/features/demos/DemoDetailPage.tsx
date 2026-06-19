@@ -2,7 +2,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatBytes, formatDate } from '@/lib/format'
-import { useDemo, useDeleteDemo, useReparseDemo } from './hooks'
+import { RoundsTable } from './RoundsTable'
+import { useDemo, useDemoAnalysis, useDeleteDemo, useReparseDemo } from './hooks'
 
 export function DemoDetailPage() {
   const { t } = useTranslation()
@@ -10,6 +11,7 @@ export function DemoDetailPage() {
   const demoId = Number(id)
   const navigate = useNavigate()
   const { data: demo, isLoading, isError } = useDemo(demoId)
+  const analysis = useDemoAnalysis(demoId)
   const reparse = useReparseDemo()
   const remove = useDeleteDemo()
 
@@ -76,6 +78,9 @@ export function DemoDetailPage() {
           </p>
         )}
       </div>
+
+      {analysis.isLoading && <p className="muted">{t('common.loading')}</p>}
+      {analysis.data && <RoundsTable rounds={analysis.data.rounds} />}
     </div>
   )
 }

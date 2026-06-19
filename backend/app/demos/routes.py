@@ -5,7 +5,13 @@ from app.db import get_session
 from app.demos import service
 from app.domain.enums import DemoSource, Visibility
 from app.domain.models import Demo, User
-from app.domain.schemas import DemoOut, UploadResult
+from app.domain.schemas import (
+    DemoAnalysisOut,
+    DemoOut,
+    RoundOut,
+    UploadResult,
+    UtilityEventOut,
+)
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -60,6 +66,33 @@ def get_demo(
         session: Session = Depends(get_session),
 ) -> DemoOut:
     return _to_out(service.get_visible(session, user, demo_id))
+
+
+@router.get("/{demo_id}/analysis", response_model=DemoAnalysisOut)
+def demo_analysis(
+        demo_id: int,
+        user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> DemoAnalysisOut:
+    # Parsed rounds + utility for one demo (respects the demo's visibility).
+    demo = service.get_visible(session, user, demo_id)
+    rounds = [
+        RoundOut(
+            id=r.id,
+            round_number=r.round_number,
+            map_id=r.map_id,
+            team=r.team,
+            opponent=r.opponent,
+            buy_type=r.buy_type,
+            equip_value=r.equip_value,
+            target_site=r.target_site,
+            utility=[
+                UtilityEventOut.model_validate(u, from_attributes=True) for u in utils
+            ],
+        )
+        for r, utils in service.load_analysis(session, demo)
+    ]
+    return DemoAnalysisOut(demo=_to_out(demo), rounds=rounds)
 
 
 @router.post("/{demo_id}/parse", response_model=UploadResult)

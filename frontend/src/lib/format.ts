@@ -1,5 +1,5 @@
 export function formatBytes(bytes: number | null | undefined): string {
-  if (!bytes) return '—'
+  if (!bytes) return '-'
   const units = ['B', 'KB', 'MB', 'GB']
   let value = bytes
   let unit = 0
@@ -11,7 +11,7 @@ export function formatBytes(bytes: number | null | undefined): string {
 }
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
 }

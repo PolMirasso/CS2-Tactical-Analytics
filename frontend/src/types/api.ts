@@ -14,6 +14,8 @@ export type DateRange =
   | 'last_12_months'
 export type UtilityType = 'smoke' | 'flash' | 'molotov' | 'he'
 export type Region = 'A' | 'B' | 'Mid'
+export type Site = 'A' | 'B' | 'Mid' | 'NoPlant'
+export type BuyType = 'eco' | 'force' | 'full'
 
 export interface UserOut {
   id: number
@@ -47,6 +49,32 @@ export interface UploadResult {
   demo: DemoOut
   rounds: number
   utility_events: number
+}
+
+export interface UtilityEventOut {
+  id: number
+  util_type: UtilityType
+  zone: string | null
+  region: Region | null
+  round_time_s: number
+  team: string | null
+}
+
+export interface RoundOut {
+  id: number
+  round_number: number
+  map_id: string
+  team: string | null
+  opponent: string | null
+  buy_type: BuyType
+  equip_value: number
+  target_site: Site
+  utility: UtilityEventOut[]
+}
+
+export interface DemoAnalysisOut {
+  demo: DemoOut
+  rounds: RoundOut[]
 }
 
 export interface TeamHit {
