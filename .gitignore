@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Project data / model artifacts (regenerated; not source)
+backend/data_store/
+backend/model_store/
+.env
+
+# Demos (large binaries - keep out of git)
+*.dem
+
+# Node / frontend (later)
+node_modules/
+dist/

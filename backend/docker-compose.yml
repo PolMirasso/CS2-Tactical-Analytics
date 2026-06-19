@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cs2-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cs2}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cs2_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-cs2}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      # Exposed so you can also run uvicorn locally against this DB.
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cs2} -d ${POSTGRES_DB:-cs2}" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cs2-tactical-analytics-backend
+    container_name: cs2-backend
+    env_file:
+      - .env
+    environment:
+      # Override the host from .env (localhost) to reach the postgres service
+      # over the compose network.
+      CS2_DB_URL: postgresql+psycopg://${POSTGRES_USER:-cs2}:${POSTGRES_PASSWORD:-cs2_dev_password}@db:5432/${POSTGRES_DB:-cs2}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist uploaded demos and model artifacts across restarts.
+      # (The database now lives in PostgreSQL, not in data_store.)
+      - data_store:/app/data_store
+      - model_store:/app/model_store
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Cloudflare challenge solver required by HLTV /results + GOTV downloads.
+  # Reachable from the api service at http://flaresolverr:8191 over the
+  # compose network (CS2_FLARESOLVERR_URL in .env).
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: cs2-flaresolverr
+    ports:
+      - "8191:8191"
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  data_store:
+  model_store:

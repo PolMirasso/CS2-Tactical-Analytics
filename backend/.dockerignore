@@ -1,0 +1,18 @@
+# Virtualenv / caches (rebuilt inside the image)
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local data / artifacts (mounted as volumes, not baked into the image)
+data_store/
+model_store/
+
+# Secrets - provided at runtime via env_file, never copied into the image
+.env
+
+# Demos and misc
+*.dem
+.git/
