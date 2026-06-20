@@ -62,6 +62,8 @@
   },
   "replay": {
     "title": "2D replay",
+    "open": "Open 2D replay",
+    "back": "Back to demo",
     "round": "Round",
     "play": "Play",
     "pause": "Pause",

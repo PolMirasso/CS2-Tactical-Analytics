@@ -137,6 +137,7 @@ export interface ReplayRoundMeta {
   n_frames: number
   n_players: number
   n_utility: number
+  winner: string | null
 }
 
 export interface ReplayMetaOut {

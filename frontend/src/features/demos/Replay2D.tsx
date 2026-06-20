@@ -6,6 +6,7 @@ import type {
   ReplayFrame,
   ReplayPlayer,
   ReplayRound,
+  ReplayRoundMeta,
   UtilityType,
 } from '@/types/api'
 import { useReplayMeta, useReplayRound } from './hooks'
@@ -49,10 +50,11 @@ function lerpPlayer(a: Pos, b: Pos, f: number): Pos | null {
   if (isDead(a) && isDead(b)) return null
   if (isDead(b)) return a
   if (isDead(a)) return b
+  const dyaw = (((b[2] - a[2] + 180) % 360) + 360) % 360 - 180
   return [
     a[0] + (b[0] - a[0]) * f,
     a[1] + (b[1] - a[1]) * f,
-    a[2] + (b[2] - a[2]) * f,
+    a[2] + dyaw * f,
     a[3] + (b[3] - a[3]) * f,
   ]
 }
@@ -250,12 +252,20 @@ function ReplayStage({
   calibration,
   hasRadar,
   sampleHz,
+  fullscreen,
+  rounds,
+  currentRound,
+  onRound,
 }: {
   round: ReplayRound
   mapId: string
   calibration: MapCalibration | null
   hasRadar: boolean
   sampleHz: number
+  fullscreen?: boolean
+  rounds: ReplayRoundMeta[]
+  currentRound: number | null
+  onRound: (n: number) => void
 }) {
   const { t } = useTranslation()
   const duration = round.duration_s
@@ -290,6 +300,16 @@ function ReplayStage({
     return m
   }, [round])
   const lastTs = useRef<number>(0)
+  const barRef = useRef<HTMLDivElement>(null)
+
+  const seekFromClientX = (clientX: number) => {
+    const el = barRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left))
+    setPlaying(false)
+    setTime((x / rect.width) * duration)
+  }
 
   useEffect(() => {
     if (!playing) return
@@ -354,15 +374,18 @@ function ReplayStage({
           gap: 12,
           alignItems: 'flex-start',
           flexWrap: 'wrap',
+          justifyContent: 'center',
         }}
       >
         <div
           style={{
             position: 'relative',
             width: '100%',
-            maxWidth: 1000,
+            // Cap by available viewport height (not max-height, which would make
+            // the box rectangular and misalign the radar img vs the SVG overlay).
+            maxWidth: fullscreen ? 'min(1100px, calc(100vh - 250px))' : 1000,
             minWidth: 320,
-            flex: '1 1 460px',
+            flex: '1 1 520px',
             aspectRatio: '1 / 1',
             border: '1px solid var(--border)',
             borderRadius: 8,
@@ -374,7 +397,7 @@ function ReplayStage({
             <img
               src={apiUrl(`/maps/${mapId}/radar.png`)}
               alt={mapId}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.85 }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.85 }}
             />
           )}
           <svg
@@ -581,9 +604,9 @@ function ReplayStage({
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
-            flex: '1 1 200px',
-            minWidth: 190,
-            maxWidth: 240,
+            flex: '0 1 240px',
+            minWidth: 200,
+            maxWidth: 260,
           }}
         >
           <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} />
@@ -593,30 +616,131 @@ function ReplayStage({
 
       {!hasRadar && <p className="muted" style={{ marginTop: 8 }}>{t('replay.noRadar')}</p>}
 
-      {/* Controls */}
-      <div className="row" style={{ marginTop: 12, alignItems: 'center', gap: 12 }}>
+      {/* Round strip: winner colour on top, clickable round number below. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 14 }}>
+        {rounds.map((r) => {
+          const active = r.round_number === currentRound
+          const wc = r.winner === 'ct' ? SIDE_COLOR.ct : r.winner === 't' ? SIDE_COLOR.t : 'transparent'
+          return (
+            <button
+              key={r.round_number}
+              onClick={() => onRound(r.round_number)}
+              title={`${t('replay.round')} ${r.round_number}`}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                padding: 0,
+                minWidth: 30,
+                overflow: 'hidden',
+                borderRadius: 5,
+                cursor: 'pointer',
+                border: `1px solid ${active ? 'var(--text)' : 'var(--border)'}`,
+                background: active ? 'var(--surface-2)' : '#11141a',
+              }}
+            >
+              <span style={{ height: 4, background: wc }} />
+              <span
+                style={{
+                  padding: '4px 7px',
+                  fontSize: 12,
+                  fontWeight: active ? 700 : 400,
+                  color: active ? 'var(--text)' : 'var(--muted)',
+                }}
+              >
+                {r.round_number}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Round timeline: drag/click to seek; markers for utility and kills. */}
+      <div
+        ref={barRef}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          seekFromClientX(e.clientX)
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons & 1) seekFromClientX(e.clientX)
+        }}
+        style={{
+          position: 'relative',
+          height: 30,
+          marginTop: 10,
+          background: '#11141a',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          cursor: 'pointer',
+          touchAction: 'none',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: `${(time / duration) * 100}%`,
+            background: 'rgba(79,140,255,0.18)',
+          }}
+        />
+        {round.utility.map((u, i) => (
+          <span
+            key={`m${i}`}
+            title={`${u.type} · ${u.t.toFixed(1)}s`}
+            style={{
+              position: 'absolute',
+              top: 5,
+              left: `${(u.t / duration) * 100}%`,
+              transform: 'translateX(-50%)',
+              width: 9,
+              height: 9,
+              borderRadius: '50%',
+              background: UTIL_COLOR[u.type] ?? '#fff',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+        {(round.kills ?? []).map((k, i) => (
+          <span
+            key={`k${i}`}
+            title={`${k.atk} → ${k.vic}`}
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              left: `${(k.t / duration) * 100}%`,
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '4px solid transparent',
+              borderRight: '4px solid transparent',
+              borderTop: `7px solid ${SIDE_COLOR[k.as] ?? '#fff'}`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+        <div
+          style={{
+            position: 'absolute',
+            top: -2,
+            bottom: -2,
+            left: `${(time / duration) * 100}%`,
+            width: 2,
+            background: 'var(--text)',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
         <button className="ghost" onClick={togglePlay} style={{ minWidth: 110 }}>
           {playing ? t('replay.pause') : t('replay.play')}
         </button>
-        <input
-          type="range"
-          min={0}
-          max={duration}
-          step={0.1}
-          value={time}
-          onChange={(e) => {
-            setPlaying(false)
-            setTime(Number(e.target.value))
-          }}
-          style={{ flex: 1 }}
-        />
-        <span className="muted" style={{ minWidth: 96, textAlign: 'right' }}>
+        <span className="muted" style={{ minWidth: 96 }}>
           {time.toFixed(1)}s / {duration.toFixed(1)}s
         </span>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 8, alignItems: 'center', gap: 6 }}>
-        <span className="muted">{t('replay.speed')}:</span>
+        <span className="muted" style={{ marginLeft: 8 }}>{t('replay.speed')}:</span>
         {SPEEDS.map((s) => (
           <button
             key={s}
@@ -632,60 +756,11 @@ function ReplayStage({
           </button>
         ))}
       </div>
-
-      {/* Utility timeline */}
-      <p className="muted" style={{ marginTop: 16, marginBottom: 6 }}>
-        {t('replay.utilityTimeline')}
-      </p>
-      <div
-        style={{
-          position: 'relative',
-          height: 22,
-          background: '#11141a',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-        }}
-      >
-        {/* playhead */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: `${(time / duration) * 100}%`,
-            width: 2,
-            background: 'var(--text)',
-          }}
-        />
-        {round.utility.map((u, i) => (
-          <button
-            key={`m${i}`}
-            title={`${u.type} / ${u.t.toFixed(1)}s`}
-            onClick={() => {
-              setPlaying(false)
-              setTime(u.t)
-            }}
-            style={{
-              position: 'absolute',
-              top: 3,
-              left: `${(u.t / duration) * 100}%`,
-              transform: 'translateX(-50%)',
-              width: 12,
-              height: 12,
-              padding: 0,
-              borderRadius: '50%',
-              border: '1px solid #11141a',
-              background: UTIL_COLOR[u.type] ?? '#fff',
-              cursor: 'pointer',
-            }}
-          />
-        ))}
-      </div>
     </div>
   )
 }
 
-export function Replay2D({ demoId }: { demoId: number }) {
+export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: boolean }) {
   const { t } = useTranslation()
   const meta = useReplayMeta(demoId)
   const [round, setRound] = useState<number | null>(null)
@@ -708,52 +783,27 @@ export function Replay2D({ demoId }: { demoId: number }) {
     )
   }
 
-  // Local binding so the narrowing survives inside nested closures below.
   const replayMeta = meta.data
 
   return (
     <div className="card">
       <h2>{t('replay.title')}</h2>
-      {/* Plain flex (not .row, whose `> *` rule would stretch each button to
-          140px and wrap them into a broken grid). */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-        <span className="muted" style={{ marginRight: 2 }}>{t('replay.round')}:</span>
-        {replayMeta.rounds.map((r) => {
-          const active = round === r.round_number
-          return (
-            <button
-              key={r.round_number}
-              className="badge"
-              onClick={() => setRound(r.round_number)}
-              style={{
-                cursor: 'pointer',
-                minWidth: 32,
-                textAlign: 'center',
-                borderColor: active ? 'var(--text)' : 'var(--border)',
-                color: active ? 'var(--text)' : undefined,
-                fontWeight: active ? 700 : undefined,
-              }}
-            >
-              {r.round_number}
-            </button>
-          )
-        })}
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        {roundQ.data ? (
-          <ReplayStage
-            key={round ?? 0}
-            round={roundQ.data}
-            mapId={replayMeta.map_id}
-            calibration={replayMeta.calibration}
-            hasRadar={replayMeta.has_radar}
-            sampleHz={replayMeta.sample_hz}
-          />
-        ) : (
-          <p className="muted">{t('common.loading')}</p>
-        )}
-      </div>
+      {roundQ.data ? (
+        <ReplayStage
+          key={round ?? 0}
+          round={roundQ.data}
+          mapId={replayMeta.map_id}
+          calibration={replayMeta.calibration}
+          hasRadar={replayMeta.has_radar}
+          sampleHz={replayMeta.sample_hz}
+          fullscreen={fullscreen}
+          rounds={replayMeta.rounds}
+          currentRound={round}
+          onRound={setRound}
+        />
+      ) : (
+        <p className="muted">{t('common.loading')}</p>
+      )}
     </div>
   )
 }
