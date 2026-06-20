@@ -65,6 +65,7 @@ class ReplayRound:
     bomb: dict | None = None
     # Kill events: ``{t, atk, as, vic, vs, wp, hs}`` for the kill feed.
     kills: list[dict] = field(default_factory=list)
+    winner: str | None = None  # "ct" | "t"
 
 
 @dataclass
@@ -92,6 +93,7 @@ def _round_to_dict(r: ReplayRound) -> dict:
         "fires": r.fires,
         "bomb": r.bomb,
         "kills": r.kills,
+        "winner": r.winner,
         "frames": [{"t": round(f.t, 2), "pos": f.pos, "st": f.st} for f in r.frames],
         "utility": [
             {
@@ -117,6 +119,7 @@ def round_meta(replay_dict: dict) -> list[dict]:
                 "n_frames": len(r.get("frames", [])),
                 "n_players": len(r.get("players", [])),
                 "n_utility": len(r.get("utility", [])),
+                "winner": r.get("winner"),
             }
         )
     return out
@@ -140,6 +143,7 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
         replay_round.fires = _round_fires(pl, demo, rnum, freeze_end, tickrate, replay_round.players)
         replay_round.bomb = _round_bomb(pl, demo, rnum, freeze_end, tickrate)
         replay_round.kills = _round_kills(pl, demo, rnum, freeze_end, tickrate)
+        replay_round.winner = str(r.get("winner")).lower() if r.get("winner") else None
         rounds.append(replay_round)
 
     return ReplayData(map_id=map_id, sample_hz=SAMPLE_HZ, rounds=rounds)
@@ -491,6 +495,8 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 }
             )
         kills.sort(key=lambda k: k["t"])
+        t_kills = sum(1 for k in kills if k["as"] == "t")
+        winner = "t" if t_kills * 2 >= len(kills) else "ct"
         # Plant the bomb at the target on roughly half the rounds, so the viewer's
         # bomb indicator shows up in sample/dev mode.
         bomb = None
@@ -512,6 +518,7 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 fires=fires,
                 bomb=bomb,
                 kills=kills,
+                winner=winner,
             )
         )
 

@@ -118,6 +118,7 @@ class ReplayRoundMeta(BaseModel):
     n_frames: int
     n_players: int
     n_utility: int
+    winner: str | None = None
 
 
 class ReplayMetaOut(BaseModel):
