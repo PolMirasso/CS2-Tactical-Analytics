@@ -7,6 +7,11 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const TOKEN_KEY = 'cs2.token'
 
+/** Absolute URL for a backend path — for `<img>`/asset src on public routes. */
+export function apiUrl(path: string): string {
+  return `${BASE_URL}${path}`
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }

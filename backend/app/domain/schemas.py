@@ -104,6 +104,32 @@ class DemoAnalysisOut(BaseModel):
     rounds: list[RoundOut]
 
 
+# 2D replay
+class MapCalibration(BaseModel):
+    # World→radar-pixel transform: px = (x - pos_x) / scale, py = (pos_y - y) / scale
+    pos_x: float
+    pos_y: float
+    scale: float
+
+
+class ReplayRoundMeta(BaseModel):
+    round_number: int
+    duration_s: float
+    n_frames: int
+    n_players: int
+    n_utility: int
+
+
+class ReplayMetaOut(BaseModel):
+    demo_id: int
+    map_id: str
+    sample_hz: float
+    rounds: list[ReplayRoundMeta]
+    # Radar background for the viewer (decoupled from the /maps zone catalogue).
+    has_radar: bool = False
+    calibration: MapCalibration | None = None
+
+
 # HLTV
 class TeamHit(BaseModel):
     id: str
@@ -148,3 +174,6 @@ class MapOut(BaseModel):
     id: str
     name: str
     zones: list[ZoneOut]
+    # Present only when awpy radar assets + calibration exist for the map.
+    has_radar: bool = False
+    calibration: MapCalibration | None = None

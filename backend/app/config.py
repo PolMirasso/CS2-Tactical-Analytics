@@ -53,10 +53,20 @@ class Settings(BaseSettings):
     def dataset_dir(self) -> Path:
         return self.data_dir / "dataset"
 
+    @property
+    def replays_dir(self) -> Path:
+        return self.data_dir / "replays"
+
+    @property
+    def radars_dir(self) -> Path:
+        # Drop custom radar PNGs here (e.g. SimpleRadar) named ``<map_id>.png``;
+        # served in preference to awpy's bundled radars.
+        return self.data_dir / "radars"
+
 
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
-    for d in (s.data_dir, s.demos_dir, s.dataset_dir, s.model_dir):
+    for d in (s.data_dir, s.demos_dir, s.dataset_dir, s.replays_dir, s.radars_dir, s.model_dir):
         d.mkdir(parents=True, exist_ok=True)
     return s

@@ -1,9 +1,9 @@
 # Single compose for the whole stack (backend + frontend + infra).
 #
 # Usage:
-#   docker compose up -d                  # infra + api only (db, api, flaresolverr)
-#   docker compose --profile dev up -d    # + frontend with Vite HMR (web-dev)
-#   docker compose --profile prod up -d   # + frontend as a static nginx build (web)
+#   docker compose up -d                  # infra only (db, flaresolverr)
+#   docker compose --profile dev up -d    # + api-dev (uvicorn --reload) + web-dev (Vite HMR)
+#   docker compose --profile prod up -d   # + api (baked) + web (static nginx build)
 #
 # Compose-level vars (POSTGRES_*, VITE_API_BASE_URL) come from the root .env.
 # Backend app secrets (CS2_*) live in backend/.env and are loaded via env_file.
@@ -29,12 +29,16 @@ services:
       start_period: 10s
       retries: 5
 
-  api:
+  # Production / baked backend (no source mount). Pick a frontend+backend pair
+  # via profile: `--profile prod` runs api + web, `--profile dev` runs api-dev +
+  # web-dev (see api-dev below for hot reload).
+  api: &api
     build:
       context: ./backend
       dockerfile: Dockerfile
     image: cs2-tactical-analytics-backend
     container_name: cs2-backend
+    profiles: [ "prod" ]
     env_file:
       - ./backend/.env
     environment:
@@ -58,6 +62,20 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+  # Development backend: same image, but the app source is bind mounted and
+  # uvicorn runs with --reload, so code edits reload instantly (no rebuild).
+  # Only the `app` package is mounted, so the image's /app/.venv is preserved.
+  api-dev:
+    <<: *api
+    container_name: cs2-backend-dev
+    profiles: [ "dev" ]
+    command:
+      [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
+    volumes:
+      - ./backend/app:/app/app
+      - data_store:/app/data_store
+      - model_store:/app/model_store
 
   # Cloudflare challenge solver required by HLTV /results + GOTV downloads.
   # Reachable from the api service at http://flaresolverr:8191 over the
@@ -104,7 +122,7 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     depends_on:
-      - api
+      - api-dev
     volumes:
       - ./frontend:/app
       - /app/node_modules

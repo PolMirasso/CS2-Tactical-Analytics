@@ -115,10 +115,65 @@ export interface ZoneOut {
   centroid: [number, number]
 }
 
+export interface MapCalibration {
+  // World→radar-pixel: px = (x - pos_x) / scale, py = (pos_y - y) / scale
+  pos_x: number
+  pos_y: number
+  scale: number
+}
+
 export interface MapOut {
   id: string
   name: string
   zones: ZoneOut[]
+  has_radar: boolean
+  calibration: MapCalibration | null
+}
+
+// 2D replay
+export interface ReplayRoundMeta {
+  round_number: number
+  duration_s: number
+  n_frames: number
+  n_players: number
+  n_utility: number
+}
+
+export interface ReplayMetaOut {
+  demo_id: number
+  map_id: string
+  sample_hz: number
+  rounds: ReplayRoundMeta[]
+  has_radar: boolean
+  calibration: MapCalibration | null
+}
+
+export interface ReplayPlayer {
+  steamid: string
+  name: string
+  side: 't' | 'ct'
+}
+
+export interface ReplayFrame {
+  t: number
+  // One [x, y, yaw, hp] per player, aligned to the round roster order.
+  pos: [number, number, number, number][]
+}
+
+export interface ReplayUtility {
+  type: UtilityType
+  side: string
+  t: number
+  from: [number, number]
+  to: [number, number]
+}
+
+export interface ReplayRound {
+  round_number: number
+  duration_s: number
+  players: ReplayPlayer[]
+  frames: ReplayFrame[]
+  utility: ReplayUtility[]
 }
 
 export interface GroupOut {
