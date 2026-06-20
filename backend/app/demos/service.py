@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
+import json
 import shutil
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
 from app.parsing.parser import ParseError, parse_demo
+from app.parsing.replay import replay_to_dict
 from fastapi import HTTPException
 from pathlib import Path
 from sqlalchemy import delete, select
@@ -14,6 +17,30 @@ from sqlalchemy.orm import Session
 from typing import BinaryIO
 
 _CHUNK = 1 << 20  # 1 MiB
+
+
+def replay_path(demo_id: int) -> Path:
+    """Filesystem path of a demo's 2D-replay artifact (derived from its id)."""
+    return get_settings().replays_dir / f"{demo_id}.json.gz"
+
+
+def _write_replay(demo_id: int, replay) -> None:
+    path = replay_path(demo_id)
+    if replay is None:
+        path.unlink(missing_ok=True)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        json.dump(replay_to_dict(replay), fh, separators=(",", ":"))
+
+
+def load_replay(demo_id: int) -> dict | None:
+    """Read the gzip-JSON replay artifact, or ``None`` if it was never built."""
+    path = replay_path(demo_id)
+    if not path.exists():
+        return None
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _hash_and_save(src: BinaryIO, dest: Path) -> tuple[str, int]:
@@ -85,6 +112,7 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
     # Wipe any prior parse so re-parsing is idempotent
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
+    replay_path(demo.id).unlink(missing_ok=True)
 
     try:
         parsed = parse_demo(
@@ -133,6 +161,8 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
                 team=u.side,
             )
         )
+
+    _write_replay(demo.id, parsed.replay)
 
     demo.status = str(DemoStatus.PARSED)
     demo.error = None
@@ -197,6 +227,7 @@ def delete_demo(session: Session, user: User, demo: Demo) -> None:
         raise HTTPException(status_code=403, detail="Only the owner can delete this demo")
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
+    replay_path(demo.id).unlink(missing_ok=True)
     # Remove the file only if no other demo row references the same stored blob.
     if demo.file_path:
         others = session.scalar(

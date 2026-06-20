@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatBytes, formatDate } from '@/lib/format'
 import { RoundsTable } from './RoundsTable'
+import { Replay2D } from './Replay2D'
 import { useDemo, useDemoAnalysis, useDeleteDemo, useReparseDemo } from './hooks'
 
 export function DemoDetailPage() {
@@ -78,6 +79,8 @@ export function DemoDetailPage() {
           </p>
         )}
       </div>
+
+      {demo.status === 'parsed' && <Replay2D demoId={demoId} />}
 
       {analysis.isLoading && <p className="muted">{t('common.loading')}</p>}
       {analysis.data && <RoundsTable rounds={analysis.data.rounds} />}

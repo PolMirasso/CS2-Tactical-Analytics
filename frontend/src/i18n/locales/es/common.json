@@ -60,6 +60,16 @@
     "siteDistribution": "Distribución de sites",
     "totalUtility": "Utility total"
   },
+  "replay": {
+    "title": "Replay 2D",
+    "round": "Ronda",
+    "play": "Reproducir",
+    "pause": "Pausa",
+    "speed": "Velocidad",
+    "noReplay": "Este demo no tiene datos de replay. Vuelve a parsearlo para generar el replay 2D.",
+    "noRadar": "No hay radar para este mapa; se muestra una vista esquemática.",
+    "utilityTimeline": "Línea de tiempo de utilidades"
+  },
   "hltv": {
     "title": "Descarga de HLTV",
     "adminOnly": "Solo los administradores pueden iniciar descargas de HLTV.",

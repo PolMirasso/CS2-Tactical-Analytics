@@ -5,13 +5,17 @@ from app.db import get_session
 from app.demos import service
 from app.domain.enums import DemoSource, Visibility
 from app.domain.models import Demo, User
+from app.analytics.maps import calibration, radar_file
 from app.domain.schemas import (
     DemoAnalysisOut,
     DemoOut,
+    MapCalibration,
+    ReplayMetaOut,
     RoundOut,
     UploadResult,
     UtilityEventOut,
 )
+from app.parsing.replay import round_meta
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -93,6 +97,47 @@ def demo_analysis(
         for r, utils in service.load_analysis(session, demo)
     ]
     return DemoAnalysisOut(demo=_to_out(demo), rounds=rounds)
+
+
+@router.get("/{demo_id}/replay", response_model=ReplayMetaOut)
+def demo_replay_meta(
+        demo_id: int,
+        user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> ReplayMetaOut:
+    # Per-round summary of the 2D-replay artifact (no heavy frame data).
+    service.get_visible(session, user, demo_id)
+    replay = service.load_replay(demo_id)
+    if replay is None:
+        raise HTTPException(status_code=404, detail="No replay data for this demo")
+    map_id = replay["map_id"]
+    cal = calibration(map_id)
+    return ReplayMetaOut(
+        demo_id=demo_id,
+        map_id=map_id,
+        sample_hz=replay["sample_hz"],
+        rounds=round_meta(replay),
+        has_radar=radar_file(map_id) is not None,
+        calibration=MapCalibration(**cal) if cal else None,
+    )
+
+
+@router.get("/{demo_id}/replay/{round_number}")
+def demo_replay_round(
+        demo_id: int,
+        round_number: int,
+        user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> dict:
+    # Player frames + grenade lines for one round (the heavy payload).
+    service.get_visible(session, user, demo_id)
+    replay = service.load_replay(demo_id)
+    if replay is None:
+        raise HTTPException(status_code=404, detail="No replay data for this demo")
+    for r in replay.get("rounds", []):
+        if r["round_number"] == round_number:
+            return r
+    raise HTTPException(status_code=404, detail="Round not found in replay")
 
 
 @router.post("/{demo_id}/parse", response_model=UploadResult)

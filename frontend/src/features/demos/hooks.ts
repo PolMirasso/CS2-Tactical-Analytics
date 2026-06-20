@@ -18,6 +18,22 @@ export function useDemoAnalysis(id: number) {
   })
 }
 
+export function useReplayMeta(id: number) {
+  return useQuery({
+    queryKey: [...KEY, id, 'replay'],
+    queryFn: () => demosApi.replayMeta(id),
+    retry: false, // 404 simply means the demo has no replay artifact yet
+  })
+}
+
+export function useReplayRound(id: number, round: number | null) {
+  return useQuery({
+    queryKey: [...KEY, id, 'replay', round],
+    queryFn: () => demosApi.replayRound(id, round as number),
+    enabled: round != null,
+  })
+}
+
 export function useUploadDemo() {
   const qc = useQueryClient()
   return useMutation({

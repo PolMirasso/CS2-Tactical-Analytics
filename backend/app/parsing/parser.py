@@ -4,6 +4,7 @@ import random
 from app.analytics.maps import classify_point, get_map, list_maps
 from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
+from app.parsing.replay import ReplayData, build_replay, build_sample_replay
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -59,6 +60,9 @@ class ParsedDemo:
     opponent: str | None
     rounds: list[RoundData] = field(default_factory=list)
     utility: list[UtilData] = field(default_factory=list)
+    # 2D-replay frames (player positions + grenade lines); built lazily so the
+    # analytics path stays cheap when the viewer artifact is not needed.
+    replay: "ReplayData | None" = None
 
 
 def classify_buy(team_equip_value: int) -> BuyType:
@@ -115,7 +119,7 @@ def _parse_with_awpy(
 
     try:
         demo = Demo(path=path)
-        demo.parse(player_props=["current_equip_value", "team_clan_name"])
+        demo.parse(player_props=["current_equip_value", "team_clan_name", "yaw"])
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException as exc:
@@ -159,9 +163,12 @@ def _parse_with_awpy(
         )
 
     utility = _extract_utility(pl, demo, rounds_df, ticks_df, map_id, tickrate)
+    replay = build_replay(pl, demo, rounds_df, ticks_df, map_id, tickrate)
 
     team, opponent = _resolve_matchup(clan_votes, team_hint)
-    return ParsedDemo(map_id=map_id, team=team, opponent=opponent, rounds=rounds, utility=utility)
+    return ParsedDemo(
+        map_id=map_id, team=team, opponent=opponent, rounds=rounds, utility=utility, replay=replay
+    )
 
 
 def _resolve_matchup(
@@ -357,6 +364,8 @@ def generate_sample(
                     side="t",
                 )
             )
-    return ParsedDemo(
+    parsed = ParsedDemo(
         map_id=game_map.id, team=team, opponent=opponent, rounds=rounds, utility=utility
     )
+    parsed.replay = build_sample_replay(parsed, seed=seed)
+    return parsed

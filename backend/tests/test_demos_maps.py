@@ -70,6 +70,78 @@ def test_delete_demo(client):
     assert client.get(f"/demos/{demo_id}", headers=auth(token)).status_code == 404
 
 
+def test_replay_meta_lists_rounds(client):
+    token = register_and_login(client, "replaymeta@example.com")
+    up = _upload(client, token, map_id="de_mirage", team="Vitality", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    resp = client.get(f"/demos/{demo_id}/replay", headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["demo_id"] == demo_id
+    assert body["map_id"] == "de_mirage"
+    assert body["sample_hz"] > 0
+    assert len(body["rounds"]) == 24
+    r0 = body["rounds"][0]
+    assert r0["n_players"] == 10
+    assert r0["n_frames"] > 0
+    # Radar background is advertised on the replay meta itself.
+    assert "has_radar" in body and "calibration" in body
+    if body["calibration"] is not None:
+        assert {"pos_x", "pos_y", "scale"} <= set(body["calibration"])
+
+
+def test_replay_round_returns_frames_and_lines(client):
+    token = register_and_login(client, "replayround@example.com")
+    up = _upload(client, token, map_id="de_mirage", team="Vitality", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    resp = client.get(f"/demos/{demo_id}/replay/1", headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    rd = resp.json()
+    assert rd["round_number"] == 1
+    assert len(rd["players"]) == 10
+    assert len(rd["frames"]) > 0
+    # Each frame carries one [x, y, yaw, hp] per player, aligned to the roster.
+    assert len(rd["frames"][0]["pos"]) == len(rd["players"])
+    assert len(rd["frames"][0]["pos"][0]) == 4
+    # Utility carries a throw→land line.
+    if rd["utility"]:
+        u = rd["utility"][0]
+        assert {"type", "t", "from", "to"} <= set(u)
+        assert len(u["from"]) == 2 and len(u["to"]) == 2
+
+
+def test_replay_missing_round_404(client):
+    token = register_and_login(client, "replay404@example.com")
+    up = _upload(client, token, map_id="de_mirage", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    assert client.get(f"/demos/{demo_id}/replay/999", headers=auth(token)).status_code == 404
+
+
+def test_replay_gone_after_delete(client):
+    token = register_and_login(client, "replaydel@example.com")
+    up = _upload(client, token, map_id="de_inferno", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    assert client.get(f"/demos/{demo_id}/replay", headers=auth(token)).status_code == 200
+    client.delete(f"/demos/{demo_id}", headers=auth(token))
+    assert client.get(f"/demos/{demo_id}/replay", headers=auth(token)).status_code == 404
+
+
+def test_maps_radar_and_calibration(client):
+    token = register_and_login(client, "radar@example.com")
+    maps = client.get("/maps", headers=auth(token)).json()
+    mirage = next(m for m in maps if m["id"] == "de_mirage")
+    assert "has_radar" in mirage and "calibration" in mirage
+    if mirage["calibration"] is not None:
+        assert {"pos_x", "pos_y", "scale"} <= set(mirage["calibration"])
+    # Radar image endpoint is consistent with the has_radar flag.
+    img = client.get("/maps/de_mirage/radar.png", headers=auth(token))
+    if mirage["has_radar"]:
+        assert img.status_code == 200
+        assert img.headers["content-type"] == "image/png"
+    else:
+        assert img.status_code == 404
+
+
 def test_maps_endpoint(client):
     token = register_and_login(client, "maps@example.com")
     maps = client.get("/maps", headers=auth(token)).json()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from app.domain.enums import Region
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -80,3 +81,65 @@ def classify_point(map_id: str, x: float, y: float) -> Zone | None:
     """Return the nearest tactical zone for a world-space point, if the map exists."""
     game_map = _MAPS.get(map_id)
     return game_map.nearest_zone(x, y) if game_map else None
+
+
+# radar assets — custom override (e.g. SimpleRadar) first, then awpy's bundled set
+def radar_file(map_id: str) -> Path | None:
+    """Path to the map's radar PNG.
+
+    A user-supplied ``<map_id>.png`` in ``settings.radars_dir`` (drop SimpleRadar
+    images there) wins over awpy's downloaded radar. Returns ``None`` if neither
+    exists. The world→pixel calibration is identical for both, since SimpleRadar
+    images are aligned to Valve's radar coordinate system.
+    """
+    from app.config import get_settings
+
+    override = get_settings().radars_dir / f"{map_id}.png"
+    if override.exists():
+        return override
+    try:
+        from awpy.data import MAPS_DIR
+    except Exception:
+        return None
+    path = Path(MAPS_DIR) / f"{map_id}.png"
+    return path if path.exists() else None
+
+
+# World→radar-pixel calibration (pos_x, pos_y, scale) for 1024×1024 radars.
+# Static constants (sourced from awpy's map_data) so the transform works without
+# downloading awpy assets at runtime — the values are fixed per map version.
+_CALIBRATION: dict[str, tuple[float, float, float]] = {
+    "de_ancient": (-2953.0, 2164.0, 5.0),
+    "de_anubis": (-2796.0, 3328.0, 5.22),
+    "de_dust2": (-2476.0, 3239.0, 4.4),
+    "de_inferno": (-2087.0, 3870.0, 4.9),
+    "de_mirage": (-3230.0, 1713.0, 5.0),
+    "de_nuke": (-3453.0, 2887.0, 7.0),
+    "de_overpass": (-4831.0, 1781.0, 5.2),
+    "de_train": (-2308.0, 2078.0, 4.082077),
+    "de_vertigo": (-3168.0, 1762.0, 4.0),
+}
+
+
+def calibration(map_id: str) -> dict | None:
+    """World→radar-pixel calibration (pos_x, pos_y, scale) for the map, if known."""
+    known = _CALIBRATION.get(map_id)
+    if known is not None:
+        pos_x, pos_y, scale = known
+        return {"pos_x": pos_x, "pos_y": pos_y, "scale": scale}
+    # Fall back to awpy's bundled data for any map not in the static table.
+    try:
+        from awpy.data.map_data import MAP_DATA
+    except Exception:
+        return None
+    data = MAP_DATA.get(map_id)
+    if not data:
+        return None
+    try:
+        return {
+            "pos_x": float(data["pos_x"]),
+            "pos_y": float(data["pos_y"]),
+            "scale": float(data["scale"]),
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
