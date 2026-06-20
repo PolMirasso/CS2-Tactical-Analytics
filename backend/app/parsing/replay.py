@@ -33,6 +33,10 @@ class Frame:
     t: float  # seconds since the round went live (freeze end)
     # One [x, y, yaw, hp] per player, aligned to the round's ``players`` roster.
     pos: list[list[float]]
+    # One [armor, money, weapon_idx] per player (same roster order). Discrete
+    # scoreboard stats — not interpolated; ``weapon_idx`` indexes the round's
+    # ``weapons`` string table.
+    st: list[list[int]] = field(default_factory=list)
 
 
 @dataclass
@@ -51,6 +55,16 @@ class ReplayRound:
     players: list[PlayerSlot]
     frames: list[Frame] = field(default_factory=list)
     utility: list[UtilityShot] = field(default_factory=list)
+    # Per-round weapon-name table; ``Frame.st`` weapon indices point here.
+    # Index 0 is always "" (no/unknown weapon, e.g. dead players).
+    weapons: list[str] = field(default_factory=lambda: [""])
+    # Shot events as ``[player_idx, t]`` (t seconds since freeze end); drives the
+    # muzzle-flash "firing" indicator in the viewer.
+    fires: list[list[float]] = field(default_factory=list)
+    # Bomb plant for the round: ``{t, x, y, site}`` (world-space), or ``None``.
+    bomb: dict | None = None
+    # Kill events: ``{t, atk, as, vic, vs, wp, hs}`` for the kill feed.
+    kills: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -74,7 +88,11 @@ def _round_to_dict(r: ReplayRound) -> dict:
         "round_number": r.round_number,
         "duration_s": round(r.duration_s, 2),
         "players": [{"steamid": p.steamid, "name": p.name, "side": p.side} for p in r.players],
-        "frames": [{"t": round(f.t, 2), "pos": f.pos} for f in r.frames],
+        "weapons": r.weapons,
+        "fires": r.fires,
+        "bomb": r.bomb,
+        "kills": r.kills,
+        "frames": [{"t": round(f.t, 2), "pos": f.pos, "st": f.st} for f in r.frames],
         "utility": [
             {
                 "type": u.util_type,
@@ -119,9 +137,45 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
             continue
         replay_round = _build_round(pl, rdf, rnum, freeze_end, tickrate, step)
         replay_round.utility = _round_utility(pl, grenades, rnum, freeze_end, tickrate)
+        replay_round.fires = _round_fires(pl, demo, rnum, freeze_end, tickrate, replay_round.players)
+        replay_round.bomb = _round_bomb(pl, demo, rnum, freeze_end, tickrate)
+        replay_round.kills = _round_kills(pl, demo, rnum, freeze_end, tickrate)
         rounds.append(replay_round)
 
     return ReplayData(map_id=map_id, sample_hz=SAMPLE_HZ, rounds=rounds)
+
+
+def _clean_weapon(name) -> str:
+    """Normalise demoparser2's active-weapon name to a short display label."""
+    if not name:
+        return ""
+    s = str(name)
+    return s[7:] if s.startswith("weapon_") else s
+
+
+# Grenade-type → bit, matched as substrings against inventory item names. The
+# frontend reads this packed mask to show which utility a player is carrying.
+NADE_SMOKE, NADE_FLASH, NADE_HE, NADE_MOLOTOV, NADE_DECOY = 1, 2, 4, 8, 16
+_NADE_BITS: list[tuple[tuple[str, ...], int]] = [
+    (("smoke",), NADE_SMOKE),
+    (("flash",), NADE_FLASH),
+    (("high explosive", "he grenade", "frag"), NADE_HE),
+    (("molotov", "incendiary"), NADE_MOLOTOV),
+    (("decoy",), NADE_DECOY),
+]
+
+
+def _nade_mask(inventory) -> int:
+    """Pack the grenade types present in an inventory item list into a bitmask."""
+    if not inventory:
+        return 0
+    mask = 0
+    for item in inventory:
+        name = str(item).lower()
+        for needles, bit in _NADE_BITS:
+            if any(n in name for n in needles):
+                mask |= bit
+    return mask
 
 
 def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: int) -> ReplayRound:
@@ -131,12 +185,21 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
 
     has = set(rdf.columns)
     cols = ["tick", "steamid", "name", "side", "X", "Y"]
-    cols += [c for c in ("yaw", "health") if c in has]
+    # NB: awpy renames the ``armor_value`` prop to ``armor`` on the ticks frame.
+    optional = (
+        "yaw", "health", "armor", "balance",
+        "active_weapon_name", "active_weapon_ammo", "total_ammo_left", "inventory",
+    )
+    cols += [c for c in optional if c in has]
     sub = rdf.filter(pl.col("tick").is_in(sampled)).select([c for c in cols if c in has])
 
     # Roster: every player seen this round, side taken from their first sample.
     roster: dict[str, PlayerSlot] = {}
-    by_tick: dict[int, dict[str, list[float]]] = {}
+    pos_by_tick: dict[int, dict[str, list[float]]] = {}
+    st_by_tick: dict[int, dict[str, list[int]]] = {}
+    # Intern weapon names into a per-round table so frames carry a small int.
+    weapons: list[str] = [""]
+    weapon_idx: dict[str, int] = {"": 0}
     for row in sub.iter_rows(named=True):
         sid = str(row["steamid"])
         if sid not in roster:
@@ -146,20 +209,41 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
             continue
         yaw = float(row.get("yaw") or 0.0)
         hp = float(row.get("health") if row.get("health") is not None else 100.0)
-        by_tick.setdefault(int(row["tick"]), {})[sid] = [
+        tk = int(row["tick"])
+        pos_by_tick.setdefault(tk, {})[sid] = [
             round(float(x), 1), round(float(y), 1), round(yaw, 1), hp
+        ]
+        # Dead players carry no live weapon/ammo/utility; collapse to none.
+        alive = hp > 0
+        weapon = _clean_weapon(row.get("active_weapon_name")) if alive else ""
+        wi = weapon_idx.get(weapon)
+        if wi is None:
+            wi = len(weapons)
+            weapons.append(weapon)
+            weapon_idx[weapon] = wi
+        st_by_tick.setdefault(tk, {})[sid] = [
+            int(row.get("armor") or 0),
+            int(row.get("balance") or 0),
+            wi,
+            int(row.get("active_weapon_ammo") or 0) if alive else 0,
+            int(row.get("total_ammo_left") or 0) if alive else 0,
+            _nade_mask(row.get("inventory")) if alive else 0,
         ]
 
     players = list(roster.values())
     frames: list[Frame] = []
     for tk in sampled:
-        snap = by_tick.get(tk, {})
+        snap = pos_by_tick.get(tk, {})
+        st_snap = st_by_tick.get(tk, {})
         # Dead/missing players keep their last position with hp 0 so the dot fades
         # rather than jumping; missing-at-start defaults to origin with hp 0.
         pos = [snap.get(p.steamid, [0.0, 0.0, 0.0, 0.0]) for p in players]
-        frames.append(Frame(t=(tk - freeze_end) / tickrate, pos=pos))
+        st = [st_snap.get(p.steamid, [0, 0, 0, 0, 0, 0]) for p in players]
+        frames.append(Frame(t=(tk - freeze_end) / tickrate, pos=pos, st=st))
 
-    return ReplayRound(round_number=rnum, duration_s=duration, players=players, frames=frames)
+    return ReplayRound(
+        round_number=rnum, duration_s=duration, players=players, frames=frames, weapons=weapons
+    )
 
 
 def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) -> list[UtilityShot]:
@@ -207,6 +291,87 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
     return out
 
 
+def _round_fires(pl, demo, rnum: int, freeze_end: float, tickrate: float, players) -> list[list[float]]:
+    """Shot events for one round as ``[player_idx, t]`` aligned to the roster."""
+    idx_of = {p.steamid: i for i, p in enumerate(players)}
+    try:
+        shots = demo.shots  # awpy cached property over the weapon_fire events
+    except Exception:
+        return []
+    if shots is None or shots.is_empty() or "round_num" not in shots.columns:
+        return []
+    sid_col = "player_steamid" if "player_steamid" in shots.columns else "steamid"
+    if sid_col not in shots.columns or "tick" not in shots.columns:
+        return []
+    out: list[list[float]] = []
+    for row in shots.filter(pl.col("round_num") == rnum).iter_rows(named=True):
+        i = idx_of.get(str(row.get(sid_col)))
+        if i is None:
+            continue
+        t = (float(row["tick"]) - freeze_end) / tickrate
+        if t < 0:
+            continue
+        out.append([i, round(t, 2)])
+    out.sort(key=lambda e: e[1])
+    return out
+
+
+def _round_bomb(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> dict | None:
+    """The round's bomb plant as ``{t, x, y, site}`` (world-space), if any."""
+    try:
+        bomb = demo.bomb  # awpy cached property over the bomb_* events
+    except Exception:
+        return None
+    if bomb is None or bomb.is_empty() or "round_num" not in bomb.columns or "event" not in bomb.columns:
+        return None
+    try:
+        sub = bomb.filter((pl.col("round_num") == rnum) & (pl.col("event") == "plant")).sort("tick")
+    except Exception:
+        return None
+    if sub.is_empty():
+        return None
+    row = sub.to_dicts()[0]
+    # Bomb position columns are upper-case X/Y (from the ticks frame).
+    x, y = row.get("X"), row.get("Y")
+    if x is None or y is None:
+        return None
+    t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
+    site = (row.get("bombsite") or "").replace("Bombsite", "") or None  # "BombsiteB" -> "B"
+    return {
+        "t": round(t, 2),
+        "x": round(float(x), 1),
+        "y": round(float(y), 1),
+        "site": site,
+    }
+
+
+def _round_kills(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> list[dict]:
+    """Kill events for the round, shaped for the viewer's kill feed."""
+    try:
+        kills = demo.kills  # awpy cached property over player_death events
+    except Exception:
+        return []
+    if kills is None or kills.is_empty() or "round_num" not in kills.columns:
+        return []
+    out: list[dict] = []
+    for row in kills.filter(pl.col("round_num") == rnum).sort("tick").iter_rows(named=True):
+        t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
+        w = str(row.get("weapon") or "")
+        w = w[7:] if w.startswith("weapon_") else w
+        out.append(
+            {
+                "t": round(t, 2),
+                "atk": row.get("attacker_name") or "?",
+                "as": (row.get("attacker_side") or "").lower(),
+                "vic": row.get("victim_name") or "?",
+                "vs": (row.get("victim_side") or "").lower(),
+                "wp": w.replace("_", " "),
+                "hs": bool(row.get("headshot")),
+            }
+        )
+    return out
+
+
 # sample-data path
 def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
     """Fabricate plausible movement so the viewer works without real demos.
@@ -244,25 +409,54 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
         players = [PlayerSlot(f"T{i}", f"T Player {i}", "t") for i in range(1, 6)]
         players += [PlayerSlot(f"CT{i}", f"CT Player {i}", "ct") for i in range(1, 6)]
 
+        # Plausible loadout per side so the scoreboard panel isn't empty in
+        # sample/dev mode (no real weapon/money data available).
+        weapons = ["", "ak47", "m4a1"]
+        side_weapon = {"t": 1, "ct": 2}
+
         duration = 60.0
         n_frames = int(duration * SAMPLE_HZ)
         frames: list[Frame] = []
         offsets = [(rng.uniform(-300, 300), rng.uniform(-300, 300)) for _ in players]
+        # A few players die mid-round (so the death "X" shows); the rest survive.
+        death_t = [
+            rng.uniform(20.0, 55.0) if rng.random() < 0.5 else None for _ in players
+        ]
+        frozen: list[list[float] | None] = [None] * len(players)
+        fires: list[list[float]] = []
         for fi in range(n_frames):
             t = fi / SAMPLE_HZ
             prog = min(1.0, fi / max(1, n_frames - 1))
             pos = []
-            for p, (ox, oy) in zip(players, offsets):
+            st = []
+            for pi, (p, (ox, oy)) in enumerate(zip(players, offsets)):
+                dead = death_t[pi] is not None and t >= death_t[pi]
+                if dead and frozen[pi] is not None:
+                    fx, fy = frozen[pi]
+                    pos.append([fx, fy, 0.0, 0.0])
+                    st.append([0, 2500, 0, 0, 0, 0])
+                    continue
                 if p.side == "t":
                     sx, sy = t_spawn
                     dx, dy = target
                 else:
                     sx, sy = ct_spawn
                     dx, dy = target[0], (target[1] + ct_spawn[1]) / 2
-                x = sx + (dx - sx) * prog + ox
-                y = sy + (dy - sy) * prog + oy
-                pos.append([round(x, 1), round(y, 1), 0.0, 100.0])
-            frames.append(Frame(t=t, pos=pos))
+                x = round(sx + (dx - sx) * prog + ox, 1)
+                y = round(sy + (dy - sy) * prog + oy, 1)
+                if dead:
+                    frozen[pi] = [x, y]
+                    pos.append([x, y, 0.0, 0.0])
+                    st.append([0, 2500, 0, 0, 0, 0])
+                else:
+                    pos.append([x, y, 0.0, 100.0])
+                    # armor, money, weapon, clip 30 / reserve 90, smoke+flash.
+                    st.append([100, 2500, side_weapon[p.side], 30, 90, NADE_SMOKE | NADE_FLASH])
+                    # Occasional shots while alive.
+                    if t > 15.0 and rng.random() < 0.05:
+                        fires.append([pi, round(t, 2)])
+            frames.append(Frame(t=t, pos=pos, st=st))
+        fires.sort(key=lambda e: e[1])
 
         shots: list[UtilityShot] = []
         for u in util_by_round.get(rd.round_number, []):
@@ -277,8 +471,48 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 )
             )
         shots.sort(key=lambda s: s.t)
+        # Fabricate kills from the deaths so the kill feed shows up in dev mode.
+        kills: list[dict] = []
+        for pi, dtod in enumerate(death_t):
+            if dtod is None:
+                continue
+            victim = players[pi]
+            enemies = [q for q in range(len(players)) if players[q].side != victim.side]
+            atk = players[rng.choice(enemies)] if enemies else victim
+            kills.append(
+                {
+                    "t": round(dtod, 2),
+                    "atk": atk.name,
+                    "as": atk.side,
+                    "vic": victim.name,
+                    "vs": victim.side,
+                    "wp": "ak47" if atk.side == "t" else "m4a1",
+                    "hs": rng.random() < 0.4,
+                }
+            )
+        kills.sort(key=lambda k: k["t"])
+        # Plant the bomb at the target on roughly half the rounds, so the viewer's
+        # bomb indicator shows up in sample/dev mode.
+        bomb = None
+        if rng.random() < 0.5:
+            bomb = {
+                "t": round(min(duration - 5.0, 35.0), 2),
+                "x": round(target[0], 1),
+                "y": round(target[1], 1),
+                "site": rd.target_site or "A",
+            }
         rounds.append(
-            ReplayRound(rd.round_number, duration, players, frames=frames, utility=shots)
+            ReplayRound(
+                rd.round_number,
+                duration,
+                players,
+                frames=frames,
+                utility=shots,
+                weapons=weapons,
+                fires=fires,
+                bomb=bomb,
+                kills=kills,
+            )
         )
 
     return ReplayData(map_id=game_map.id, sample_hz=SAMPLE_HZ, rounds=rounds)

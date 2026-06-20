@@ -158,6 +158,9 @@ export interface ReplayFrame {
   t: number
   // One [x, y, yaw, hp] per player, aligned to the round roster order.
   pos: [number, number, number, number][]
+  // Per player: [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask].
+  // weaponIdx indexes ReplayRound.weapons; nadeMask packs grenade types held.
+  st: number[][]
 }
 
 export interface ReplayUtility {
@@ -168,10 +171,35 @@ export interface ReplayUtility {
   to: [number, number]
 }
 
+export interface ReplayBomb {
+  t: number // seconds since freeze end when planted
+  x: number
+  y: number
+  site: string | null
+}
+
+export interface ReplayKill {
+  t: number
+  atk: string // attacker name
+  as: string // attacker side ("t" | "ct")
+  vic: string // victim name
+  vs: string // victim side
+  wp: string // weapon
+  hs: boolean // headshot
+}
+
 export interface ReplayRound {
   round_number: number
   duration_s: number
   players: ReplayPlayer[]
+  // Weapon-name table indexed by ReplayFrame.st weapon indices (0 = none).
+  weapons: string[]
+  // Shot events as [playerIdx, t]; drives the firing/muzzle-flash indicator.
+  fires: [number, number][]
+  // Bomb plant for the round (world-space), or null if never planted.
+  bomb: ReplayBomb | null
+  // Kill events for the kill feed.
+  kills: ReplayKill[]
   frames: ReplayFrame[]
   utility: ReplayUtility[]
 }
