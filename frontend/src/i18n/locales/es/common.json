@@ -68,7 +68,12 @@
     "speed": "Velocidad",
     "noReplay": "Este demo no tiene datos de replay. Vuelve a parsearlo para generar el replay 2D.",
     "noRadar": "No hay radar para este mapa; se muestra una vista esquemática.",
-    "utilityTimeline": "Línea de tiempo de utilidades"
+    "utilityTimeline": "Línea de tiempo de utilidades",
+    "hp": "Vida",
+    "armor": "Armadura",
+    "money": "Dinero",
+    "weapon": "Arma",
+    "ammo": "Balas en cargador / cargadores de reserva"
   },
   "hltv": {
     "title": "Descarga de HLTV",

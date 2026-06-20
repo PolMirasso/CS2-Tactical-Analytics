@@ -4,6 +4,7 @@ import { apiUrl } from '@/lib/apiClient'
 import type {
   MapCalibration,
   ReplayFrame,
+  ReplayPlayer,
   ReplayRound,
   UtilityType,
 } from '@/types/api'
@@ -19,9 +20,30 @@ const UTIL_COLOR: Record<UtilityType, string> = {
 }
 const SPEEDS = [0.5, 1, 2, 4]
 
+// Grenade post-landing effect: lifetime (s) and world-space radius.
+const UTIL_DUR: Record<UtilityType, number> = { smoke: 18, molotov: 7, flash: 0.35, he: 0.45 }
+const UTIL_RADIUS: Record<UtilityType, number> = { smoke: 144, molotov: 165, flash: 90, he: 100 }
+
+// nadeMask bits (mirrors backend NADE_* constants) → label + colour.
+const NADES: { bit: number; label: string; color: string }[] = [
+  { bit: 1, label: 'Smoke', color: UTIL_COLOR.smoke },
+  { bit: 2, label: 'Flash', color: UTIL_COLOR.flash },
+  { bit: 4, label: 'HE', color: UTIL_COLOR.he },
+  { bit: 8, label: 'Molotov', color: UTIL_COLOR.molotov },
+  { bit: 16, label: 'Decoy', color: '#7bd88f' },
+]
+
 type Pos = [number, number, number, number] // x, y, yaw, hp
+// [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask]
+type Stat = number[]
 
 const isDead = (p: Pos): boolean => p[3] <= 0 || (p[0] === 0 && p[1] === 0)
+
+/** Drop demoparser2's ``weapon_`` prefix and underscores for display. */
+function prettyWeapon(w: string | undefined): string {
+  if (!w) return '—'
+  return w.replace(/^weapon_/, '').replace(/_/g, ' ')
+}
 
 function lerpPlayer(a: Pos, b: Pos, f: number): Pos | null {
   if (isDead(a) && isDead(b)) return null
@@ -76,7 +98,150 @@ function frameAt(frames: ReplayFrame[], time: number, sampleHz: number) {
   const idx = time * sampleHz
   const i0 = Math.max(0, Math.min(frames.length - 1, Math.floor(idx)))
   const i1 = Math.min(frames.length - 1, i0 + 1)
-  return { a: frames[i0].pos as Pos[], b: frames[i1].pos as Pos[], f: idx - i0 }
+  return { a: frames[i0].pos as Pos[], b: frames[i1].pos as Pos[], f: idx - i0, i0 }
+}
+
+type RosterEntry = { idx: number; player: ReplayPlayer; number: number }
+
+/** Split the roster into CT/T sides, numbering each side 1..5. */
+function useTeams(round: ReplayRound): { ct: RosterEntry[]; t: RosterEntry[] } {
+  return useMemo(() => {
+    const ct: RosterEntry[] = []
+    const t: RosterEntry[] = []
+    round.players.forEach((player, idx) => {
+      const bucket = player.side === 'ct' ? ct : t
+      bucket.push({ idx, player, number: bucket.length + 1 })
+    })
+    return { ct, t }
+  }, [round])
+}
+
+/** One team's scoreboard column: number, name, weapon, money, hp/armor. */
+function TeamPanel({
+  side,
+  entries,
+  statFrame,
+  weapons,
+}: {
+  side: string
+  entries: RosterEntry[]
+  statFrame: ReplayFrame
+  weapons: string[]
+}) {
+  const { t } = useTranslation()
+  const color = SIDE_COLOR[side] ?? '#fff'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 700,
+          fontSize: 13,
+          color,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+        }}
+      >
+        <span
+          style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: color }}
+        />
+        {side === 'ct' ? 'CT' : 'T'}
+      </div>
+      {entries.map((e) => {
+        const pos = (statFrame.pos[e.idx] as Pos) ?? [0, 0, 0, 0]
+        const st = (statFrame.st?.[e.idx] as Stat) ?? [0, 0, 0, 0, 0, 0]
+        const hp = Math.max(0, Math.round(pos[3]))
+        const dead = hp <= 0
+        const weapon = prettyWeapon(weapons?.[st[2]])
+        const clip = st[3] ?? 0
+        const reserve = st[4] ?? 0
+        const nadeMask = st[5] ?? 0
+        const held = NADES.filter((n) => (nadeMask & n.bit) !== 0)
+        return (
+          <div
+            key={e.player.steamid}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              padding: '6px 8px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: '#11141a',
+              opacity: dead ? 0.45 : 1,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  background: color,
+                  color: '#11141a',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  flexShrink: 0,
+                }}
+              >
+                {e.number}
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textDecoration: dead ? 'line-through' : undefined,
+                }}
+                title={e.player.name}
+              >
+                {e.player.name}
+              </span>
+              <span className="muted" title={t('replay.money')} style={{ fontSize: 13 }}>
+                ${st[1]}
+              </span>
+            </div>
+            <div className="muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 6 }}>
+              <span title={t('replay.weapon')} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {weapon}
+              </span>
+              {!dead && (clip > 0 || reserve > 0) && (
+                <span title={t('replay.ammo')} style={{ flexShrink: 0 }}>
+                  {clip}/{reserve}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <span className="muted" title={t('replay.hp')}>{hp}♥</span>
+              <span className="muted" title={t('replay.armor')}>{st[0]}🛡</span>
+              {/* Utility currently carried. */}
+              <span style={{ display: 'flex', gap: 3, marginLeft: 'auto' }}>
+                {held.map((n) => (
+                  <span
+                    key={n.bit}
+                    title={n.label}
+                    style={{
+                      display: 'inline-block',
+                      width: 9,
+                      height: 9,
+                      borderRadius: 2,
+                      background: n.color,
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function ReplayStage({
@@ -98,6 +263,32 @@ function ReplayStage({
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
   const project = useProjection(round, calibration, hasRadar)
+  const teams = useTeams(round)
+  // Death spot per player (last alive world position + time), for the "X" marker.
+  const deaths = useMemo(() => {
+    const out: (null | { t: number; x: number; y: number })[] = round.players.map(() => null)
+    const lastAlive: (null | [number, number])[] = round.players.map(() => null)
+    for (const fr of round.frames) {
+      ;(fr.pos as Pos[]).forEach((p, k) => {
+        if (!isDead(p)) lastAlive[k] = [p[0], p[1]]
+        else if (out[k] == null && lastAlive[k]) {
+          out[k] = { t: fr.t, x: lastAlive[k]![0], y: lastAlive[k]![1] }
+        }
+      })
+    }
+    return out
+  }, [round])
+  // Shot times grouped per player (sorted), for the firing indicator.
+  const firesByPlayer = useMemo(() => {
+    const m = new Map<number, number[]>()
+    for (const [k, ft] of round.fires ?? []) {
+      const arr = m.get(k)
+      if (arr) arr.push(ft)
+      else m.set(k, [ft])
+    }
+    for (const arr of m.values()) arr.sort((x, y) => x - y)
+    return m
+  }, [round])
   const lastTs = useRef<number>(0)
 
   useEffect(() => {
@@ -128,83 +319,276 @@ function ReplayStage({
 
   if (round.frames.length === 0) return null
 
-  const { a, b, f } = frameAt(round.frames, time, sampleHz)
-  const players = round.players.map((p, k) => {
-    // Frames are aligned to the roster, so a[k]/b[k] always exist.
-    const pos = lerpPlayer(a[k], b[k], f)
-    return pos ? { player: p, pos } : null
-  })
-  const shotsThrown = round.utility.filter((u) => u.t <= time)
+  const { a, b, f, i0 } = frameAt(round.frames, time, sampleHz)
+  const statFrame = round.frames[i0] // discrete scoreboard stats (no interp)
+  // World radius → pixel radius under the active projection.
+  const projectR = (x: number, y: number, worldR: number): number => {
+    const [px] = project(x, y)
+    const [qx] = project(x + worldR, y)
+    return Math.abs(qx - px)
+  }
+  // A player is "firing" if they shot within a short window before the playhead.
+  const FIRE_WINDOW = 0.18
+  const firing = (k: number): boolean => {
+    const arr = firesByPlayer.get(k)
+    if (!arr) return false
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i] > time) continue
+      return time - arr[i] <= FIRE_WINDOW
+    }
+    return false
+  }
+  // Kill feed: kills in the last few seconds, newest first.
+  const KILLFEED_WINDOW = 7
+  // Guard `?? []`: artifacts parsed before kills/utility existed lack the field.
+  const visibleKills = (round.kills ?? [])
+    .filter((k) => time >= k.t && time - k.t < KILLFEED_WINDOW)
+    .slice(-6)
+    .reverse()
 
   return (
     <div>
       <div
         style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: 680,
-          margin: '0 auto',
-          aspectRatio: '1 / 1',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          overflow: 'hidden',
-          background: '#11141a',
+          display: 'flex',
+          gap: 12,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
         }}
       >
-        {hasRadar && (
-          <img
-            src={apiUrl(`/maps/${mapId}/radar.png`)}
-            alt={mapId}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.85 }}
-          />
-        )}
-        <svg
-          viewBox={`0 0 ${RADAR} ${RADAR}`}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 1000,
+            minWidth: 320,
+            flex: '1 1 460px',
+            aspectRatio: '1 / 1',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            overflow: 'hidden',
+            background: '#11141a',
+          }}
         >
-          {/* Utility throw→land lines (only those already thrown). */}
-          {shotsThrown.map((u, i) => {
-            const [fx, fy] = project(u.from[0], u.from[1])
-            const [tx, ty] = project(u.to[0], u.to[1])
-            const c = UTIL_COLOR[u.type] ?? '#fff'
-            return (
-              <g key={`u${i}`}>
-                <line
-                  x1={fx}
-                  y1={fy}
-                  x2={tx}
-                  y2={ty}
-                  stroke={c}
-                  strokeWidth={3}
-                  strokeDasharray="10 8"
-                  opacity={0.85}
-                />
-                <circle cx={tx} cy={ty} r={10} fill={c} opacity={0.5} />
-                <circle cx={tx} cy={ty} r={10} fill="none" stroke={c} strokeWidth={2} />
-              </g>
-            )
-          })}
+          {hasRadar && (
+            <img
+              src={apiUrl(`/maps/${mapId}/radar.png`)}
+              alt={mapId}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.85 }}
+            />
+          )}
+          <svg
+            viewBox={`0 0 ${RADAR} ${RADAR}`}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+          >
+            {/* Utility: in-flight grenade, then a timed effect that fades out.
+                No persistent line — it appears in real time and disappears. */}
+            {round.utility.map((u, i) => {
+              const c = UTIL_COLOR[u.type] ?? '#fff'
+              const dist = Math.hypot(u.to[0] - u.from[0], u.to[1] - u.from[1])
+              const flight = Math.min(2.2, Math.max(0.4, dist / 1600))
+              const landT = u.t + flight
+              const dur = UTIL_DUR[u.type] ?? 1
 
-          {/* Players */}
-          {players.map((entry, k) => {
-            if (!entry) return null
-            const [px, py, yaw] = entry.pos
-            const [cx, cy] = project(px, py)
-            const color = SIDE_COLOR[entry.player.side] ?? '#fff'
-            // Facing tick: yaw is degrees CCW from +X; screen Y is flipped.
-            const rad = (yaw * Math.PI) / 180
-            const fx = cx + Math.cos(rad) * 22
-            const fy = cy - Math.sin(rad) * 22
-            return (
-              <g key={entry.player.steamid}>
-                <line x1={cx} y1={cy} x2={fx} y2={fy} stroke={color} strokeWidth={3} />
-                <circle cx={cx} cy={cy} r={13} fill={color} stroke="#11141a" strokeWidth={2}>
-                  <title>{entry.player.name}</title>
-                </circle>
-              </g>
-            )
-          })}
-        </svg>
+              if (time < u.t || time >= landT + dur) return null
+
+              // In flight: a moving grenade dot from thrower to landing spot.
+              if (time < landT) {
+                const p = (time - u.t) / flight
+                const [gx, gy] = project(
+                  u.from[0] + (u.to[0] - u.from[0]) * p,
+                  u.from[1] + (u.to[1] - u.from[1]) * p,
+                )
+                return (
+                  <g key={`u${i}`}>
+                    <circle cx={gx} cy={gy} r={6} fill={c} stroke="#11141a" strokeWidth={1.5} />
+                  </g>
+                )
+              }
+
+              // Landed effect: fade in (0.25s) and fade out (last 1s).
+              const age = time - landT
+              const fadeIn = Math.min(1, age / 0.25)
+              const fadeOut = Math.min(1, (dur - age) / Math.min(1, dur))
+              const alpha = Math.max(0, Math.min(fadeIn, fadeOut))
+              const [cx, cy] = project(u.to[0], u.to[1])
+              const pr = projectR(u.to[0], u.to[1], UTIL_RADIUS[u.type] ?? 100)
+
+              if (u.type === 'smoke') {
+                return (
+                  <g key={`u${i}`}>
+                    <circle cx={cx} cy={cy} r={pr} fill="#c7ccd6" opacity={0.5 * alpha} />
+                    <circle cx={cx} cy={cy} r={pr} fill="none" stroke="#e6e9ef" strokeWidth={2} opacity={0.7 * alpha} />
+                  </g>
+                )
+              }
+              if (u.type === 'molotov') {
+                const flicker = 0.32 + 0.12 * Math.sin(time * 22)
+                return (
+                  <g key={`u${i}`}>
+                    <circle cx={cx} cy={cy} r={pr} fill="#ff7a45" opacity={flicker * alpha} />
+                    <circle cx={cx} cy={cy} r={pr} fill="none" stroke="#ff5d2e" strokeWidth={2} opacity={0.8 * alpha} />
+                  </g>
+                )
+              }
+              // flash / he: a quick burst that expands and vanishes.
+              const burst = pr * (0.5 + 0.5 * Math.min(1, age / 0.12))
+              return (
+                <g key={`u${i}`}>
+                  <circle cx={cx} cy={cy} r={burst} fill={c} opacity={0.6 * alpha} />
+                </g>
+              )
+            })}
+
+            {/* Players: live dot (with firing flash) or a death "X". */}
+            {round.players.map((player, k) => {
+              const color = SIDE_COLOR[player.side] ?? '#fff'
+              const live = lerpPlayer(a[k], b[k], f)
+              if (live) {
+                const [px, py, yaw] = live
+                const [cx, cy] = project(px, py)
+                // Facing tick: yaw is degrees CCW from +X; screen Y is flipped.
+                const rad = (yaw * Math.PI) / 180
+                const dirX = Math.cos(rad)
+                const dirY = -Math.sin(rad)
+                const isFiring = firing(k)
+                return (
+                  <g key={player.steamid}>
+                    {isFiring && (
+                      <>
+                        <circle cx={cx} cy={cy} r={21} fill="none" stroke="#ffe066" strokeWidth={2} opacity={0.7} />
+                        <line
+                          x1={cx}
+                          y1={cy}
+                          x2={cx + dirX * 42}
+                          y2={cy + dirY * 42}
+                          stroke="#fff3b0"
+                          strokeWidth={5}
+                          strokeLinecap="round"
+                        />
+                        <circle cx={cx + dirX * 42} cy={cy + dirY * 42} r={6} fill="#ffe066" />
+                      </>
+                    )}
+                    <line x1={cx} y1={cy} x2={cx + dirX * 24} y2={cy + dirY * 24} stroke={color} strokeWidth={3} />
+                    <circle cx={cx} cy={cy} r={13} fill={color} stroke="#11141a" strokeWidth={2}>
+                      <title>{player.name}</title>
+                    </circle>
+                    {/* Player name below the dot (outlined for readability). */}
+                    <text
+                      x={cx}
+                      y={cy + 26}
+                      textAnchor="middle"
+                      fontSize={15}
+                      fontWeight={600}
+                      fill="#fff"
+                      stroke="#11141a"
+                      strokeWidth={3}
+                      paintOrder="stroke"
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      {player.name}
+                    </text>
+                  </g>
+                )
+              }
+              const d = deaths[k]
+              if (d && time >= d.t) {
+                const [cx, cy] = project(d.x, d.y)
+                const s = 9
+                return (
+                  <g key={player.steamid} opacity={0.85}>
+                    <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} stroke={color} strokeWidth={3} strokeLinecap="round" />
+                    <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} stroke={color} strokeWidth={3} strokeLinecap="round" />
+                    <title>{player.name}</title>
+                  </g>
+                )
+              }
+              return null
+            })}
+
+            {/* Planted bomb (shown from the plant time onward). */}
+            {round.bomb && time >= round.bomb.t && (() => {
+              const b = round.bomb!
+              const [bx, by] = project(b.x, b.y)
+              return (
+                <g>
+                  <circle cx={bx} cy={by} r={16} fill="none" stroke="#ff5d5d" strokeWidth={2} opacity={0.6} />
+                  <rect x={bx - 12} y={by - 9} width={24} height={18} rx={3} fill="#d6452b" stroke="#fff" strokeWidth={1.5} />
+                  <text
+                    x={bx}
+                    y={by}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={11}
+                    fontWeight={700}
+                    fill="#fff"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    C4
+                  </text>
+                </g>
+              )
+            })()}
+          </svg>
+
+          {/* Kill feed (top-right): attacker — weapon [HS] → victim. */}
+          {visibleKills.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                alignItems: 'flex-end',
+                pointerEvents: 'none',
+              }}
+            >
+              {visibleKills.map((k, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(10,12,16,0.82)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 4,
+                    padding: '3px 8px',
+                    fontSize: 13,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ color: SIDE_COLOR[k.as] ?? '#fff', fontWeight: 600 }}>{k.atk}</span>
+                  <span className="muted">{prettyWeapon(k.wp)}</span>
+                  {k.hs && (
+                    <span title="headshot" style={{ color: '#ff5d5d', fontWeight: 700 }}>
+                      HS
+                    </span>
+                  )}
+                  <span style={{ color: '#7a8190' }}>→</span>
+                  <span style={{ color: SIDE_COLOR[k.vs] ?? '#fff', fontWeight: 600 }}>{k.vic}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Both teams stacked in a narrow column to the right of the map. */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            flex: '1 1 200px',
+            minWidth: 190,
+            maxWidth: 240,
+          }}
+        >
+          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} />
+          <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} />
+        </div>
       </div>
 
       {!hasRadar && <p className="muted" style={{ marginTop: 8 }}>{t('replay.noRadar')}</p>}
@@ -231,7 +615,7 @@ function ReplayStage({
         </span>
       </div>
 
-      <div className="row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 8, alignItems: 'center', gap: 6 }}>
         <span className="muted">{t('replay.speed')}:</span>
         {SPEEDS.map((s) => (
           <button
@@ -330,19 +714,30 @@ export function Replay2D({ demoId }: { demoId: number }) {
   return (
     <div className="card">
       <h2>{t('replay.title')}</h2>
-      <div className="row" style={{ alignItems: 'center', gap: 8, maxWidth: 280 }}>
-        <span className="muted">{t('replay.round')}:</span>
-        <select
-          value={round ?? ''}
-          onChange={(e) => setRound(Number(e.target.value))}
-          style={{ flex: 1 }}
-        >
-          {replayMeta.rounds.map((r) => (
-            <option key={r.round_number} value={r.round_number}>
+      {/* Plain flex (not .row, whose `> *` rule would stretch each button to
+          140px and wrap them into a broken grid). */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <span className="muted" style={{ marginRight: 2 }}>{t('replay.round')}:</span>
+        {replayMeta.rounds.map((r) => {
+          const active = round === r.round_number
+          return (
+            <button
+              key={r.round_number}
+              className="badge"
+              onClick={() => setRound(r.round_number)}
+              style={{
+                cursor: 'pointer',
+                minWidth: 32,
+                textAlign: 'center',
+                borderColor: active ? 'var(--text)' : 'var(--border)',
+                color: active ? 'var(--text)' : undefined,
+                fontWeight: active ? 700 : undefined,
+              }}
+            >
               {r.round_number}
-            </option>
-          ))}
-        </select>
+            </button>
+          )
+        })}
       </div>
 
       <div style={{ marginTop: 12 }}>

@@ -119,7 +119,19 @@ def _parse_with_awpy(
 
     try:
         demo = Demo(path=path)
-        demo.parse(player_props=["current_equip_value", "team_clan_name", "yaw"])
+        demo.parse(
+            player_props=[
+                "current_equip_value",
+                "team_clan_name",
+                "yaw",
+                "armor_value",
+                "balance",
+                "active_weapon_name",
+                "active_weapon_ammo",
+                "total_ammo_left",
+                "inventory",
+            ]
+        )
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException as exc:

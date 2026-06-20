@@ -68,7 +68,12 @@
     "speed": "Speed",
     "noReplay": "No replay data for this demo. Re-parse it to generate the 2D replay.",
     "noRadar": "No radar image for this map; showing a schematic view.",
-    "utilityTimeline": "Utility timeline"
+    "utilityTimeline": "Utility timeline",
+    "hp": "HP",
+    "armor": "Armor",
+    "money": "Money",
+    "weapon": "Weapon",
+    "ammo": "Ammo in magazine / spare magazines"
   },
   "hltv": {
     "title": "HLTV download",
