@@ -113,6 +113,8 @@ export interface ZoneOut {
   name: string
   region: Region
   centroid: [number, number]
+  bounds: [number, number, number, number]
+  polygon?: [number, number][] | null
 }
 
 export interface MapCalibration {

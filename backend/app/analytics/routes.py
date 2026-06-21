@@ -18,7 +18,14 @@ def get_maps() -> list[MapOut]:
                 id=m.id,
                 name=m.name,
                 zones=[
-                    ZoneOut(id=z.id, name=z.name, region=z.region.value, centroid=z.centroid)
+                    ZoneOut(
+                        id=z.id,
+                        name=z.name,
+                        region=z.region.value,
+                        centroid=z.centroid,
+                        bounds=z.bounds,
+                        polygon=list(z.polygon) if z.polygon else None,
+                    )
                     for z in m.zones
                 ],
                 has_radar=radar_file(m.id) is not None,

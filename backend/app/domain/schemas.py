@@ -169,6 +169,8 @@ class ZoneOut(BaseModel):
     name: str
     region: str
     centroid: tuple[float, float]
+    bounds: tuple[float, float, float, float]  # world x_min, y_min, x_max, y_max
+    polygon: list[tuple[float, float]] | None = None
 
 
 class MapOut(BaseModel):

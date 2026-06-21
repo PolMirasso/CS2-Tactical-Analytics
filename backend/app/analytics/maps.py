@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from app.domain.enums import Region
 from dataclasses import dataclass
@@ -11,7 +12,52 @@ class Zone:
     id: str
     name: str
     region: Region
-    centroid: tuple[float, float]
+    bounds: tuple[float, float, float, float]  # world x_min, y_min, x_max, y_max
+    # When set, the callout's true (non-rectangular) footprint; overrides bounds.
+    polygon: tuple[tuple[float, float], ...] | None = None
+
+    @property
+    def centroid(self) -> tuple[float, float]:
+        if self.polygon:
+            return _polygon_centroid(self.polygon)
+        x0, y0, x1, y1 = self.bounds
+        return ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
+
+    def contains(self, x: float, y: float) -> bool:
+        if self.polygon:
+            return _point_in_polygon(x, y, self.polygon)
+        x0, y0, x1, y1 = self.bounds
+        return x0 <= x <= x1 and y0 <= y <= y1
+
+
+def _polygon_centroid(ring: tuple[tuple[float, float], ...]) -> tuple[float, float]:
+    """Area-weighted centroid of a simple polygon (shoelace)."""
+    a = cx = cy = 0.0
+    n = len(ring)
+    for i in range(n):
+        x0, y0 = ring[i]
+        x1, y1 = ring[(i + 1) % n]
+        cross = x0 * y1 - x1 * y0
+        a += cross
+        cx += (x0 + x1) * cross
+        cy += (y0 + y1) * cross
+    if a == 0:  # degenerate: fall back to vertex average
+        return (sum(p[0] for p in ring) / n, sum(p[1] for p in ring) / n)
+    return (cx / (3 * a), cy / (3 * a))
+
+
+def _point_in_polygon(x: float, y: float, ring: tuple[tuple[float, float], ...]) -> bool:
+    """Ray-casting test for a point against a simple polygon ring."""
+    inside = False
+    n = len(ring)
+    j = n - 1
+    for i in range(n):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
 
 
 @dataclass(frozen=True)
@@ -20,53 +66,39 @@ class GameMap:
     name: str
     zones: tuple[Zone, ...]
 
-    def nearest_zone(self, x: float, y: float) -> Zone:
+    def zone_at(self, x: float, y: float) -> Zone:
+        for z in self.zones:
+            if z.contains(x, y):
+                return z
         return min(self.zones, key=lambda z: math.dist(z.centroid, (x, y)))
 
 
-def _z(zid: str, name: str, region: Region, cx: float, cy: float) -> Zone:
-    return Zone(id=zid, name=name, region=region, centroid=(cx, cy))
+def _bbox(poly):
+    xs = [x for x, _ in poly]
+    ys = [y for _, y in poly]
+    return (min(xs), min(ys), max(xs), max(ys))
 
 
-# de_mirage
-_MIRAGE = GameMap(
-    id="de_mirage",
-    name="Mirage",
-    zones=(
-        _z("mirage_palace", "Palace", Region.A, -2250.0, -350.0),
-        _z("mirage_ramp", "Ramp / Tetris", Region.A, -1500.0, -1500.0),
-        _z("mirage_a_site", "A Site", Region.A, -1900.0, 600.0),
-        _z("mirage_stairs", "Stairs", Region.A, -1050.0, -150.0),
-        _z("mirage_mid", "Mid", Region.MID, 0.0, -600.0),
-        _z("mirage_top_mid", "Top Mid", Region.MID, 350.0, 250.0),
-        _z("mirage_window", "Window", Region.MID, -350.0, 350.0),
-        _z("mirage_connector", "Connector", Region.MID, -750.0, 450.0),
-        _z("mirage_apartments", "Apartments", Region.B, 1500.0, -250.0),
-        _z("mirage_b_site", "B Site", Region.B, 2200.0, 600.0),
-        _z("mirage_market", "Market", Region.B, 1900.0, -800.0),
-    ),
-)
+def _load_map(path: Path) -> GameMap:
+    """Build a map from assets/callouts/<map>.json (see scripts/import_callouts.py)."""
+    data = json.loads(path.read_text())
+    zones = tuple(
+        Zone(
+            id=z["id"],
+            name=z["name"],
+            region=Region(z["region"]),
+            bounds=_bbox(z["polygon"]),
+            polygon=tuple((float(x), float(y)) for x, y in z["polygon"]),
+        )
+        for z in data["zones"]
+    )
+    return GameMap(id=data["id"], name=data["name"], zones=zones)
 
-# de_inferno
-_INFERNO = GameMap(
-    id="de_inferno",
-    name="Inferno",
-    zones=(
-        _z("inferno_banana", "Banana", Region.B, 500.0, 2300.0),
-        _z("inferno_b_site", "B Site", Region.B, 350.0, 3000.0),
-        _z("inferno_mid", "Mid", Region.MID, 600.0, 700.0),
-        _z("inferno_short", "Short / Mid Apts", Region.MID, 1300.0, 1100.0),
-        _z("inferno_apartments", "Apartments", Region.A, 2100.0, 700.0),
-        _z("inferno_arch", "Arch", Region.A, 1900.0, 200.0),
-        _z("inferno_a_site", "A Site", Region.A, 2150.0, 1450.0),
-        _z("inferno_pit", "Pit", Region.A, 2550.0, 1700.0),
-        _z("inferno_t_ramp", "T Ramp", Region.MID, 1100.0, -400.0),
-    ),
-)
 
-# pendiente agregar todos los mapas de la pool
-
-_MAPS: dict[str, GameMap] = {m.id: m for m in (_MIRAGE, _INFERNO)}
+_CALLOUT_DIR = Path(__file__).resolve().parent.parent / "assets" / "callouts"
+_MAPS: dict[str, GameMap] = {
+    m.id: m for m in (_load_map(p) for p in sorted(_CALLOUT_DIR.glob("de_*.json")))
+}
 
 
 def get_map(map_id: str) -> GameMap | None:
@@ -78,25 +110,23 @@ def list_maps() -> list[GameMap]:
 
 
 def classify_point(map_id: str, x: float, y: float) -> Zone | None:
-    """Return the nearest tactical zone for a world-space point, if the map exists."""
     game_map = _MAPS.get(map_id)
-    return game_map.nearest_zone(x, y) if game_map else None
+    return game_map.zone_at(x, y) if game_map else None
 
 
-# radar assets — custom override (e.g. SimpleRadar) first, then awpy's bundled set
+_BUNDLED_RADARS = Path(__file__).resolve().parent.parent / "assets" / "radars"
+
+
 def radar_file(map_id: str) -> Path | None:
-    """Path to the map's radar PNG.
-
-    A user-supplied ``<map_id>.png`` in ``settings.radars_dir`` (drop SimpleRadar
-    images there) wins over awpy's downloaded radar. Returns ``None`` if neither
-    exists. The world→pixel calibration is identical for both, since SimpleRadar
-    images are aligned to Valve's radar coordinate system.
-    """
+    """Map radar PNG: user override, then bundled, then awpy's downloaded set."""
     from app.config import get_settings
 
     override = get_settings().radars_dir / f"{map_id}.png"
     if override.exists():
         return override
+    bundled = _BUNDLED_RADARS / f"{map_id}.png"
+    if bundled.exists():
+        return bundled
     try:
         from awpy.data import MAPS_DIR
     except Exception:
@@ -106,8 +136,6 @@ def radar_file(map_id: str) -> Path | None:
 
 
 # World→radar-pixel calibration (pos_x, pos_y, scale) for 1024×1024 radars.
-# Static constants (sourced from awpy's map_data) so the transform works without
-# downloading awpy assets at runtime — the values are fixed per map version.
 _CALIBRATION: dict[str, tuple[float, float, float]] = {
     "de_ancient": (-2953.0, 2164.0, 5.0),
     "de_anubis": (-2796.0, 3328.0, 5.22),
@@ -115,19 +143,17 @@ _CALIBRATION: dict[str, tuple[float, float, float]] = {
     "de_inferno": (-2087.0, 3870.0, 4.9),
     "de_mirage": (-3230.0, 1713.0, 5.0),
     "de_nuke": (-3453.0, 2887.0, 7.0),
-    "de_overpass": (-4831.0, 1781.0, 5.2),
     "de_train": (-2308.0, 2078.0, 4.082077),
+    "de_overpass": (-4831.0, 1781.0, 5.2),
     "de_vertigo": (-3168.0, 1762.0, 4.0),
 }
 
 
 def calibration(map_id: str) -> dict | None:
-    """World→radar-pixel calibration (pos_x, pos_y, scale) for the map, if known."""
     known = _CALIBRATION.get(map_id)
     if known is not None:
         pos_x, pos_y, scale = known
         return {"pos_x": pos_x, "pos_y": pos_y, "scale": scale}
-    # Fall back to awpy's bundled data for any map not in the static table.
     try:
         from awpy.data.map_data import MAP_DATA
     except Exception:
