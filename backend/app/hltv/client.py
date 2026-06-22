@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.domain.enums import DateRange
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 
@@ -123,6 +123,23 @@ def map_from_filename(name: str) -> str | None:
     return token if token.startswith("de_") else f"de_{token}"
 
 
+def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
+    """Pull the event name and match date from an HLTV match page's HTML."""
+    event = None
+    m = re.search(r'href="/events/\d+/[^"]*"[^>]*>([^<]+)</a>', html)
+    if m:
+        event = re.sub(r"\s+", " ", m.group(1)).strip() or None
+
+    match_date = None
+    d = re.search(r'data-unix="(\d+)"', html)
+    if d:
+        try:
+            match_date = datetime.fromtimestamp(int(d.group(1)) / 1000, tz=timezone.utc).date()
+        except (ValueError, OverflowError, OSError):
+            pass
+    return event, match_date
+
+
 def find_match_results(team_id: str, map_id: str | None, date_range: DateRange) -> list[str]:
     # Return result-match URLs for team_id within date_range
     settings = get_settings()
@@ -154,6 +171,7 @@ def iter_team_demo_archives(
                 continue
             id_match = re.search(r"/matches/(\d+)", match_url)
             match_id = id_match.group(1) if id_match else match_url.rstrip("/").split("/")[-1]
+            event, match_date = _parse_match_meta(html)
             work_dir, dem_paths = _download_and_extract(
                 f"{settings.hltv_base_url}{demo_links[0]}", match_id
             )
@@ -163,8 +181,8 @@ def iter_team_demo_archives(
             yield DemoArchive(
                 match_id=match_id,
                 map_id=map_id,
-                event=None,
-                match_date=None,
+                event=event,
+                match_date=match_date,
                 dem_paths=dem_paths,
                 work_dir=work_dir,
             )

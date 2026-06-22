@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.demos import service
@@ -30,6 +32,7 @@ def upload_demo(
         team: str | None = Form(None),
         opponent: str | None = Form(None),
         event: str | None = Form(None),
+        match_date: date | None = Form(None),
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
 ) -> UploadResult:
@@ -50,6 +53,7 @@ def upload_demo(
         team=team,
         opponent=opponent,
         event=event,
+        match_date=match_date,
     )
     n_rounds, n_util = service.parse_and_store(session, demo)
     return UploadResult(demo=_to_out(demo), rounds=n_rounds, utility_events=n_util)

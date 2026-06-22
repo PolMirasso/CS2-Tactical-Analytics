@@ -162,6 +162,7 @@ export interface ReplayPlayer {
 
 export interface ReplayFrame {
   t: number
+  // One [x, y, yaw, hp, z] per player, aligned to the round roster order.
   pos: [number, number, number, number, number][]
   // Per player: [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask].
   // weaponIdx indexes ReplayRound.weapons; nadeMask packs grenade types held.

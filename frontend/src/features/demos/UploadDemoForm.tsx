@@ -10,10 +10,10 @@ export function UploadDemoForm() {
   const { user } = useAuth()
   const upload = useUploadDemo()
   const [file, setFile] = useState<File | null>(null)
-  const [map, setMap] = useState('')
   const [team, setTeam] = useState('')
   const [opponent, setOpponent] = useState('')
   const [event, setEvent] = useState('')
+  const [matchDate, setMatchDate] = useState('')
   const [visibility, setVisibility] = useState<Visibility>('private')
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -26,10 +26,10 @@ export function UploadDemoForm() {
     const form = new FormData()
     form.append('file', file)
     form.append('visibility', visibility)
-    if (map) form.append('map_id', map)
     if (team) form.append('team', team)
     if (opponent) form.append('opponent', opponent)
     if (event) form.append('event', event)
+    if (matchDate) form.append('match_date', matchDate)
     try {
       const res = await upload.mutateAsync(form)
       setNote(
@@ -54,16 +54,8 @@ export function UploadDemoForm() {
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           required
         />
+        <p className="muted">{t('demos.mapAutoDetected')}</p>
         <div className="row">
-          <div>
-            <label htmlFor="map">{t('demos.map')}</label>
-            <input
-              id="map"
-              placeholder="de_mirage"
-              value={map}
-              onChange={(e) => setMap(e.target.value)}
-            />
-          </div>
           <div>
             <label htmlFor="team">{t('demos.team')}</label>
             <input id="team" value={team} onChange={(e) => setTeam(e.target.value)} />
@@ -74,6 +66,15 @@ export function UploadDemoForm() {
               id="opponent"
               value={opponent}
               onChange={(e) => setOpponent(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="matchDate">{t('demos.matchDate')}</label>
+            <input
+              id="matchDate"
+              type="date"
+              value={matchDate}
+              onChange={(e) => setMatchDate(e.target.value)}
             />
           </div>
         </div>

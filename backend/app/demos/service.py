@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import shutil
+from datetime import date
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, Round, User, UtilityEvent
@@ -68,6 +69,7 @@ def store_upload(
         team: str | None = None,
         opponent: str | None = None,
         event: str | None = None,
+        match_date: date | None = None,
         hltv_match_id: str | None = None,
 ) -> Demo:
     """Persist an uploaded demo file (dedup per-owner by sha256)."""
@@ -97,6 +99,7 @@ def store_upload(
         team=team,
         opponent=opponent,
         event=event,
+        match_date=match_date,
         hltv_match_id=hltv_match_id,
         file_path=str(final),
         sha256=sha,
