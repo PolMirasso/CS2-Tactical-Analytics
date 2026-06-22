@@ -76,6 +76,8 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 visibility=body.visibility,
                                 map_id=demo_map,
                                 team=body.team_name,
+                                event=archive.event,
+                                match_date=archive.match_date,
                                 hltv_match_id=archive.match_id,
                             )
                         demo_service.parse_and_store(session, demo)
