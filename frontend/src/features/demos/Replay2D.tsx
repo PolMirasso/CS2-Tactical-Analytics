@@ -20,6 +20,13 @@ const UTIL_COLOR: Record<UtilityType, string> = {
   he: '#ff5d5d',
 }
 const SPEEDS = [0.5, 1, 2, 4]
+const C4_TIME = 40
+const ROUND_TIME = 115
+
+const fmtClock = (sec: number): string => {
+  const s = Math.max(0, Math.ceil(sec))
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
+}
 
 // Grenade post-landing effect: lifetime (s) and world-space radius.
 const UTIL_DUR: Record<UtilityType, number> = { smoke: 18, molotov: 7, flash: 0.35, he: 0.45 }
@@ -282,6 +289,8 @@ function ReplayStage({
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
+  const [picked, setPicked] = useState<{ name: string; cmd: string } | null>(null)
+  const [copied, setCopied] = useState(false)
   const project = useProjection(round, calibration, hasRadar)
   const teams = useTeams(round)
   // Death spot per player (last alive world position + time), for the "X" marker.
@@ -561,7 +570,20 @@ function ReplayStage({
                       </>
                     )}
                     <line x1={cx} y1={cy} x2={cx + dirX * 24} y2={cy + dirY * 24} stroke={color} strokeWidth={3} />
-                    <circle cx={cx} cy={cy} r={13} fill={color} stroke="#11141a" strokeWidth={2}>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={13}
+                      fill={color}
+                      stroke="#11141a"
+                      strokeWidth={2}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        const cmd = `setpos ${px.toFixed(1)} ${py.toFixed(1)} ${live[4].toFixed(1)};setang 0 ${yaw.toFixed(1)} 0`
+                        setPicked({ name: player.name, cmd })
+                        setCopied(false)
+                      }}
+                    >
                       <title>{player.name}</title>
                     </circle>
                     {/* Player name below the dot (outlined for readability). */}
@@ -621,6 +643,75 @@ function ReplayStage({
               )
             })()}
           </svg>
+
+          {(() => {
+            const planted = round.bomb && time >= round.bomb.t
+            const remaining = planted ? C4_TIME - (time - round.bomb!.t) : ROUND_TIME - time
+            const danger = !!planted
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '2px 16px',
+                  borderRadius: 4,
+                  background: 'rgba(13,16,22,0.9)',
+                  border: `1px solid ${danger ? 'rgba(255,93,93,0.55)' : 'var(--border)'}`,
+                  color: danger ? '#ff5d5d' : '#e6e9ef',
+                  fontSize: 22,
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                  pointerEvents: 'none',
+                }}
+              >
+                {danger && (
+                  <span style={{ width: 9, height: 9, borderRadius: 2, background: '#ff5d5d' }} />
+                )}
+                {fmtClock(remaining)}
+              </div>
+            )
+          })()}
+
+          {picked && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 8,
+                left: 8,
+                maxWidth: '75%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 5,
+                padding: '8px 10px',
+                borderRadius: 6,
+                background: 'rgba(10,12,16,0.92)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <strong style={{ fontSize: 12 }}>{picked.name}</strong>
+                <button className="ghost" style={{ padding: '0 6px' }} onClick={() => setPicked(null)}>
+                  ✕
+                </button>
+              </div>
+              <code style={{ fontSize: 11, wordBreak: 'break-all' }}>{picked.cmd}</code>
+              <button
+                style={{ padding: '3px 8px', alignSelf: 'flex-start' }}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(picked.cmd)
+                  setCopied(true)
+                }}
+              >
+                {copied ? t('replay.copied') : t('replay.copyCmd')}
+              </button>
+            </div>
+          )}
 
           {/* Kill feed (top-right): attacker — weapon [HS] → victim. */}
           {visibleKills.length > 0 && (

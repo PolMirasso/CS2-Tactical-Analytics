@@ -58,6 +58,7 @@
     "summary": "Summary",
     "rounds": "Rounds",
     "buy": "Buy",
+    "buyTypes": { "eco": "Eco", "force": "Force", "full": "Full" },
     "site": "Site",
     "utility": "Utility",
     "noUtility": "No utility",
@@ -80,7 +81,9 @@
     "armor": "Armor",
     "money": "Money",
     "weapon": "Weapon",
-    "ammo": "Ammo in magazine / spare magazines"
+    "ammo": "Ammo in magazine / spare magazines",
+    "copyCmd": "Copy",
+    "copied": "Copied!"
   },
   "hltv": {
     "title": "HLTV download",
