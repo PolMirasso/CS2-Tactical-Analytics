@@ -13,6 +13,7 @@ the per-map calibration (``pos_x``/``pos_y``/``scale``) served by the maps API.
 
 from __future__ import annotations
 
+import math
 from app.analytics.maps import GameMap, get_map, list_maps
 from dataclasses import dataclass, field
 
@@ -48,6 +49,7 @@ class UtilityShot:
     from_xy: tuple[float, float]
     to_xy: tuple[float, float]
     to_z: float = 0.0  # landing height, to pick the level on two-level maps
+    path: list[tuple[float, float, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -105,6 +107,7 @@ def _round_to_dict(r: ReplayRound) -> dict:
                 "from": [round(u.from_xy[0], 1), round(u.from_xy[1], 1)],
                 "to": [round(u.to_xy[0], 1), round(u.to_xy[1], 1)],
                 "z": round(u.to_z),
+                "path": [[round(x, 1), round(y, 1), round(z)] for x, y, z in u.path],
             }
             for u in r.utility
         ],
@@ -255,6 +258,32 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
     )
 
 
+def _simplify_path(pts: list[tuple[float, float, float]], eps: float = 10.0) -> list[tuple[float, float, float]]:
+    """Ramer–Douglas–Peucker on the (x, y) plane, keeping bounce corners."""
+    if len(pts) < 3:
+        return pts
+    ax, ay, _ = pts[0]
+    bx, by, _ = pts[-1]
+    dx, dy = bx - ax, by - ay
+    seg2 = dx * dx + dy * dy
+    far_i, far_d = 0, -1.0
+    for i in range(1, len(pts) - 1):
+        px, py, _ = pts[i]
+        if seg2 == 0:
+            d = math.hypot(px - ax, py - ay)
+        else:
+            t = ((px - ax) * dx + (py - ay) * dy) / seg2
+            t = max(0.0, min(1.0, t))
+            d = math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+        if d > far_d:
+            far_i, far_d = i, d
+    if far_d <= eps:
+        return [pts[0], pts[-1]]
+    left = _simplify_path(pts[: far_i + 1], eps)
+    right = _simplify_path(pts[far_i:], eps)
+    return left[:-1] + right
+
+
 def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) -> list[UtilityShot]:
     from app.parsing.parser import _grenade_type  # local import avoids a cycle
 
@@ -265,13 +294,11 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
         aggs = [
             pl.col("grenade_type").first().alias("grenade_type"),
             pl.col("tick").min().alias("throw_tick"),
-            pl.col("X").first().alias("from_x"),
-            pl.col("Y").first().alias("from_y"),
-            pl.col("X").last().alias("to_x"),
-            pl.col("Y").last().alias("to_y"),
+            pl.col("X").alias("xs"),
+            pl.col("Y").alias("ys"),
         ]
         if has_z:
-            aggs.append(pl.col("Z").last().alias("to_z"))
+            aggs.append(pl.col("Z").alias("zs"))
         events = (
             grenades.filter(
                 (pl.col("round_num") == rnum)
@@ -279,7 +306,7 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
                 & pl.col("Y").is_not_null()
             )
             .sort("tick")
-            .group_by("entity_id")
+            .group_by("entity_id", maintain_order=True)
             .agg(*aggs)
         )
     except Exception:
@@ -290,15 +317,22 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
         util = _grenade_type(g.get("grenade_type"))
         if util is None:
             continue
+        xs, ys = g["xs"], g["ys"]
+        zs = g.get("zs") or [0.0] * len(xs)
+        if not xs:
+            continue
+        raw = [(float(x), float(y), float(z or 0.0)) for x, y, z in zip(xs, ys, zs)]
+        path = _simplify_path(raw)
         t = max(0.0, (float(g.get("throw_tick", freeze_end)) - freeze_end) / tickrate)
         out.append(
             UtilityShot(
                 util_type=util.value,
                 side="",  # thrower side resolved client-side is not needed for the line
                 t=t,
-                from_xy=(float(g["from_x"]), float(g["from_y"])),
-                to_xy=(float(g["to_x"]), float(g["to_y"])),
-                to_z=float(g.get("to_z") or 0.0),
+                from_xy=(path[0][0], path[0][1]),
+                to_xy=(path[-1][0], path[-1][1]),
+                to_z=path[-1][2],
+                path=path,
             )
         )
     out.sort(key=lambda u: u.t)

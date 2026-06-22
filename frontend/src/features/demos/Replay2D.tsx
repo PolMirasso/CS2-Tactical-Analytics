@@ -418,27 +418,81 @@ function ReplayStage({
                 No persistent line — it appears in real time and disappears. */}
             {round.utility.map((u, i) => {
               const c = UTIL_COLOR[u.type] ?? '#fff'
-              const dist = Math.hypot(u.to[0] - u.from[0], u.to[1] - u.from[1])
-              const flight = Math.min(2.2, Math.max(0.4, dist / 1600))
+              const wp: [number, number, number][] =
+                u.path && u.path.length > 1
+                  ? u.path
+                  : [
+                      [u.from[0], u.from[1], u.z ?? 0],
+                      [u.to[0], u.to[1], u.z ?? 0],
+                    ]
+              const seg: number[] = []
+              let total = 0
+              for (let k = 1; k < wp.length; k++) {
+                const d = Math.hypot(wp[k][0] - wp[k - 1][0], wp[k][1] - wp[k - 1][1])
+                seg.push(d)
+                total += d
+              }
+              const flight = Math.min(2.2, Math.max(0.4, total / 1600))
               const landT = u.t + flight
               const dur = UTIL_DUR[u.type] ?? 1
+              const linger = 1.2
 
-              if (time < u.t || time >= landT + dur) return null
+              if (time < u.t || time >= landT + Math.max(dur, linger)) return null
 
-              // In flight: a moving grenade dot from thrower to landing spot.
               if (time < landT) {
-                const p = (time - u.t) / flight
+                const target = Math.max(0, Math.min(1, (time - u.t) / flight)) * total
+                let acc = 0
+                let idx = 0
+                let localT = 0
+                for (; idx < seg.length; idx++) {
+                  if (acc + seg[idx] >= target) {
+                    localT = seg[idx] ? (target - acc) / seg[idx] : 0
+                    break
+                  }
+                  acc += seg[idx]
+                }
+                if (idx >= seg.length) {
+                  idx = Math.max(0, seg.length - 1)
+                  localT = 1
+                }
+                const a = wp[idx]
+                const b = wp[idx + 1] ?? a
                 const [gx, gy] = project(
-                  u.from[0] + (u.to[0] - u.from[0]) * p,
-                  u.from[1] + (u.to[1] - u.from[1]) * p,
-                  u.z,
+                  a[0] + (b[0] - a[0]) * localT,
+                  a[1] + (b[1] - a[1]) * localT,
+                  a[2] + (b[2] - a[2]) * localT,
                 )
+                const pts = wp.slice(0, idx + 1).map((q) => project(q[0], q[1], q[2]))
+                pts.push([gx, gy])
                 return (
                   <g key={`u${i}`}>
+                    <polyline
+                      points={pts.map((pp) => pp.join(',')).join(' ')}
+                      fill="none"
+                      stroke={c}
+                      strokeWidth={2}
+                      strokeOpacity={0.7}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
                     <circle cx={gx} cy={gy} r={6} fill={c} stroke="#11141a" strokeWidth={1.5} />
                   </g>
                 )
               }
+
+              const trailA = Math.max(0, 0.7 * (1 - (time - landT) / linger))
+              const trail =
+                trailA > 0 ? (
+                  <polyline
+                    points={wp.map((q) => project(q[0], q[1], q[2]).join(',')).join(' ')}
+                    fill="none"
+                    stroke={c}
+                    strokeWidth={2}
+                    strokeOpacity={trailA}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                ) : null
 
               // Landed effect: fade in (0.25s) and fade out (last 1s).
               const age = time - landT
@@ -451,6 +505,7 @@ function ReplayStage({
               if (u.type === 'smoke') {
                 return (
                   <g key={`u${i}`}>
+                    {trail}
                     <circle cx={cx} cy={cy} r={pr} fill="#c7ccd6" opacity={0.5 * alpha} />
                     <circle cx={cx} cy={cy} r={pr} fill="none" stroke="#e6e9ef" strokeWidth={2} opacity={0.7 * alpha} />
                   </g>
@@ -460,6 +515,7 @@ function ReplayStage({
                 const flicker = 0.32 + 0.12 * Math.sin(time * 22)
                 return (
                   <g key={`u${i}`}>
+                    {trail}
                     <circle cx={cx} cy={cy} r={pr} fill="#ff7a45" opacity={flicker * alpha} />
                     <circle cx={cx} cy={cy} r={pr} fill="none" stroke="#ff5d2e" strokeWidth={2} opacity={0.8 * alpha} />
                   </g>
@@ -469,6 +525,7 @@ function ReplayStage({
               const burst = pr * (0.5 + 0.5 * Math.min(1, age / 0.12))
               return (
                 <g key={`u${i}`}>
+                  {trail}
                   <circle cx={cx} cy={cy} r={burst} fill={c} opacity={0.6 * alpha} />
                 </g>
               )
