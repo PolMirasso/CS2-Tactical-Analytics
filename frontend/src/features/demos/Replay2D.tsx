@@ -34,7 +34,7 @@ const NADES: { bit: number; label: string; color: string }[] = [
   { bit: 16, label: 'Decoy', color: '#7bd88f' },
 ]
 
-type Pos = [number, number, number, number] // x, y, yaw, hp
+type Pos = [number, number, number, number, number] // x, y, yaw, hp, z
 // [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask]
 type Stat = number[]
 
@@ -56,18 +56,28 @@ function lerpPlayer(a: Pos, b: Pos, f: number): Pos | null {
     a[1] + (b[1] - a[1]) * f,
     a[2] + dyaw * f,
     a[3] + (b[3] - a[3]) * f,
+    f < 0.5 ? a[4] : b[4], // z: snap to nearest sample, levels don't interpolate
   ]
 }
 
-/** World→SVG-pixel projection: radar calibration when available, else a fit. */
+/**
+ * World→SVG-pixel projection: radar calibration when available, else a fit.
+ * On two-level maps (nuke) a point whose world z is below `lower_level_max_units`
+ * projects with the `lower` calibration, which the radar draws as a separate inset.
+ */
 function useProjection(
   round: ReplayRound,
   cal: MapCalibration | null,
   hasRadar: boolean,
-): (x: number, y: number) => [number, number] {
+): (x: number, y: number, z?: number) => [number, number] {
   return useMemo(() => {
     if (cal && hasRadar) {
-      return (x: number, y: number) => [(x - cal.pos_x) / cal.scale, (cal.pos_y - y) / cal.scale]
+      const lower = cal.lower
+      const zMax = cal.lower_level_max_units
+      return (x: number, y: number, z?: number) => {
+        const c = lower && zMax != null && z != null && z < zMax ? lower : cal
+        return [(x - c.pos_x) / c.scale, (c.pos_y - y) / c.scale]
+      }
     }
     // Fallback: fit all world points into the viewBox (no radar background).
     const xs: number[] = []
@@ -152,7 +162,7 @@ function TeamPanel({
         {side === 'ct' ? 'CT' : 'T'}
       </div>
       {entries.map((e) => {
-        const pos = (statFrame.pos[e.idx] as Pos) ?? [0, 0, 0, 0]
+        const pos = (statFrame.pos[e.idx] as Pos) ?? [0, 0, 0, 0, 0]
         const st = (statFrame.st?.[e.idx] as Stat) ?? [0, 0, 0, 0, 0, 0]
         const hp = Math.max(0, Math.round(pos[3]))
         const dead = hp <= 0
@@ -276,13 +286,13 @@ function ReplayStage({
   const teams = useTeams(round)
   // Death spot per player (last alive world position + time), for the "X" marker.
   const deaths = useMemo(() => {
-    const out: (null | { t: number; x: number; y: number })[] = round.players.map(() => null)
-    const lastAlive: (null | [number, number])[] = round.players.map(() => null)
+    const out: (null | { t: number; x: number; y: number; z: number })[] = round.players.map(() => null)
+    const lastAlive: (null | [number, number, number])[] = round.players.map(() => null)
     for (const fr of round.frames) {
       ;(fr.pos as Pos[]).forEach((p, k) => {
-        if (!isDead(p)) lastAlive[k] = [p[0], p[1]]
+        if (!isDead(p)) lastAlive[k] = [p[0], p[1], p[4]]
         else if (out[k] == null && lastAlive[k]) {
-          out[k] = { t: fr.t, x: lastAlive[k]![0], y: lastAlive[k]![1] }
+          out[k] = { t: fr.t, x: lastAlive[k]![0], y: lastAlive[k]![1], z: lastAlive[k]![2] }
         }
       })
     }
@@ -342,9 +352,9 @@ function ReplayStage({
   const { a, b, f, i0 } = frameAt(round.frames, time, sampleHz)
   const statFrame = round.frames[i0] // discrete scoreboard stats (no interp)
   // World radius → pixel radius under the active projection.
-  const projectR = (x: number, y: number, worldR: number): number => {
-    const [px] = project(x, y)
-    const [qx] = project(x + worldR, y)
+  const projectR = (x: number, y: number, worldR: number, z?: number): number => {
+    const [px] = project(x, y, z)
+    const [qx] = project(x + worldR, y, z)
     return Math.abs(qx - px)
   }
   // A player is "firing" if they shot within a short window before the playhead.
@@ -421,6 +431,7 @@ function ReplayStage({
                 const [gx, gy] = project(
                   u.from[0] + (u.to[0] - u.from[0]) * p,
                   u.from[1] + (u.to[1] - u.from[1]) * p,
+                  u.z,
                 )
                 return (
                   <g key={`u${i}`}>
@@ -434,8 +445,8 @@ function ReplayStage({
               const fadeIn = Math.min(1, age / 0.25)
               const fadeOut = Math.min(1, (dur - age) / Math.min(1, dur))
               const alpha = Math.max(0, Math.min(fadeIn, fadeOut))
-              const [cx, cy] = project(u.to[0], u.to[1])
-              const pr = projectR(u.to[0], u.to[1], UTIL_RADIUS[u.type] ?? 100)
+              const [cx, cy] = project(u.to[0], u.to[1], u.z)
+              const pr = projectR(u.to[0], u.to[1], UTIL_RADIUS[u.type] ?? 100, u.z)
 
               if (u.type === 'smoke') {
                 return (
@@ -469,7 +480,7 @@ function ReplayStage({
               const live = lerpPlayer(a[k], b[k], f)
               if (live) {
                 const [px, py, yaw] = live
-                const [cx, cy] = project(px, py)
+                const [cx, cy] = project(px, py, live[4])
                 // Facing tick: yaw is degrees CCW from +X; screen Y is flipped.
                 const rad = (yaw * Math.PI) / 180
                 const dirX = Math.cos(rad)
@@ -516,7 +527,7 @@ function ReplayStage({
               }
               const d = deaths[k]
               if (d && time >= d.t) {
-                const [cx, cy] = project(d.x, d.y)
+                const [cx, cy] = project(d.x, d.y, d.z)
                 const s = 9
                 return (
                   <g key={player.steamid} opacity={0.85}>
@@ -532,7 +543,7 @@ function ReplayStage({
             {/* Planted bomb (shown from the plant time onward). */}
             {round.bomb && time >= round.bomb.t && (() => {
               const b = round.bomb!
-              const [bx, by] = project(b.x, b.y)
+              const [bx, by] = project(b.x, b.y, b.z ?? undefined)
               return (
                 <g>
                   <circle cx={bx} cy={by} r={16} fill="none" stroke="#ff5d5d" strokeWidth={2} opacity={0.6} />

@@ -15,6 +15,7 @@ const NAV: { to: string; end?: boolean; key: string; icon: ReactNode }[] = [
   { to: '/hltv', key: 'nav.hltv', icon: icon('M12 3v12m0 0l-4-4m4 4l4-4M5 21h14') },
   { to: '/groups', key: 'nav.groups', icon: icon('M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm12 10v-2a4 4 0 00-3-3.87M16 3.13A4 4 0 0118 11') },
   { to: '/maps', key: 'nav.maps', icon: icon('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zm0 0v13m6-10v13') },
+  { to: '/maps/edit', key: 'nav.mapEditor', icon: icon('M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z') },
 ]
 
 const STORAGE_KEY = 'cs2.sidebar.collapsed'

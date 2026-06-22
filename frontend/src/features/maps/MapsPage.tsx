@@ -20,12 +20,7 @@ export function MapsPage() {
             </span>
           </h2>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            <ZoneScatter
-              zones={map.zones}
-              mapId={map.id}
-              hasRadar={map.has_radar}
-              calibration={map.calibration}
-            />
+            <ZoneScatter zones={map.zones} mapId={map.id} />
             <table style={{ flex: 1, minWidth: 240 }}>
               <thead>
                 <tr>

@@ -122,6 +122,9 @@ export interface MapCalibration {
   pos_x: number
   pos_y: number
   scale: number
+  // Two-level maps (nuke): points below lower_level_max_units (world z) use `lower`.
+  lower?: MapCalibration | null
+  lower_level_max_units?: number | null
 }
 
 export interface MapOut {
@@ -159,8 +162,7 @@ export interface ReplayPlayer {
 
 export interface ReplayFrame {
   t: number
-  // One [x, y, yaw, hp] per player, aligned to the round roster order.
-  pos: [number, number, number, number][]
+  pos: [number, number, number, number, number][]
   // Per player: [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask].
   // weaponIdx indexes ReplayRound.weapons; nadeMask packs grenade types held.
   st: number[][]
@@ -172,12 +174,14 @@ export interface ReplayUtility {
   t: number
   from: [number, number]
   to: [number, number]
+  z?: number
 }
 
 export interface ReplayBomb {
   t: number // seconds since freeze end when planted
   x: number
   y: number
+  z?: number | null
   site: string | null
 }
 
