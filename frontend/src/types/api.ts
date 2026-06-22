@@ -176,6 +176,7 @@ export interface ReplayUtility {
   from: [number, number]
   to: [number, number]
   z?: number
+  path?: [number, number, number][]
 }
 
 export interface ReplayBomb {
