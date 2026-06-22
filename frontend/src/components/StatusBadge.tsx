@@ -8,6 +8,7 @@ const TONE: Record<string, string> = {
   completed: 'ok',
   failed: 'failed',
   running: 'running',
+  reparsing: 'running',
   pending: 'pending',
 }
 
