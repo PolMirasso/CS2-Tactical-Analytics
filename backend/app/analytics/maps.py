@@ -149,9 +149,9 @@ _CALIBRATION: dict[str, tuple[float, float, float]] = {
     "de_inferno": (-2087.0, 3870.0, 4.9),
     "de_mirage": (-3230.0, 1713.0, 5.0),
     "de_nuke": (-2568.0, 971.4, 5.3854),
-    "de_train": (-2308.0, 2078.0, 4.082077),
+    "de_train": (-2407.1, 2203.1, 4.3),
     "de_overpass": (-4831.0, 1781.0, 5.2),
-    "de_vertigo": (-3168.0, 1762.0, 4.0),
+    "de_vertigo": (-3900.9, 1257.9, 5.0),  # upper level (see _LOWER_LEVEL)
 }
 
 
@@ -159,6 +159,8 @@ _CALIBRATION: dict[str, tuple[float, float, float]] = {
 _LOWER_LEVEL: dict[str, tuple[tuple[float, float, float], float]] = {
     # Lower level (B site) is drawn as the bottom-left inset of de_nuke.png.
     "de_nuke": ((-490.9, 2909.2, 5.2859), -495.0),
+    # Vertigo draws the lower level as a second radar stacked below the upper.
+    "de_vertigo": ((-3841.6, 3344.7, 4.8), 11700.0),
 }
 
 

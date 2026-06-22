@@ -1,0 +1,1 @@
+{"id": "de_vertigo", "name": "Vertigo", "zones": [{"id": "vertigo_a_site", "name": "A Site", "region": "A", "polygon": [[306.0, 64.0], [366.0, 64.0], [366.0, 134.0], [306.0, 134.0]]}, {"id": "vertigo_b_site", "name": "B Site", "region": "B", "polygon": [[680.0, 350.0], [767.0, 350.0], [767.0, 405.0], [680.0, 405.0]]}]}
