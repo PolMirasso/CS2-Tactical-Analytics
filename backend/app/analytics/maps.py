@@ -80,7 +80,7 @@ def _bbox(poly):
 
 
 def _load_map(path: Path) -> GameMap:
-    """Build a map from assets/callouts/<map>.json (see scripts/import_callouts.py)."""
+    """Build a map from assets/callouts/<map>.json (polygons in 1024 pixel space)."""
     data = json.loads(path.read_text())
     zones = tuple(
         Zone(
@@ -111,7 +111,13 @@ def list_maps() -> list[GameMap]:
 
 def classify_point(map_id: str, x: float, y: float) -> Zone | None:
     game_map = _MAPS.get(map_id)
-    return game_map.zone_at(x, y) if game_map else None
+    if game_map is None:
+        return None
+    cal = _CALIBRATION.get(map_id)
+    if cal is not None:
+        pos_x, pos_y, scale = cal
+        x, y = (x - pos_x) / scale, (pos_y - y) / scale
+    return game_map.zone_at(x, y)
 
 
 _BUNDLED_RADARS = Path(__file__).resolve().parent.parent / "assets" / "radars"
@@ -142,10 +148,17 @@ _CALIBRATION: dict[str, tuple[float, float, float]] = {
     "de_dust2": (-2476.0, 3239.0, 4.4),
     "de_inferno": (-2087.0, 3870.0, 4.9),
     "de_mirage": (-3230.0, 1713.0, 5.0),
-    "de_nuke": (-3453.0, 2887.0, 7.0),
+    "de_nuke": (-2568.0, 971.4, 5.3854),
     "de_train": (-2308.0, 2078.0, 4.082077),
     "de_overpass": (-4831.0, 1781.0, 5.2),
     "de_vertigo": (-3168.0, 1762.0, 4.0),
+}
+
+
+# Two-level maps: the SimpleRadar draws the lower level offset, so players below
+_LOWER_LEVEL: dict[str, tuple[tuple[float, float, float], float]] = {
+    # Lower level (B site) is drawn as the bottom-left inset of de_nuke.png.
+    "de_nuke": ((-490.9, 2909.2, 5.2859), -495.0),
 }
 
 
@@ -153,7 +166,13 @@ def calibration(map_id: str) -> dict | None:
     known = _CALIBRATION.get(map_id)
     if known is not None:
         pos_x, pos_y, scale = known
-        return {"pos_x": pos_x, "pos_y": pos_y, "scale": scale}
+        out = {"pos_x": pos_x, "pos_y": pos_y, "scale": scale}
+        lower = _LOWER_LEVEL.get(map_id)
+        if lower is not None:
+            (lx, ly, ls), z_max = lower
+            out["lower"] = {"pos_x": lx, "pos_y": ly, "scale": ls}
+            out["lower_level_max_units"] = z_max
+        return out
     try:
         from awpy.data.map_data import MAP_DATA
     except Exception:

@@ -31,7 +31,8 @@ class PlayerSlot:
 @dataclass
 class Frame:
     t: float  # seconds since the round went live (freeze end)
-    # One [x, y, yaw, hp] per player, aligned to the round's ``players`` roster.
+    # One [x, y, yaw, hp, z] per player, aligned to the round's ``players`` roster.
+    # z (world height) lets the viewer pick the right level on two-level maps.
     pos: list[list[float]]
     # One [armor, money, weapon_idx] per player (same roster order). Discrete
     # scoreboard stats — not interpolated; ``weapon_idx`` indexes the round's
@@ -46,6 +47,7 @@ class UtilityShot:
     t: float
     from_xy: tuple[float, float]
     to_xy: tuple[float, float]
+    to_z: float = 0.0  # landing height, to pick the level on two-level maps
 
 
 @dataclass
@@ -102,6 +104,7 @@ def _round_to_dict(r: ReplayRound) -> dict:
                 "t": round(u.t, 2),
                 "from": [round(u.from_xy[0], 1), round(u.from_xy[1], 1)],
                 "to": [round(u.to_xy[0], 1), round(u.to_xy[1], 1)],
+                "z": round(u.to_z),
             }
             for u in r.utility
         ],
@@ -188,7 +191,7 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
     duration = (ticks[-1] - freeze_end) / tickrate if ticks else 0.0
 
     has = set(rdf.columns)
-    cols = ["tick", "steamid", "name", "side", "X", "Y"]
+    cols = ["tick", "steamid", "name", "side", "X", "Y", "Z"]
     # NB: awpy renames the ``armor_value`` prop to ``armor`` on the ticks frame.
     optional = (
         "yaw", "health", "armor", "balance",
@@ -213,9 +216,11 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
             continue
         yaw = float(row.get("yaw") or 0.0)
         hp = float(row.get("health") if row.get("health") is not None else 100.0)
+        z = row.get("Z")
         tk = int(row["tick"])
         pos_by_tick.setdefault(tk, {})[sid] = [
-            round(float(x), 1), round(float(y), 1), round(yaw, 1), hp
+            round(float(x), 1), round(float(y), 1), round(yaw, 1), hp,
+            round(float(z)) if z is not None else 0.0,
         ]
         # Dead players carry no live weapon/ammo/utility; collapse to none.
         alive = hp > 0
@@ -241,7 +246,7 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
         st_snap = st_by_tick.get(tk, {})
         # Dead/missing players keep their last position with hp 0 so the dot fades
         # rather than jumping; missing-at-start defaults to origin with hp 0.
-        pos = [snap.get(p.steamid, [0.0, 0.0, 0.0, 0.0]) for p in players]
+        pos = [snap.get(p.steamid, [0.0, 0.0, 0.0, 0.0, 0.0]) for p in players]
         st = [st_snap.get(p.steamid, [0, 0, 0, 0, 0, 0]) for p in players]
         frames.append(Frame(t=(tk - freeze_end) / tickrate, pos=pos, st=st))
 
@@ -255,7 +260,18 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
 
     if grenades is None or grenades.is_empty():
         return []
+    has_z = "Z" in grenades.columns
     try:
+        aggs = [
+            pl.col("grenade_type").first().alias("grenade_type"),
+            pl.col("tick").min().alias("throw_tick"),
+            pl.col("X").first().alias("from_x"),
+            pl.col("Y").first().alias("from_y"),
+            pl.col("X").last().alias("to_x"),
+            pl.col("Y").last().alias("to_y"),
+        ]
+        if has_z:
+            aggs.append(pl.col("Z").last().alias("to_z"))
         events = (
             grenades.filter(
                 (pl.col("round_num") == rnum)
@@ -264,14 +280,7 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
             )
             .sort("tick")
             .group_by("entity_id")
-            .agg(
-                pl.col("grenade_type").first().alias("grenade_type"),
-                pl.col("tick").min().alias("throw_tick"),
-                pl.col("X").first().alias("from_x"),
-                pl.col("Y").first().alias("from_y"),
-                pl.col("X").last().alias("to_x"),
-                pl.col("Y").last().alias("to_y"),
-            )
+            .agg(*aggs)
         )
     except Exception:
         return []
@@ -289,6 +298,7 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
                 t=t,
                 from_xy=(float(g["from_x"]), float(g["from_y"])),
                 to_xy=(float(g["to_x"]), float(g["to_y"])),
+                to_z=float(g.get("to_z") or 0.0),
             )
         )
     out.sort(key=lambda u: u.t)
@@ -339,12 +349,14 @@ def _round_bomb(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> dict
     x, y = row.get("X"), row.get("Y")
     if x is None or y is None:
         return None
+    z = row.get("Z")
     t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
     site = (row.get("bombsite") or "").replace("Bombsite", "") or None  # "BombsiteB" -> "B"
     return {
         "t": round(t, 2),
         "x": round(float(x), 1),
         "y": round(float(y), 1),
+        "z": round(float(z)) if z is not None else None,
         "site": site,
     }
 

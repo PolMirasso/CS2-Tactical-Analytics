@@ -110,6 +110,10 @@ class MapCalibration(BaseModel):
     pos_x: float
     pos_y: float
     scale: float
+    # Two-level maps (e.g. nuke): players below ``lower_level_max_units`` (world z)
+    # project with ``lower``, which the SimpleRadar draws as a separate inset.
+    lower: "MapCalibration | None" = None
+    lower_level_max_units: float | None = None
 
 
 class ReplayRoundMeta(BaseModel):

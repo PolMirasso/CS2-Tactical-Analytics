@@ -9,6 +9,7 @@ import { ReplayPage } from '@/features/demos/ReplayPage'
 import { HltvPage } from '@/features/hltv/HltvPage'
 import { GroupsPage } from '@/features/groups/GroupsPage'
 import { MapsPage } from '@/features/maps/MapsPage'
+import { MapEditorPage } from '@/features/maps/MapEditorPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: 'hltv', element: <HltvPage /> },
       { path: 'groups', element: <GroupsPage /> },
       { path: 'maps', element: <MapsPage /> },
+      { path: 'maps/edit', element: <MapEditorPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
