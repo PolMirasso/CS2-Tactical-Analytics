@@ -39,7 +39,7 @@ export function DemoDetailPage() {
     <div>
       <h1>
         {demo.team ?? t('common.none')} {demo.opponent ? `vs ${demo.opponent}` : ''}{' '}
-        <StatusBadge status={demo.status} />
+        <StatusBadge status={reparse.isPending ? 'reparsing' : demo.status} />
       </h1>
 
       <div className="card">
