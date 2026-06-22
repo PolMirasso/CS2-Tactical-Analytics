@@ -114,6 +114,8 @@
   "maps": {
     "title": "Maps",
     "zones": "zones",
-    "region": "Region"
+    "region": "Region",
+    "activeDuty": "Active Duty Map Pool",
+    "reserve": "Reserve Map Pool"
   }
 }

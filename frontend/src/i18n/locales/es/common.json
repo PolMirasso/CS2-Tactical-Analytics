@@ -114,6 +114,8 @@
   "maps": {
     "title": "Mapas",
     "zones": "zonas",
-    "region": "Región"
+    "region": "Región",
+    "activeDuty": "Mapas activos",
+    "reserve": "Mapas de reserva"
   }
 }
