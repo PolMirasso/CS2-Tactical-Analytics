@@ -10,6 +10,8 @@ const UTIL_COLOR: Record<UtilityType, string> = {
 
 const SITES: Site[] = ['A', 'B', 'Mid', 'NoPlant']
 
+const BUY_COLOR: Record<string, string> = { eco: '#9aa3b2', force: '#f3c244', full: '#7bd88f' }
+
 function UtilityChips({ round }: { round: RoundOut }) {
   const { t } = useTranslation()
   if (round.utility.length === 0) return <span className="muted">{t('demos.noUtility')}</span>
@@ -81,7 +83,13 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
               <tr key={r.id}>
                 <td>{r.round_number}</td>
                 <td>
-                  <span className="badge">{r.buy_type}</span>
+                  <span
+                    className="badge"
+                    style={{ borderColor: BUY_COLOR[r.buy_type], color: BUY_COLOR[r.buy_type] }}
+                    title={`${r.equip_value}$`}
+                  >
+                    {t(`demos.buyTypes.${r.buy_type}`, r.buy_type)}
+                  </span>
                 </td>
                 <td>
                   <span className="badge">{r.target_site}</span>

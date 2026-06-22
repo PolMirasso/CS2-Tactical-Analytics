@@ -58,6 +58,7 @@
     "summary": "Resumen",
     "rounds": "Rondas",
     "buy": "Compra",
+    "buyTypes": { "eco": "Eco", "force": "Forzada", "full": "Completa" },
     "site": "Site",
     "utility": "Utility",
     "noUtility": "Sin utility",
@@ -79,6 +80,8 @@
     "hp": "Vida",
     "armor": "Armadura",
     "money": "Dinero",
+    "copyCmd": "Copiar",
+    "copied": "¡Copiado!",
     "weapon": "Arma",
     "ammo": "Balas en cargador / cargadores de reserva"
   },
