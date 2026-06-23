@@ -27,7 +27,9 @@ def _job_out(job: DownloadJob) -> DownloadJobOut:
         date_range=job.date_range,
         visibility=job.visibility,
         matches=job.matches,
+        matches_total=job.matches_total,
         demos_ingested=job.demos_ingested,
+        demos_total=job.demos_total,
         demo_ids=ids,
         error=job.error,
         created_at=job.created_at,
@@ -54,13 +56,21 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
 
     demo_ids: list[int] = []
     matches = 0
+    demos_total = 0
     try:
         # Iterate lazily so each match's demos are persisted (and progress
         # reported) as soon as that archive finishes downloading.
         for archive in client.iter_team_demo_archives(
-                body.team_id, body.map_id, body.date_range
+                body.team_id,
+                body.map_id,
+                body.date_range,
+                on_total=lambda n: _update(matches_total=n),
         ):
             matches += 1
+            # Each archive's demo count is only known once it's downloaded, so
+            # the demos total grows as matches are processed.
+            demos_total += len(archive.dem_paths)
+            _update(matches=matches, demos_total=demos_total)
             try:
                 for dem_path in archive.dem_paths:
                     demo_map = client.map_from_filename(dem_path.name) or body.map_id

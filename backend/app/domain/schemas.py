@@ -152,7 +152,9 @@ class DownloadJobOut(BaseModel):
     date_range: str
     visibility: str
     matches: int
+    matches_total: int = 0
     demos_ingested: int
+    demos_total: int = 0
     demo_ids: list[int]
     error: str | None = None
     created_at: datetime

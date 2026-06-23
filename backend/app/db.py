@@ -30,6 +30,25 @@ def init_db() -> None:
 
     _ensure()
     Base.metadata.create_all(_engine)
+    _add_missing_columns()
+
+
+# create_all never ALTERs existing tables; add columns introduced after a DB
+# was first created so older dev databases keep working without a migration tool.
+def _add_missing_columns() -> None:
+    from sqlalchemy import inspect, text
+
+    wanted = {"download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
+                                "demos_total": "INTEGER NOT NULL DEFAULT 0"}}
+    insp = inspect(_engine)
+    for table, columns in wanted.items():
+        if not insp.has_table(table):
+            continue
+        existing = {c["name"] for c in insp.get_columns(table)}
+        with _engine.begin() as conn:
+            for name, ddl in columns.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 def get_session() -> Iterator[Session]:

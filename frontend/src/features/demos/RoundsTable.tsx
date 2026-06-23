@@ -10,7 +10,18 @@ const UTIL_COLOR: Record<UtilityType, string> = {
 
 const SITES: Site[] = ['A', 'B', 'Mid', 'NoPlant']
 
-const BUY_COLOR: Record<string, string> = { eco: '#9aa3b2', force: '#f3c244', full: '#7bd88f' }
+const BUY_COLOR: Record<string, string> = {
+  pistol: '#6fb1ff',
+  full_eco: '#6b7280',
+  eco: '#9aa3b2',
+  ak_hero: '#ff7a45',
+  m4_hero: '#4f8cff',
+  awp_hero: '#c678dd',
+  force: '#f3c244',
+  full: '#7bd88f',
+}
+
+const money = (n: number) => `$${n.toLocaleString('en-US')}`
 
 function UtilityChips({ round }: { round: RoundOut }) {
   const { t } = useTranslation()
@@ -83,12 +94,14 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
               <tr key={r.id}>
                 <td>{r.round_number}</td>
                 <td>
-                  <span
-                    className="badge"
-                    style={{ borderColor: BUY_COLOR[r.buy_type], color: BUY_COLOR[r.buy_type] }}
-                    title={`${r.equip_value}$`}
-                  >
-                    {t(`demos.buyTypes.${r.buy_type}`, r.buy_type)}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      className="badge"
+                      style={{ borderColor: BUY_COLOR[r.buy_type], color: BUY_COLOR[r.buy_type] }}
+                    >
+                      {t(`demos.buyTypes.${r.buy_type}`, r.buy_type)}
+                    </span>
+                    <span className="muted">{money(r.equip_value)}</span>
                   </span>
                 </td>
                 <td>

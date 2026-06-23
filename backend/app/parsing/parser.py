@@ -8,9 +8,29 @@ from app.parsing.replay import ReplayData, build_replay, build_sample_replay
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# T-side equipment value
-_ECO_MAX = 5_000
+# T-side team equipment value thresholds (sum of the 5 players)
+_FULL_ECO_MAX = 4_000
+_ECO_MAX = 9_000
 _FORCE_MAX = 18_000
+
+# Match structure: MR12 regulation (24 rounds, half at 12), MR3 overtime halves.
+_REGULATION_ROUNDS = 24
+_REGULATION_HALF = 12
+_OVERTIME_HALF = 3
+
+# Hero weapon → buy type, ordered by precedence (AWP outranks rifles).
+_HERO_BUYS: tuple[tuple[str, tuple[str, ...], BuyType], ...] = (
+    ("awp", ("awp",), BuyType.AWP_HERO),
+    ("ak", ("ak-47", "ak47"), BuyType.AK_HERO),
+    ("m4", ("m4a1", "m4a4", "m4a1-s", "m4"), BuyType.M4_HERO),
+)
+
+
+def is_pistol_round(round_number: int) -> bool:
+    """First round of each half, in regulation (1, 13) and overtime halves."""
+    if round_number <= _REGULATION_ROUNDS:
+        return round_number % _REGULATION_HALF == 1
+    return (round_number - _REGULATION_ROUNDS - 1) % _OVERTIME_HALF == 0
 
 # demoparser2 grenade_type strings
 _GRENADE_MAP = {
@@ -65,12 +85,25 @@ class ParsedDemo:
     replay: "ReplayData | None" = None
 
 
-def classify_buy(team_equip_value: int) -> BuyType:
-    if team_equip_value < _ECO_MAX:
-        return BuyType.ECO
-    if team_equip_value < _FORCE_MAX:
+def classify_buy(
+        team_equip_value: int, round_number: int, hero_weapon: str | None = None
+) -> BuyType:
+    if is_pistol_round(round_number):
+        return BuyType.PISTOL
+    if team_equip_value < _FULL_ECO_MAX:
+        base = BuyType.FULL_ECO
+    elif team_equip_value < _ECO_MAX:
+        base = BuyType.ECO
+    elif team_equip_value < _FORCE_MAX:
         return BuyType.FORCE
-    return BuyType.FULL
+    else:
+        return BuyType.FULL
+    # On a save/eco, a single expensive weapon makes it a "hero" buy.
+    if hero_weapon:
+        for key, _, hero_type in _HERO_BUYS:
+            if key == hero_weapon:
+                return hero_type
+    return base
 
 
 def _site_from_bomb(bomb_site: str | None) -> str:
@@ -167,7 +200,7 @@ def _parse_with_awpy(
             RoundData(
                 round_number=rnum,
                 target_site=_site_from_bomb(r.get("bomb_site")),
-                buy_type=classify_buy(equip).value,
+                buy_type=classify_buy(equip, rnum, _hero_weapon(t_rows)).value,
                 equip_value=equip,
                 team=team,
                 opponent=opp,
@@ -239,6 +272,28 @@ def _sum_equip(rows) -> int:
         return int(rows.select("current_equip_value").sum().item() or 0)
     except Exception:
         return 0
+
+
+def _hero_weapon(rows) -> str | None:
+    """Detect an AWP/AK/M4 held by the side, used to flag hero eco buys."""
+    if rows.is_empty():
+        return None
+    weapons: list[str] = []
+    for col in ("inventory", "active_weapon_name"):
+        if col not in rows.columns:
+            continue
+        try:
+            for v in rows[col].to_list():
+                if isinstance(v, (list, tuple)):
+                    weapons.extend(str(x).lower() for x in v if x)
+                elif v:
+                    weapons.append(str(v).lower())
+        except Exception:
+            continue
+    for key, needles, _ in _HERO_BUYS:
+        if any(any(n in w for n in needles) for w in weapons):
+            return key
+    return None
 
 
 def _mode_clan(rows) -> str | None:
@@ -339,12 +394,28 @@ def generate_sample(
     utility: list[UtilData] = []
     n_rounds = 24
     for rnum in range(1, n_rounds + 1):
-        buy = rng.choices(
-            [BuyType.FULL, BuyType.FORCE, BuyType.ECO], weights=[0.55, 0.25, 0.20]
-        )[0]
-        equip = {BuyType.FULL: 22000, BuyType.FORCE: 12000, BuyType.ECO: 2500}[buy]
-        # Eco rounds rarely commit to a site.
-        if buy is BuyType.ECO and rng.random() < 0.6:
+        if is_pistol_round(rnum):
+            buy = BuyType.PISTOL
+        else:
+            buy = rng.choices(
+                [BuyType.FULL, BuyType.FORCE, BuyType.ECO, BuyType.FULL_ECO],
+                weights=[0.45, 0.25, 0.15, 0.15],
+            )[0]
+        equip = {
+            BuyType.FULL: 22000,
+            BuyType.FORCE: 12000,
+            BuyType.ECO: 6000,
+            BuyType.FULL_ECO: 1500,
+            BuyType.PISTOL: 4000,
+        }[buy]
+        display_buy = buy
+        if buy in (BuyType.ECO, BuyType.FULL_ECO) and rng.random() < 0.3:
+            display_buy, hero_cost = rng.choice(
+                [(BuyType.AK_HERO, 2700), (BuyType.M4_HERO, 3000), (BuyType.AWP_HERO, 4750)]
+            )
+            equip += hero_cost
+        # Eco/save rounds rarely commit to a site.
+        if buy in (BuyType.ECO, BuyType.FULL_ECO) and rng.random() < 0.6:
             target = Site.NO_PLANT
         else:
             target = rng.choices([Site.A, Site.B, Site.NO_PLANT], weights=[0.45, 0.4, 0.15])[0]
@@ -352,7 +423,7 @@ def generate_sample(
             RoundData(
                 round_number=rnum,
                 target_site=target.value,
-                buy_type=buy.value,
+                buy_type=display_buy.value,
                 equip_value=equip,
                 team=team,
                 opponent=opponent,
@@ -360,7 +431,9 @@ def generate_sample(
         )
         # Utility lands mostly in the region the team is executing toward.
         exec_region = {Site.A: "A", Site.B: "B", Site.NO_PLANT: "Mid"}[target]
-        n_util = 0 if buy is BuyType.ECO else rng.randint(3, 6)
+        n_util = {BuyType.FULL_ECO: 0, BuyType.ECO: rng.randint(0, 2), BuyType.PISTOL: rng.randint(1, 2)}.get(
+            buy, rng.randint(3, 6)
+        )
         for _ in range(n_util):
             region = exec_region if rng.random() < 0.7 else rng.choice(["A", "B", "Mid"])
             pool = zones_by_region.get(region) or list(game_map.zones)

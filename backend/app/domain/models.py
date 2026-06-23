@@ -103,7 +103,9 @@ class DownloadJob(Base):
     visibility: Mapped[str] = mapped_column(String)
 
     matches: Mapped[int] = mapped_column(default=0)
+    matches_total: Mapped[int] = mapped_column(default=0)
     demos_ingested: Mapped[int] = mapped_column(default=0)
+    demos_total: Mapped[int] = mapped_column(default=0)
     # CSV of ingested demo ids (kept simple; no JSON column needed).
     demo_ids: Mapped[str | None] = mapped_column(String, nullable=True)
     error: Mapped[str | None] = mapped_column(String, nullable=True)
