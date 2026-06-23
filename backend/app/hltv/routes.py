@@ -85,7 +85,9 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 source=DemoSource.HLTV,
                                 visibility=body.visibility,
                                 map_id=demo_map,
-                                team=body.team_name,
+                                # Tag with the real in-demo clans (a team may be
+                                # renamed/rebranded vs the searched name on HLTV).
+                                team=None,
                                 event=archive.event,
                                 match_date=archive.match_date,
                                 hltv_match_id=archive.match_id,

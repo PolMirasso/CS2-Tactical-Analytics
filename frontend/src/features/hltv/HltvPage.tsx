@@ -135,6 +135,16 @@ export function HltvPage() {
                       <td>
                         <StatusBadge status={job.status} />
                         {job.error && <div className="error">{job.error}</div>}
+                        {job.status === 'completed' &&
+                          job.matches_total === 0 &&
+                          job.demos_ingested === 0 && (
+                            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                              {t(
+                                'hltv.noMatches',
+                                'Sin partidos en este periodo (el equipo puede estar inactivo o haber cambiado de nombre).',
+                              )}
+                            </div>
+                          )}
                       </td>
                       <td>
                         {job.matches_total ? `${job.matches}/${job.matches_total}` : job.matches}

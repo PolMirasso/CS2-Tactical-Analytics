@@ -45,6 +45,8 @@ type Pos = [number, number, number, number, number] // x, y, yaw, hp, z
 // [armor, money, weaponIdx, clipAmmo, reserveAmmo, nadeMask]
 type Stat = number[]
 
+const C4_BIT = 32 // ITEM_C4 in the packed nade/item mask (st[5])
+
 const isDead = (p: Pos): boolean => p[3] <= 0 || (p[0] === 0 && p[1] === 0)
 
 /** Drop demoparser2's ``weapon_`` prefix and underscores for display. */
@@ -143,6 +145,7 @@ function TeamPanel({
   weapons,
   followed,
   onFollow,
+  c4Holder,
 }: {
   side: string
   entries: RosterEntry[]
@@ -150,6 +153,7 @@ function TeamPanel({
   weapons: string[]
   followed: number | null
   onFollow: (idx: number) => void
+  c4Holder: number
 }) {
   const { t } = useTranslation()
   const color = SIDE_COLOR[side] ?? '#fff'
@@ -230,6 +234,22 @@ function TeamPanel({
               >
                 {e.player.name}
               </span>
+              {c4Holder === e.idx && (
+                <span
+                  title={t('replay.hasC4', 'Lleva el C4')}
+                  style={{
+                    flexShrink: 0,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: '#fff',
+                    background: '#d6452b',
+                    borderRadius: 3,
+                    padding: '1px 4px',
+                  }}
+                >
+                  C4
+                </span>
+              )}
               <span className="muted" title={t('replay.money')} style={{ fontSize: 13 }}>
                 ${st[1]}
               </span>
@@ -329,6 +349,36 @@ function ReplayStage({
     for (const arr of m.values()) arr.sort((x, y) => x - y)
     return m
   }, [round])
+  // Per-frame bomb state: who holds the C4 (roster idx, -1 if nobody) and its
+  // last-known position (carried forward to the drop spot while uncarried).
+  const c4Track = useMemo(() => {
+    const out = round.frames.map((fr) => {
+      const st = (fr.st ?? []) as Stat[]
+      const pos = fr.pos as Pos[]
+      let holder = -1
+      for (let k = 0; k < st.length; k++) {
+        if (((st[k]?.[5] ?? 0) & C4_BIT) !== 0) {
+          holder = k
+          break
+        }
+      }
+      if (holder >= 0) {
+        const p = pos[holder]
+        return { holder, x: p[0], y: p[1], z: p[4] }
+      }
+      return { holder: -1, x: null as number | null, y: null as number | null, z: 0 }
+    })
+    let last: { x: number; y: number; z: number } | null = null
+    for (const c of out) {
+      if (c.holder >= 0) last = { x: c.x as number, y: c.y as number, z: c.z }
+      else if (last) {
+        c.x = last.x
+        c.y = last.y
+        c.z = last.z
+      }
+    }
+    return out
+  }, [round])
   const lastTs = useRef<number>(0)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -371,6 +421,9 @@ function ReplayStage({
 
   const { a, b, f, i0 } = frameAt(round.frames, time, sampleHz)
   const statFrame = round.frames[i0] // discrete scoreboard stats (no interp)
+  const c4 = c4Track[i0] ?? { holder: -1, x: null, y: null, z: 0 }
+  const c4Planted = !!(round.bomb && time >= round.bomb.t)
+  const c4Holder = c4Planted ? -1 : c4.holder
   // World radius → pixel radius under the active projection.
   const projectR = (x: number, y: number, worldR: number, z?: number): number => {
     const [px] = project(x, y, z)
@@ -602,6 +655,14 @@ function ReplayStage({
                     >
                       <title>{player.name}</title>
                     </circle>
+                    {c4Holder === k && (
+                      <g style={{ pointerEvents: 'none' }}>
+                        <rect x={cx + 9} y={cy - 20} width={20} height={14} rx={3} fill="#d6452b" stroke="#fff" strokeWidth={1.5} />
+                        <text x={cx + 19} y={cy - 13} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#fff">
+                          C4
+                        </text>
+                      </g>
+                    )}
                     {/* Player name below the dot (outlined for readability). */}
                     <text
                       x={cx}
@@ -634,6 +695,19 @@ function ReplayStage({
               }
               return null
             })}
+
+            {/* Dropped C4: nobody is carrying it and it isn't planted yet. */}
+            {!c4Planted && c4Holder < 0 && c4.x != null && (() => {
+              const [bx, by] = project(c4.x, c4.y, c4.z ?? undefined)
+              return (
+                <g style={{ pointerEvents: 'none' }}>
+                  <rect x={bx - 11} y={by - 8} width={22} height={16} rx={3} fill="#8a3520" stroke="#ffb37a" strokeWidth={1.5} opacity={0.9} />
+                  <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#ffd9bf">
+                    C4
+                  </text>
+                </g>
+              )
+            })()}
 
             {/* Planted bomb (shown from the plant time onward). */}
             {round.bomb && time >= round.bomb.t && (() => {
@@ -784,8 +858,8 @@ function ReplayStage({
             maxWidth: 260,
           }}
         >
-          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} />
-          <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} />
+          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
+          <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
         </div>
       </div>
 

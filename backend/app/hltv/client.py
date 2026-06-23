@@ -140,18 +140,48 @@ def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
     return event, match_date
 
 
+def _match_involves_team(html: str, team_id: str) -> bool:
+    """True if ``team_id`` is one of the two teams on a match page.
+
+    HLTV links both teams as ``/team/{id}/{slug}`` (and ``team={id}`` in stats
+    URLs), so requiring the id to appear filters out unrelated matches scraped
+    from a featured/other-matches section or a generic homepage fallback.
+    """
+    return f"/team/{team_id}/" in html or f"team={team_id}" in html
+
+
+# A result row on a team's results page: the match link plus the match date as
+# a unix-ms timestamp. Scoping to ``result-con`` excludes the page's "other
+# matches" sidebar (which would leak unrelated teams).
+_RESULT_ROW = re.compile(
+    r'class="result-con"[^>]*data-zonedgrouping-entry-unix="(\d+)"[^>]*>\s*'
+    r'<a href="(/matches/\d+/[a-z0-9-]+)"'
+)
+
+
 def find_match_results(team_id: str, map_id: str | None, date_range: DateRange) -> list[str]:
     # Return result-match URLs for team_id within date_range
     settings = get_settings()
     since = date_range.start_date(date.today())
-    url = (
-        f"{settings.hltv_base_url}/results?team={team_id}"
-        f"&startDate={since.isoformat()}&endDate={date.today().isoformat()}"
-    )
+    # HLTV's ``startDate``/``endDate`` params return a broken (unfiltered) page
+    # via FlareSolverr, so fetch the team's results unfiltered and filter the
+    # rows by their own timestamp instead.
+    url = f"{settings.hltv_base_url}/results?team={team_id}"
     html = _flaresolverr_get(url)
-    # Keep the full path including the slug - HLTV serves a generic homepage
-    paths = sorted(set(re.findall(r'/matches/\d+/[a-z0-9\-]+', html)))
-    return [f"{settings.hltv_base_url}{path}" for path in paths]
+    # If the team's id is absent the request was not served the team's results
+    # page (generic homepage / block); scraping it would yield other teams.
+    if not _match_involves_team(html, team_id):
+        return []
+    out: list[str] = []
+    for ts, path in _RESULT_ROW.findall(html):
+        try:
+            match_day = datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).date()
+        except (ValueError, OverflowError, OSError):
+            continue
+        if match_day < since:
+            continue
+        out.append(f"{settings.hltv_base_url}{path}")
+    return list(dict.fromkeys(out))  # dedupe, keep newest-first order
 
 
 def iter_team_demo_archives(
@@ -173,6 +203,10 @@ def iter_team_demo_archives(
         time.sleep(settings.request_delay_s)  # be polite to HLTV
         try:
             html = _flaresolverr_get(match_url)
+            # Guard against page-scrape leaks (a generic homepage or "other
+            # matches" section): only keep matches the requested team plays in.
+            if not _match_involves_team(html, team_id):
+                continue
             demo_links = re.findall(r'href="(/download/demo/\d+)"', html)
             if not demo_links:
                 continue
