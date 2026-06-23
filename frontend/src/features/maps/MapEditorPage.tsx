@@ -137,6 +137,32 @@ export function MapEditorPage() {
       z.polygon.length > 3 ? { ...z, polygon: z.polygon.filter((_, i) => i !== pi) } : z,
     )
 
+  const addZone = () => {
+    if (!map) return
+    const ids = new Set(zones.map((z) => z.id))
+    let n = zones.length + 1
+    while (ids.has(`${map.id}_zona_${n}`)) n++
+    const c = VIEW / 2
+    const zone: EditZone = {
+      id: `${map.id}_zona_${n}`,
+      name: `Nueva zona ${n}`,
+      region: 'Mid',
+      polygon: [
+        [c - 60, c - 60],
+        [c + 60, c - 60],
+        [c + 60, c + 60],
+        [c - 60, c + 60],
+      ],
+    }
+    setZones((zs) => [...zs, zone])
+    setSelected(zones.length)
+  }
+
+  const deleteZone = (zi: number) => {
+    setZones((zs) => zs.filter((_, i) => i !== zi))
+    setSelected(null)
+  }
+
   const applyGlobal = () => {
     const s = scalePct / 100
     const cx = VIEW / 2
@@ -180,6 +206,9 @@ export function MapEditorPage() {
         </select>
         <button className="ghost" onClick={() => map && setZones(toEditZones(map.zones))}>
           Restablecer
+        </button>
+        <button onClick={addZone} disabled={!map}>
+          Agregar zona
         </button>
       </div>
 
@@ -310,15 +339,21 @@ export function MapEditorPage() {
                   ))}
                 </select>
               </label>
-              <p className="muted" style={{ marginBottom: 0 }}>
+              <p className="muted" style={{ marginBottom: 8 }}>
                 {zones[selected].polygon.length} vértices · id <code>{zones[selected].id}</code>
               </p>
+              <button
+                onClick={() => deleteZone(selected)}
+                style={{ background: '#ff5d5d', borderColor: '#ff5d5d', color: '#fff' }}
+              >
+                Eliminar zona
+              </button>
             </div>
           )}
 
           <div className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>Exportar</h3>
-            <button onClick={copy}>{copied ? 'admin@cs2.local¡Copiado!' : 'Copiar JSON'}</button>
+            <button onClick={copy}>{copied ? '¡Copiado!' : 'Copiar JSON'}</button>
             <textarea
               readOnly
               value={json}
