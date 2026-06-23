@@ -403,22 +403,30 @@ def _round_kills(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> lis
         return []
     if kills is None or kills.is_empty() or "round_num" not in kills.columns:
         return []
+    cols = set(kills.columns)
+    vx_col = next((c for c in ("victim_X", "victim_x", "user_X") if c in cols), None)
+    vy_col = next((c for c in ("victim_Y", "victim_y", "user_Y") if c in cols), None)
+    ast_col = next((c for c in ("assister_name", "assister") if c in cols), None)
     out: list[dict] = []
     for row in kills.filter(pl.col("round_num") == rnum).sort("tick").iter_rows(named=True):
         t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
         w = str(row.get("weapon") or "")
         w = w[7:] if w.startswith("weapon_") else w
-        out.append(
-            {
-                "t": round(t, 2),
-                "atk": row.get("attacker_name") or "?",
-                "as": (row.get("attacker_side") or "").lower(),
-                "vic": row.get("victim_name") or "?",
-                "vs": (row.get("victim_side") or "").lower(),
-                "wp": w.replace("_", " "),
-                "hs": bool(row.get("headshot")),
-            }
-        )
+        ev = {
+            "t": round(t, 2),
+            "atk": row.get("attacker_name") or "?",
+            "as": (row.get("attacker_side") or "").lower(),
+            "vic": row.get("victim_name") or "?",
+            "vs": (row.get("victim_side") or "").lower(),
+            "wp": w.replace("_", " "),
+            "hs": bool(row.get("headshot")),
+        }
+        if ast_col and row.get(ast_col):
+            ev["ast"] = row.get(ast_col)
+        if vx_col and row.get(vx_col) is not None and row.get(vy_col) is not None:
+            ev["vx"] = round(float(row[vx_col]), 1)
+            ev["vy"] = round(float(row[vy_col]), 1)
+        out.append(ev)
     return out
 
 
@@ -529,6 +537,7 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
             victim = players[pi]
             enemies = [q for q in range(len(players)) if players[q].side != victim.side]
             atk = players[rng.choice(enemies)] if enemies else victim
+            fz = frozen[pi]
             kills.append(
                 {
                     "t": round(dtod, 2),
@@ -538,6 +547,8 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                     "vs": victim.side,
                     "wp": "ak47" if atk.side == "t" else "m4a1",
                     "hs": rng.random() < 0.4,
+                    "vx": fz[0] if fz else None,
+                    "vy": fz[1] if fz else None,
                 }
             )
         kills.sort(key=lambda k: k["t"])

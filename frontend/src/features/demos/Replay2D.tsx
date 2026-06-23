@@ -141,11 +141,15 @@ function TeamPanel({
   entries,
   statFrame,
   weapons,
+  followed,
+  onFollow,
 }: {
   side: string
   entries: RosterEntry[]
   statFrame: ReplayFrame
   weapons: string[]
+  followed: number | null
+  onFollow: (idx: number) => void
 }) {
   const { t } = useTranslation()
   const color = SIDE_COLOR[side] ?? '#fff'
@@ -178,18 +182,22 @@ function TeamPanel({
         const reserve = st[4] ?? 0
         const nadeMask = st[5] ?? 0
         const held = NADES.filter((n) => (nadeMask & n.bit) !== 0)
+        const isFollowed = followed === e.idx
         return (
           <div
             key={e.player.steamid}
+            onClick={() => onFollow(e.idx)}
+            title={t('replay.follow', 'Seguir jugador')}
             style={{
               display: 'flex',
               flexDirection: 'column',
               gap: 3,
               padding: '6px 8px',
               borderRadius: 6,
-              border: '1px solid var(--border)',
-              background: '#11141a',
+              border: `1px solid ${isFollowed ? color : 'var(--border)'}`,
+              background: isFollowed ? 'rgba(255,255,255,0.06)' : '#11141a',
               opacity: dead ? 0.45 : 1,
+              cursor: 'pointer',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -291,6 +299,9 @@ function ReplayStage({
   const [speed, setSpeed] = useState(1)
   const [picked, setPicked] = useState<{ name: string; cmd: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  // Roster index of the "followed" player (highlighted, others dimmed), or null.
+  const [followed, setFollowed] = useState<number | null>(null)
+  const toggleFollow = (k: number) => setFollowed((cur) => (cur === k ? null : k))
   const project = useProjection(round, calibration, hasRadar)
   const teams = useTeams(round)
   // Death spot per player (last alive world position + time), for the "X" marker.
@@ -552,8 +563,12 @@ function ReplayStage({
                 const dirX = Math.cos(rad)
                 const dirY = -Math.sin(rad)
                 const isFiring = firing(k)
+                const followActive = followed !== null
                 return (
-                  <g key={player.steamid}>
+                  <g key={player.steamid} opacity={followActive && followed !== k ? 0.35 : 1}>
+                    {followed === k && (
+                      <circle cx={cx} cy={cy} r={20} fill="none" stroke="#fff" strokeWidth={2.5} opacity={0.9} />
+                    )}
                     {isFiring && (
                       <>
                         <circle cx={cx} cy={cy} r={21} fill="none" stroke="#ffe066" strokeWidth={2} opacity={0.7} />
@@ -582,6 +597,7 @@ function ReplayStage({
                         const cmd = `setpos ${px.toFixed(1)} ${py.toFixed(1)} ${live[4].toFixed(1)};setang 0 ${yaw.toFixed(1)} 0`
                         setPicked({ name: player.name, cmd })
                         setCopied(false)
+                        toggleFollow(k)
                       }}
                     >
                       <title>{player.name}</title>
@@ -768,8 +784,8 @@ function ReplayStage({
             maxWidth: 260,
           }}
         >
-          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} />
-          <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} />
+          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} />
+          <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} />
         </div>
       </div>
 

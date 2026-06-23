@@ -113,11 +113,17 @@ def classify_point(map_id: str, x: float, y: float) -> Zone | None:
     game_map = _MAPS.get(map_id)
     if game_map is None:
         return None
+    px, py = to_radar_pixel(map_id, x, y)
+    return game_map.zone_at(px, py)
+
+
+def to_radar_pixel(map_id: str, x: float, y: float) -> tuple[float, float]:
+    """World (x, y) → 1024-space radar pixel using the map's calibration."""
     cal = _CALIBRATION.get(map_id)
-    if cal is not None:
-        pos_x, pos_y, scale = cal
-        x, y = (x - pos_x) / scale, (pos_y - y) / scale
-    return game_map.zone_at(x, y)
+    if cal is None:
+        return x, y
+    pos_x, pos_y, scale = cal
+    return (x - pos_x) / scale, (pos_y - y) / scale
 
 
 _BUNDLED_RADARS = Path(__file__).resolve().parent.parent / "assets" / "radars"

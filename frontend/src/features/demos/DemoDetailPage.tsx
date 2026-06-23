@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatBytes, formatDate } from '@/lib/format'
 import { RoundsTable } from './RoundsTable'
+import { PlayerScoreboard, WinRateSummary } from './MatchStats'
 import { useDemo, useDemoAnalysis, useDeleteDemo, useReparseDemo } from './hooks'
 
 export function DemoDetailPage() {
@@ -88,7 +89,13 @@ export function DemoDetailPage() {
       )}
 
       {analysis.isLoading && <p className="muted">{t('common.loading')}</p>}
-      {analysis.data && <RoundsTable rounds={analysis.data.rounds} />}
+      {analysis.data && (
+        <>
+          <PlayerScoreboard players={analysis.data.players} />
+          <WinRateSummary rounds={analysis.data.rounds} />
+          <RoundsTable rounds={analysis.data.rounds} />
+        </>
+      )}
     </div>
   )
 }

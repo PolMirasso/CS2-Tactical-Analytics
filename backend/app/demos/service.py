@@ -7,13 +7,13 @@ import shutil
 from datetime import date
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
-from app.domain.models import Demo, Round, User, UtilityEvent
+from app.domain.models import Demo, Kill, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
 from app.parsing.parser import ParseError, parse_demo
 from app.parsing.replay import replay_to_dict
 from fastapi import HTTPException
 from pathlib import Path
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 from typing import BinaryIO
 
@@ -114,6 +114,8 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
     # Parse ``demo`` into rounds + utility events. Returns (n_rounds, n_utility)
     # Wipe any prior parse so re-parsing is idempotent
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
+    session.execute(delete(Kill).where(Kill.demo_id == demo.id))
+    session.execute(delete(PlayerStat).where(PlayerStat.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
     replay_path(demo.id).unlink(missing_ok=True)
 
@@ -144,6 +146,8 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
             buy_type=r.buy_type,
             equip_value=r.equip_value,
             target_site=r.target_site,
+            winner=r.winner,
+            win_reason=r.win_reason,
         )
         session.add(row)
         session.flush()
@@ -162,6 +166,43 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
                 region=u.region,
                 round_time_s=u.round_time_s,
                 team=u.side,
+            )
+        )
+
+    for k in parsed.kills:
+        rid = round_id_by_number.get(k.round_number)
+        if rid is None:
+            continue
+        session.add(
+            Kill(
+                demo_id=demo.id,
+                round_id=rid,
+                round_number=k.round_number,
+                time_s=k.time_s,
+                killer_name=k.killer_name,
+                killer_side=k.killer_side,
+                victim_name=k.victim_name,
+                victim_side=k.victim_side,
+                assister_name=k.assister_name,
+                weapon=k.weapon,
+                headshot=k.headshot,
+                x=k.x,
+                y=k.y,
+            )
+        )
+
+    for p in parsed.player_stats:
+        session.add(
+            PlayerStat(
+                demo_id=demo.id,
+                name=p.name,
+                team=p.team,
+                kills=p.kills,
+                deaths=p.deaths,
+                assists=p.assists,
+                headshots=p.headshots,
+                rounds=p.rounds,
+                adr=p.adr,
             )
         )
 
@@ -185,12 +226,34 @@ def _visibility_clause(session: Session, user: User):
     )
 
 
-def list_visible(session: Session, user: User) -> list[Demo]:
-    return list(
-        session.scalars(
-            select(Demo).where(_visibility_clause(session, user)).order_by(Demo.created_at.desc())
-        )
-    )
+def list_visible(
+        session: Session,
+        user: User,
+        *,
+        map_id: str | None = None,
+        team: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+) -> tuple[list[Demo], int]:
+    """Visible demos matching the filters, plus the unpaginated total count."""
+    conds = [_visibility_clause(session, user)]
+    if map_id:
+        conds.append(Demo.map_id == map_id)
+    if team:
+        like = f"%{team}%"
+        conds.append(or_(Demo.team.ilike(like), Demo.opponent.ilike(like)))
+    if date_from:
+        conds.append(Demo.match_date >= date_from)
+    if date_to:
+        conds.append(Demo.match_date <= date_to)
+
+    total = session.scalar(select(func.count()).select_from(Demo).where(*conds)) or 0
+    q = select(Demo).where(*conds).order_by(Demo.created_at.desc())
+    if limit is not None:
+        q = q.limit(limit).offset(offset)
+    return list(session.scalars(q)), total
 
 
 def load_analysis(
@@ -211,6 +274,17 @@ def load_analysis(
     for events in by_round.values():
         events.sort(key=lambda e: e.round_time_s)
     return [(r, by_round.get(r.id, [])) for r in rounds]
+
+
+def load_players(session: Session, demo: Demo) -> list[PlayerStat]:
+    """Per-player scoreboard for a demo, ordered by kills."""
+    return list(
+        session.scalars(
+            select(PlayerStat)
+            .where(PlayerStat.demo_id == demo.id)
+            .order_by(PlayerStat.kills.desc())
+        )
+    )
 
 
 def get_visible(session: Session, user: User, demo_id: int) -> Demo:

@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { DemoListParams } from '@/types/api'
 import { demosApi } from './api'
 
 const KEY = ['demos']
 
-export function useDemos() {
-  return useQuery({ queryKey: KEY, queryFn: demosApi.list })
+export function useDemos(params: DemoListParams = {}) {
+  return useQuery({
+    queryKey: [...KEY, 'list', params],
+    queryFn: () => demosApi.list(params),
+  })
 }
 
 export function useDemo(id: number) {

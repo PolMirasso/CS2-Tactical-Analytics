@@ -34,8 +34,23 @@
     "haveAccount": "¿Ya tienes cuenta? Inicia sesión",
     "invalidCredentials": "Credenciales inválidas"
   },
+  "stats": {
+    "scoreboard": "Estadísticas de jugadores",
+    "player": "Jugador",
+    "winRate": "Win rate (lado T)",
+    "pistolConversion": "Conversión pistola"
+  },
   "demos": {
     "title": "Demos",
+    "allMaps": "Todos los mapas",
+    "from": "Desde",
+    "to": "Hasta",
+    "result": "Resultado",
+    "won": "Ganada",
+    "lost": "Perdida",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "page": "Página",
     "uploadTitle": "Subir demo",
     "file": "Fichero (.dem)",
     "map": "Mapa",
@@ -69,6 +84,7 @@
   "replay": {
     "title": "Replay 2D",
     "open": "Abrir replay 2D",
+    "follow": "Seguir jugador",
     "back": "Volver al demo",
     "round": "Ronda",
     "play": "Reproducir",

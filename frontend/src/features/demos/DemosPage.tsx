@@ -1,26 +1,40 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatBytes, formatDate, formatDay } from '@/lib/format'
+import { useMaps } from '@/features/maps/hooks'
 import { UploadDemoForm } from './UploadDemoForm'
 import { useDemos } from './hooks'
 
+const PAGE_SIZE = 25
+
 export function DemosPage() {
   const { t } = useTranslation()
-  const { data, isLoading, isError } = useDemos()
-  const [query, setQuery] = useState('')
+  const { data: maps } = useMaps()
+  const [mapId, setMapId] = useState('')
+  const [team, setTeam] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(0)
 
-  const filtered = useMemo(() => {
-    if (!data) return data
-    const q = query.trim().toLowerCase()
-    if (!q) return data
-    return data.filter((d) =>
-      [d.team, d.opponent, d.map_id, d.event].some((field) =>
-        field?.toLowerCase().includes(q),
-      ),
-    )
-  }, [data, query])
+  const reset = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v)
+    setPage(0)
+  }
+
+  const { data, isLoading, isError } = useDemos({
+    map_id: mapId || undefined,
+    team: team || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  })
+
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <div>
@@ -28,56 +42,87 @@ export function DemosPage() {
       <UploadDemoForm />
 
       <div className="card">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+          <select value={mapId} onChange={(e) => reset(setMapId)(e.target.value)}>
+            <option value="">{t('demos.allMaps', 'Todos los mapas')}</option>
+            {maps?.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="search"
+            value={team}
+            onChange={(e) => reset(setTeam)(e.target.value)}
+            placeholder={t('demos.search')}
+            style={{ maxWidth: 220 }}
+          />
+          <label className="muted" style={{ fontSize: 12 }}>
+            {t('demos.from', 'Desde')}
+            <input type="date" value={dateFrom} onChange={(e) => reset(setDateFrom)(e.target.value)} />
+          </label>
+          <label className="muted" style={{ fontSize: 12 }}>
+            {t('demos.to', 'Hasta')}
+            <input type="date" value={dateTo} onChange={(e) => reset(setDateTo)(e.target.value)} />
+          </label>
+        </div>
+
         {isLoading && <p className="muted">{t('common.loading')}</p>}
         {isError && <p className="error">{t('common.error')}</p>}
-        {data && data.length === 0 && <p className="muted">{t('demos.empty')}</p>}
-        {data && data.length > 0 && (
+        {!isLoading && items.length === 0 && <p className="muted">{t('demos.noMatches')}</p>}
+        {items.length > 0 && (
           <>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('demos.search')}
-              style={{ marginBottom: 12, maxWidth: 320 }}
-            />
-            {filtered && filtered.length === 0 ? (
-              <p className="muted">{t('demos.noMatches')}</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t('demos.map')}</th>
-                    <th>{t('demos.team')}</th>
-                    <th>{t('demos.opponent')}</th>
-                    <th>{t('demos.event')}</th>
-                    <th>{t('demos.matchDate')}</th>
-                    <th>{t('demos.source')}</th>
-                    <th>{t('demos.status')}</th>
-                    <th>{t('demos.size')}</th>
-                    <th>{t('demos.created')}</th>
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('demos.map')}</th>
+                  <th>{t('demos.team')}</th>
+                  <th>{t('demos.opponent')}</th>
+                  <th>{t('demos.event')}</th>
+                  <th>{t('demos.matchDate')}</th>
+                  <th>{t('demos.source')}</th>
+                  <th>{t('demos.status')}</th>
+                  <th>{t('demos.size')}</th>
+                  <th>{t('demos.created')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((d) => (
+                  <tr key={d.id}>
+                    <td>
+                      <Link to={`/demos/${d.id}`}>{d.map_id ?? t('common.none')}</Link>
+                    </td>
+                    <td>{d.team ?? t('common.none')}</td>
+                    <td>{d.opponent ?? t('common.none')}</td>
+                    <td>{d.event ?? t('common.none')}</td>
+                    <td className="muted">{formatDay(d.match_date)}</td>
+                    <td>{d.source}</td>
+                    <td>
+                      <StatusBadge status={d.status} />
+                    </td>
+                    <td>{formatBytes(d.size_bytes)}</td>
+                    <td className="muted">{formatDate(d.created_at)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filtered?.map((d) => (
-                    <tr key={d.id}>
-                      <td>
-                        <Link to={`/demos/${d.id}`}>{d.map_id ?? t('common.none')}</Link>
-                      </td>
-                      <td>{d.team ?? t('common.none')}</td>
-                      <td>{d.opponent ?? t('common.none')}</td>
-                      <td>{d.event ?? t('common.none')}</td>
-                      <td className="muted">{formatDay(d.match_date)}</td>
-                      <td>{d.source}</td>
-                      <td>
-                        <StatusBadge status={d.status} />
-                      </td>
-                      <td>{formatBytes(d.size_bytes)}</td>
-                      <td className="muted">{formatDate(d.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12 }}>
+              <button className="ghost" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                ← {t('demos.prev', 'Anterior')}
+              </button>
+              <span className="muted">
+                {t('demos.page', 'Página')} {page + 1}/{pages} · {total}
+              </span>
+              <button
+                className="ghost"
+                disabled={page + 1 >= pages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t('demos.next', 'Siguiente')} →
+              </button>
+            </div>
           </>
         )}
       </div>
