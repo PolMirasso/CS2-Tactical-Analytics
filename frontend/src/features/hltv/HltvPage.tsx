@@ -205,7 +205,6 @@ function JobDetails({ job }: { job: DownloadJobOut }) {
   const rows: [string, string][] = [
     [t('hltv.matches'), job.matches_total ? `${job.matches} / ${job.matches_total}` : `${job.matches}`],
     [t('hltv.demos'), job.demos_total ? `${job.demos_ingested} / ${job.demos_total}` : `${job.demos_ingested}`],
-    [t('demos.map'), job.map_id ?? t('common.none')],
     [t('hltv.dateRange'), t(`hltv.range.${job.date_range}`, job.date_range)],
     [t('demos.visibility'), job.visibility],
     [t('demos.created'), formatDate(job.created_at)],

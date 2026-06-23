@@ -77,12 +77,40 @@ export interface RoundOut {
   buy_type: BuyType
   equip_value: number
   target_site: Site
+  winner: string | null
+  win_reason: string | null
   utility: UtilityEventOut[]
+}
+
+export interface PlayerStatOut {
+  name: string
+  team: string | null
+  kills: number
+  deaths: number
+  assists: number
+  headshots: number
+  rounds: number
+  adr: number | null
 }
 
 export interface DemoAnalysisOut {
   demo: DemoOut
   rounds: RoundOut[]
+  players: PlayerStatOut[]
+}
+
+export interface DemoListOut {
+  items: DemoOut[]
+  total: number
+}
+
+export interface DemoListParams {
+  map_id?: string
+  team?: string
+  date_from?: string
+  date_to?: string
+  limit?: number
+  offset?: number
 }
 
 export interface TeamHit {

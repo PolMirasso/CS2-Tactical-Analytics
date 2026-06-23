@@ -10,8 +10,10 @@ from app.domain.models import Demo, User
 from app.analytics.maps import calibration, radar_file
 from app.domain.schemas import (
     DemoAnalysisOut,
+    DemoListOut,
     DemoOut,
     MapCalibration,
+    PlayerStatOut,
     ReplayMetaOut,
     RoundOut,
     UploadResult,
@@ -59,12 +61,23 @@ def upload_demo(
     return UploadResult(demo=_to_out(demo), rounds=n_rounds, utility_events=n_util)
 
 
-@router.get("", response_model=list[DemoOut])
+@router.get("", response_model=DemoListOut)
 def list_demos(
+        map_id: str | None = None,
+        team: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        limit: int = 50,
+        offset: int = 0,
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
-) -> list[DemoOut]:
-    return [_to_out(d) for d in service.list_visible(session, user)]
+) -> DemoListOut:
+    demos, total = service.list_visible(
+        session, user,
+        map_id=map_id, team=team, date_from=date_from, date_to=date_to,
+        limit=limit, offset=offset,
+    )
+    return DemoListOut(items=[_to_out(d) for d in demos], total=total)
 
 
 @router.get("/{demo_id}", response_model=DemoOut)
@@ -94,13 +107,19 @@ def demo_analysis(
             buy_type=r.buy_type,
             equip_value=r.equip_value,
             target_site=r.target_site,
+            winner=r.winner,
+            win_reason=r.win_reason,
             utility=[
                 UtilityEventOut.model_validate(u, from_attributes=True) for u in utils
             ],
         )
         for r, utils in service.load_analysis(session, demo)
     ]
-    return DemoAnalysisOut(demo=_to_out(demo), rounds=rounds)
+    players = [
+        PlayerStatOut.model_validate(p, from_attributes=True)
+        for p in service.load_players(session, demo)
+    ]
+    return DemoAnalysisOut(demo=_to_out(demo), rounds=rounds, players=players)
 
 
 @router.get("/{demo_id}/replay", response_model=ReplayMetaOut)

@@ -84,6 +84,7 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
           <thead>
             <tr>
               <th>#</th>
+              <th>{t('demos.result', 'Resultado')}</th>
               <th>{t('demos.buy')}</th>
               <th>{t('demos.site')}</th>
               <th>{t('demos.utility')}</th>
@@ -93,6 +94,22 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
             {rounds.map((r) => (
               <tr key={r.id}>
                 <td>{r.round_number}</td>
+                <td>
+                  {r.winner ? (
+                    <span
+                      className="badge"
+                      title={r.win_reason ?? ''}
+                      style={{
+                        borderColor: r.winner === 't' ? '#7bd88f' : '#ff5d5d',
+                        color: r.winner === 't' ? '#7bd88f' : '#ff5d5d',
+                      }}
+                    >
+                      {r.winner === 't' ? t('demos.won', 'Ganada') : t('demos.lost', 'Perdida')}
+                    </span>
+                  ) : (
+                    <span className="muted">-</span>
+                  )}
+                </td>
                 <td>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <span

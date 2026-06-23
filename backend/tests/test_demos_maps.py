@@ -158,3 +158,29 @@ def test_maps_endpoint(client):
 def test_maps_endpoint_is_public_route_but_needs_auth(client):
     resp = client.get("/maps")
     assert resp.status_code == 200
+
+def test_analysis_includes_players_and_winner(client):
+    token = register_and_login(client, "scout@example.com")
+    up = _upload(client, token, map_id="de_mirage", team="Vitality", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+    body = client.get(f"/demos/{demo_id}/analysis", headers=auth(token)).json()
+    players = body["players"]
+    assert len(players) == 10
+    assert {"name", "kills", "deaths", "assists", "headshots", "adr", "team"} <= set(players[0])
+    teams = [p["team"] for p in players]
+    assert len(set(teams)) == 2
+    by_team: dict[str, list[int]] = {}
+    for p in players:
+        by_team.setdefault(p["team"], []).append(p["kills"])
+    for kills in by_team.values():
+        assert kills == sorted(kills, reverse=True)
+    assert all(r["winner"] in ("t", "ct") for r in body["rounds"])
+
+
+def test_demo_list_pagination_and_filter(client):
+    token = register_and_login(client, "pager@example.com")
+    _upload(client, token, map_id="de_nuke", team="Spirit", visibility="private")
+    listing = client.get("/demos", params={"map_id": "de_nuke", "limit": 1}, headers=auth(token)).json()
+    assert "items" in listing and "total" in listing
+    assert len(listing["items"]) <= 1
+    assert all(d["map_id"] == "de_nuke" for d in listing["items"])

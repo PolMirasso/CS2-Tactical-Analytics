@@ -62,6 +62,6 @@ def test_group_invite_flow_and_demo_visibility(client):
     assert up.status_code == 201, up.text
     demo_id = up.json()["demo"]["id"]
 
-    assert any(d["id"] == demo_id for d in client.get("/demos", headers=auth(peer)).json())
-    assert all(d["id"] != demo_id for d in client.get("/demos", headers=auth(outsider)).json())
+    assert any(d["id"] == demo_id for d in client.get("/demos", headers=auth(peer)).json()["items"])
+    assert all(d["id"] != demo_id for d in client.get("/demos", headers=auth(outsider)).json()["items"])
     assert client.get(f"/demos/{demo_id}", headers=auth(outsider)).status_code == 403

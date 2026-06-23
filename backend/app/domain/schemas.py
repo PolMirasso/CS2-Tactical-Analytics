@@ -71,6 +71,11 @@ class DemoOut(BaseModel):
     created_at: datetime
 
 
+class DemoListOut(BaseModel):
+    items: list[DemoOut]
+    total: int
+
+
 class UploadResult(BaseModel):
     demo: DemoOut
     rounds: int
@@ -96,12 +101,26 @@ class RoundOut(BaseModel):
     buy_type: str
     equip_value: int
     target_site: str
+    winner: str | None = None
+    win_reason: str | None = None
     utility: list[UtilityEventOut]
+
+
+class PlayerStatOut(BaseModel):
+    name: str
+    team: str | None
+    kills: int
+    deaths: int
+    assists: int
+    headshots: int
+    rounds: int
+    adr: float | None = None
 
 
 class DemoAnalysisOut(BaseModel):
     demo: DemoOut
     rounds: list[RoundOut]
+    players: list[PlayerStatOut] = []
 
 
 # 2D replay

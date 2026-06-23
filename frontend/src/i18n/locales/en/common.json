@@ -34,8 +34,23 @@
     "haveAccount": "Already have an account? Sign in",
     "invalidCredentials": "Invalid credentials"
   },
+  "stats": {
+    "scoreboard": "Player stats",
+    "player": "Player",
+    "winRate": "Win rate (T side)",
+    "pistolConversion": "Pistol conversion"
+  },
   "demos": {
     "title": "Demos",
+    "allMaps": "All maps",
+    "from": "From",
+    "to": "To",
+    "result": "Result",
+    "won": "Won",
+    "lost": "Lost",
+    "prev": "Previous",
+    "next": "Next",
+    "page": "Page",
     "uploadTitle": "Upload demo",
     "file": "File (.dem)",
     "map": "Map",
@@ -69,6 +84,7 @@
   "replay": {
     "title": "2D replay",
     "open": "Open 2D replay",
+    "follow": "Follow player",
     "back": "Back to demo",
     "round": "Round",
     "play": "Play",

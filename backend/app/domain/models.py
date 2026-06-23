@@ -10,7 +10,7 @@ from app.domain.enums import (
     Visibility,
 )
 from datetime import date, datetime
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -128,6 +128,8 @@ class Round(Base):
     buy_type: Mapped[str] = mapped_column(String)
     equip_value: Mapped[int] = mapped_column(default=0)
     target_site: Mapped[str] = mapped_column(String)
+    winner: Mapped[str | None] = mapped_column(String, nullable=True)
+    win_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class UtilityEvent(Base):
@@ -141,3 +143,38 @@ class UtilityEvent(Base):
     region: Mapped[str | None] = mapped_column(String, nullable=True)
     round_time_s: Mapped[float] = mapped_column(default=0.0)
     team: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class Kill(Base):
+    __tablename__ = "kills"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    demo_id: Mapped[int] = mapped_column(ForeignKey("demos.id"), index=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("rounds.id"), index=True)
+    round_number: Mapped[int] = mapped_column(index=True)
+    time_s: Mapped[float] = mapped_column(default=0.0)
+    killer_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    killer_side: Mapped[str | None] = mapped_column(String, nullable=True)
+    victim_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    victim_side: Mapped[str | None] = mapped_column(String, nullable=True)
+    assister_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    weapon: Mapped[str | None] = mapped_column(String, nullable=True)
+    headshot: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Victim death position (world space).
+    x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    y: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class PlayerStat(Base):
+    __tablename__ = "player_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    demo_id: Mapped[int] = mapped_column(ForeignKey("demos.id"), index=True)
+    name: Mapped[str] = mapped_column(String, index=True)
+    team: Mapped[str | None] = mapped_column(String, nullable=True)
+    kills: Mapped[int] = mapped_column(default=0)
+    deaths: Mapped[int] = mapped_column(default=0)
+    assists: Mapped[int] = mapped_column(default=0)
+    headshots: Mapped[int] = mapped_column(default=0)
+    rounds: Mapped[int] = mapped_column(default=0)
+    adr: Mapped[float | None] = mapped_column(Float, nullable=True)

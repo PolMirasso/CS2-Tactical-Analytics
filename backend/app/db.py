@@ -38,8 +38,11 @@ def init_db() -> None:
 def _add_missing_columns() -> None:
     from sqlalchemy import inspect, text
 
-    wanted = {"download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
-                                "demos_total": "INTEGER NOT NULL DEFAULT 0"}}
+    wanted = {
+        "download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
+                          "demos_total": "INTEGER NOT NULL DEFAULT 0"},
+        "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR"},
+    }
     insp = inspect(_engine)
     for table, columns in wanted.items():
         if not insp.has_table(table):

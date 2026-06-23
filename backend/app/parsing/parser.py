@@ -71,6 +71,35 @@ class RoundData:
     equip_value: int
     team: str | None = None
     opponent: str | None = None
+    winner: str | None = None  # "t" / "ct"
+    win_reason: str | None = None
+
+
+@dataclass
+class KillData:
+    round_number: int
+    time_s: float
+    killer_name: str | None
+    killer_side: str | None
+    victim_name: str | None
+    victim_side: str | None
+    assister_name: str | None
+    weapon: str | None
+    headshot: bool
+    x: float | None = None
+    y: float | None = None
+
+
+@dataclass
+class PlayerStatData:
+    name: str
+    team: str | None
+    kills: int = 0
+    deaths: int = 0
+    assists: int = 0
+    headshots: int = 0
+    rounds: int = 0
+    adr: float | None = None
 
 
 @dataclass
@@ -80,6 +109,8 @@ class ParsedDemo:
     opponent: str | None
     rounds: list[RoundData] = field(default_factory=list)
     utility: list[UtilData] = field(default_factory=list)
+    kills: list[KillData] = field(default_factory=list)
+    player_stats: list[PlayerStatData] = field(default_factory=list)
     # 2D-replay frames (player positions + grenade lines); built lazily so the
     # analytics path stays cheap when the viewer artifact is not needed.
     replay: "ReplayData | None" = None
@@ -204,16 +235,148 @@ def _parse_with_awpy(
                 equip_value=equip,
                 team=team,
                 opponent=opp,
+                winner=_side(r.get("winner")),
+                win_reason=_win_reason(r),
             )
         )
 
     utility = _extract_utility(pl, demo, rounds_df, ticks_df, map_id, tickrate)
     replay = build_replay(pl, demo, rounds_df, ticks_df, map_id, tickrate)
+    kills = _kills_from_replay(replay)
+    player_stats = _player_stats(kills, len(rounds), _extract_damage(pl, demo))
+    _assign_player_teams(player_stats, replay, rounds)
 
     team, opponent = _resolve_matchup(clan_votes, team_hint)
     return ParsedDemo(
-        map_id=map_id, team=team, opponent=opponent, rounds=rounds, utility=utility, replay=replay
+        map_id=map_id, team=team, opponent=opponent, rounds=rounds, utility=utility,
+        kills=kills, player_stats=player_stats, replay=replay
     )
+
+
+def _side(value) -> str | None:
+    s = str(value).lower() if value else ""
+    return s if s in ("t", "ct") else None
+
+
+def _win_reason(round_row: dict) -> str | None:
+    for key in ("reason", "round_end_reason", "end_reason"):
+        v = round_row.get(key)
+        if v:
+            return str(v)
+    return None
+
+
+def _kills_from_replay(replay) -> list[KillData]:
+    """Flatten the per-round kill feed the replay builder already produced."""
+    out: list[KillData] = []
+    if replay is None:
+        return out
+    for r in replay.rounds:
+        for k in r.kills:
+            out.append(
+                KillData(
+                    round_number=r.round_number,
+                    time_s=float(k.get("t") or 0.0),
+                    killer_name=k.get("atk"),
+                    killer_side=_side(k.get("as")),
+                    victim_name=k.get("vic"),
+                    victim_side=_side(k.get("vs")),
+                    assister_name=k.get("ast"),
+                    weapon=k.get("wp"),
+                    headshot=bool(k.get("hs")),
+                    x=k.get("vx"),
+                    y=k.get("vy"),
+                )
+            )
+    return out
+
+
+def _player_stats(
+        kills: list[KillData], n_rounds: int, damage: dict[str, int]
+) -> list[PlayerStatData]:
+    """Aggregate the kill feed into a per-player scoreboard."""
+    stats: dict[str, PlayerStatData] = {}
+
+    def slot(name: str | None) -> PlayerStatData | None:
+        if not name or name == "?":
+            return None
+        s = stats.get(name)
+        if s is None:
+            s = stats[name] = PlayerStatData(name=name, team=None)
+        return s
+
+    for k in kills:
+        atk = slot(k.killer_name)
+        if atk is not None:
+            atk.kills += 1
+            if k.headshot:
+                atk.headshots += 1
+        vic = slot(k.victim_name)
+        if vic is not None:
+            vic.deaths += 1
+        ast = slot(k.assister_name)
+        if ast is not None:
+            ast.assists += 1
+
+    for name, total in damage.items():
+        s = stats.get(name)
+        if s is not None and n_rounds:
+            s.adr = round(total / n_rounds, 1)
+
+    for s in stats.values():
+        s.rounds = n_rounds
+    return sorted(stats.values(), key=lambda s: s.kills, reverse=True)
+
+
+def _assign_player_teams(
+        stats: list[PlayerStatData], replay, rounds: list[RoundData]
+) -> None:
+    """Tag each player with their clan and group the scoreboard by team.
+
+    A player's team is stable across the match; sides only swap at the half, so
+    their first-half side maps to the clan that played that side in round 1.
+    """
+    if not stats or not rounds:
+        return
+    team_t, team_ct = rounds[0].team, rounds[0].opponent
+    side_of: dict[str, str] = {}
+    if replay is not None:
+        for r in replay.rounds:
+            if r.round_number > _REGULATION_HALF:
+                continue  # first half: sides are stable
+            for p in r.players:
+                side_of.setdefault(p.name, p.side)
+    for s in stats:
+        side = side_of.get(s.name)
+        s.team = team_t if side == "t" else team_ct if side == "ct" else None
+    stats.sort(key=lambda s: (s.team or "~", -s.kills))
+
+
+def _extract_damage(pl, demo) -> dict[str, int]:
+    """Total damage dealt per attacker, for ADR. Best-effort over awpy.damages."""
+    try:
+        dmg = demo.damages
+    except Exception:
+        return {}
+    if dmg is None or dmg.is_empty():
+        return {}
+    name_col = next((c for c in ("attacker_name", "attacker") if c in dmg.columns), None)
+    val_col = next(
+        (c for c in ("dmg_health", "damage", "hp_damage", "health_damage") if c in dmg.columns),
+        None,
+    )
+    if name_col is None or val_col is None:
+        return {}
+    out: dict[str, int] = {}
+    try:
+        agg = dmg.group_by(name_col).agg(pl.col(val_col).sum().alias("d"))
+        for row in agg.iter_rows(named=True):
+            name = row.get(name_col)
+            if name:
+                out[str(name)] = int(row.get("d") or 0)
+    except Exception:
+        return {}
+    return out
 
 
 def _resolve_matchup(
@@ -453,4 +616,19 @@ def generate_sample(
         map_id=game_map.id, team=team, opponent=opponent, rounds=rounds, utility=utility
     )
     parsed.replay = build_sample_replay(parsed, seed=seed)
+
+    # Reuse the fabricated replay for round outcomes, the kill feed and the
+    # scoreboard so dev mode exercises the same code paths as a real demo.
+    win_by_round = {r.round_number: r.winner for r in parsed.replay.rounds}
+    reasons = ["elimination", "bomb_exploded", "defused", "time_expired"]
+    for rd in rounds:
+        rd.winner = win_by_round.get(rd.round_number)
+        rd.win_reason = rng.choice(reasons)
+    parsed.kills = _kills_from_replay(parsed.replay)
+    dmg: dict[str, int] = {}
+    for k in parsed.kills:
+        if k.killer_name:
+            dmg[k.killer_name] = dmg.get(k.killer_name, 0) + rng.randint(95, 140)
+    parsed.player_stats = _player_stats(parsed.kills, n_rounds, dmg)
+    _assign_player_teams(parsed.player_stats, parsed.replay, rounds)
     return parsed
