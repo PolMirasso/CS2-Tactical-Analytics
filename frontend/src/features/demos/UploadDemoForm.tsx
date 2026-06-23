@@ -10,8 +10,6 @@ export function UploadDemoForm() {
   const { user } = useAuth()
   const upload = useUploadDemo()
   const [file, setFile] = useState<File | null>(null)
-  const [team, setTeam] = useState('')
-  const [opponent, setOpponent] = useState('')
   const [event, setEvent] = useState('')
   const [matchDate, setMatchDate] = useState('')
   const [visibility, setVisibility] = useState<Visibility>('private')
@@ -26,8 +24,6 @@ export function UploadDemoForm() {
     const form = new FormData()
     form.append('file', file)
     form.append('visibility', visibility)
-    if (team) form.append('team', team)
-    if (opponent) form.append('opponent', opponent)
     if (event) form.append('event', event)
     if (matchDate) form.append('match_date', matchDate)
     try {
@@ -57,18 +53,6 @@ export function UploadDemoForm() {
         <p className="muted">{t('demos.mapAutoDetected')}</p>
         <div className="row">
           <div>
-            <label htmlFor="team">{t('demos.team')}</label>
-            <input id="team" value={team} onChange={(e) => setTeam(e.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="opponent">{t('demos.opponent')}</label>
-            <input
-              id="opponent"
-              value={opponent}
-              onChange={(e) => setOpponent(e.target.value)}
-            />
-          </div>
-          <div>
             <label htmlFor="matchDate">{t('demos.matchDate')}</label>
             <input
               id="matchDate"
@@ -77,8 +61,6 @@ export function UploadDemoForm() {
               onChange={(e) => setMatchDate(e.target.value)}
             />
           </div>
-        </div>
-        <div className="row">
           <div>
             <label htmlFor="event">{t('demos.event')}</label>
             <input id="event" value={event} onChange={(e) => setEvent(e.target.value)} />

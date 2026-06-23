@@ -15,7 +15,15 @@ export type DateRange =
 export type UtilityType = 'smoke' | 'flash' | 'molotov' | 'he'
 export type Region = 'A' | 'B' | 'Mid'
 export type Site = 'A' | 'B' | 'Mid' | 'NoPlant'
-export type BuyType = 'eco' | 'force' | 'full'
+export type BuyType =
+  | 'pistol'
+  | 'full_eco'
+  | 'eco'
+  | 'ak_hero'
+  | 'm4_hero'
+  | 'awp_hero'
+  | 'force'
+  | 'full'
 
 export interface UserOut {
   id: number
@@ -93,7 +101,9 @@ export interface DownloadJobOut {
   date_range: string
   visibility: Visibility
   matches: number
+  matches_total: number
   demos_ingested: number
+  demos_total: number
   demo_ids: number[]
   error: string | null
   created_at: string

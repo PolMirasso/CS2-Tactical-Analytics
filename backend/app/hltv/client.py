@@ -7,7 +7,7 @@ import tempfile
 import time
 from app.config import get_settings
 from app.domain.enums import DateRange
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -155,12 +155,19 @@ def find_match_results(team_id: str, map_id: str | None, date_range: DateRange) 
 
 
 def iter_team_demo_archives(
-        team_id: str, map_id: str | None, date_range: DateRange, *, max_matches: int = 5
+        team_id: str,
+        map_id: str | None,
+        date_range: DateRange,
+        *,
+        max_matches: int = 5,
+        on_total: "Callable[[int], None] | None" = None,
 ) -> Iterator[DemoArchive]:
     # Yield GOTV demo archives one match at a time, as each is downloaded
 
     settings = get_settings()
     match_urls = find_match_results(team_id, map_id, date_range)[:max_matches]
+    if on_total is not None:
+        on_total(len(match_urls))
 
     for match_url in match_urls:
         time.sleep(settings.request_delay_s)  # be polite to HLTV

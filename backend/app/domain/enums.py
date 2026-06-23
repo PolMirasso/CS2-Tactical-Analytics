@@ -51,7 +51,12 @@ class UtilityType(StrEnum):
 
 
 class BuyType(StrEnum):
+    PISTOL = "pistol"
+    FULL_ECO = "full_eco"
     ECO = "eco"
+    AK_HERO = "ak_hero"
+    M4_HERO = "m4_hero"
+    AWP_HERO = "awp_hero"
     FORCE = "force"
     FULL = "full"
 
