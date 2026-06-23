@@ -85,6 +85,7 @@
     "title": "2D replay",
     "open": "Open 2D replay",
     "follow": "Follow player",
+    "hasC4": "Has the C4",
     "back": "Back to demo",
     "round": "Round",
     "play": "Play",
@@ -115,6 +116,7 @@
     "demos": "Demos",
     "updated": "Updated",
     "noJobs": "No download jobs yet.",
+    "noMatches": "No matches in this period (the team may be inactive or renamed).",
     "range": {
       "last_month": "Last month",
       "last_3_months": "Last 3 months",

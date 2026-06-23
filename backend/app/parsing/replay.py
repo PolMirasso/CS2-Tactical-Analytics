@@ -165,13 +165,14 @@ def _clean_weapon(name) -> str:
 
 # Grenade-type → bit, matched as substrings against inventory item names. The
 # frontend reads this packed mask to show which utility a player is carrying.
-NADE_SMOKE, NADE_FLASH, NADE_HE, NADE_MOLOTOV, NADE_DECOY = 1, 2, 4, 8, 16
+NADE_SMOKE, NADE_FLASH, NADE_HE, NADE_MOLOTOV, NADE_DECOY, ITEM_C4 = 1, 2, 4, 8, 16, 32
 _NADE_BITS: list[tuple[tuple[str, ...], int]] = [
     (("smoke",), NADE_SMOKE),
     (("flash",), NADE_FLASH),
     (("high explosive", "he grenade", "frag"), NADE_HE),
     (("molotov", "incendiary"), NADE_MOLOTOV),
     (("decoy",), NADE_DECOY),
+    (("c4",), ITEM_C4),
 ]
 
 
@@ -509,7 +510,8 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 else:
                     pos.append([x, y, 0.0, 100.0])
                     # armor, money, weapon, clip 30 / reserve 90, smoke+flash.
-                    st.append([100, 2500, side_weapon[p.side], 30, 90, NADE_SMOKE | NADE_FLASH])
+                    mask = NADE_SMOKE | NADE_FLASH | (ITEM_C4 if pi == 0 else 0)
+                    st.append([100, 2500, side_weapon[p.side], 30, 90, mask])
                     # Occasional shots while alive.
                     if t > 15.0 and rng.random() < 0.05:
                         fires.append([pi, round(t, 2)])
