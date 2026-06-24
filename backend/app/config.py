@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # When true, demo "parsing" fabricates plausible rounds instead of reading the .dem with awpy. Lets the ingestion pipeline run without real demos
     use_sample_data: bool = False
+
+    # Parse real demos in a separate process so the CPU work doesn't stall the API.
+    parse_in_subprocess: bool = True
+    parse_workers: int = 1
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     @property
