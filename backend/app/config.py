@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     demo_download_timeout_s: float = 600.0
     # FlareSolverr is the ONLY challenge solver for /results + demo download
     flaresolverr_url: str = ""
+    # Concurrent FlareSolverr solves; keep at 1 unless you scale the solver.
+    flaresolverr_concurrency: int = 1
 
     # When true, demo "parsing" fabricates plausible rounds instead of reading the .dem with awpy. Lets the ingestion pipeline run without real demos
     use_sample_data: bool = False

@@ -47,6 +47,10 @@ def test_upload_dedup_same_file(client):
     first = _upload(client, token, map_id="de_mirage", visibility="private")
     second = _upload(client, token, map_id="de_mirage", visibility="private")
     assert first.json()["demo"]["id"] == second.json()["demo"]["id"]
+    assert first.json()["duplicate"] is False
+    assert second.json()["duplicate"] is True
+    assert second.json()["rounds"] == first.json()["rounds"]
+    assert second.json()["utility_events"] == first.json()["utility_events"]
 
 
 def test_non_dem_rejected(client):

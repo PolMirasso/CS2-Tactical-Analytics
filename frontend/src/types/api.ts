@@ -57,6 +57,7 @@ export interface UploadResult {
   demo: DemoOut
   rounds: number
   utility_events: number
+  duplicate: boolean
 }
 
 export interface UtilityEventOut {
@@ -144,6 +145,32 @@ export interface DownloadDemosIn {
   map_id?: string | null
   date_range?: DateRange
   visibility?: Visibility
+}
+
+// analytics (aggregated historical insights)
+export interface SiteStat {
+  site: Site
+  rounds: number
+  pct: number
+  wins: number
+  win_rate: number
+}
+
+export interface SiteDistributionOut {
+  map_id: string
+  team: string | null
+  total_rounds: number
+  total_demos: number
+  overall_win_rate: number
+  sites: SiteStat[]
+}
+
+export interface SiteDistributionParams {
+  map_id: string
+  team?: string
+  buy_type?: BuyType[]
+  date_from?: string
+  date_to?: string
 }
 
 export interface ZoneOut {

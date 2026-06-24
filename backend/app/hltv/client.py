@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from app.config import get_settings
 from app.domain.enums import DateRange
@@ -85,30 +86,51 @@ def _parse_team_hits(payload: object, base_url: str) -> list[TeamHit]:
     return hits
 
 
-def _flaresolverr_get(url: str) -> str:
-    # Fetch a Cloudflare-protected page's HTML via FlareSolverr
+# The single FlareSolverr browser 500s when overlapping jobs solve at once, so
+# gate concurrent solves to ``flaresolverr_concurrency``. Built lazily.
+_gate: threading.Semaphore | None = None
+_gate_lock = threading.Lock()
+
+
+def _flaresolverr_gate() -> threading.Semaphore:
+    global _gate
+    if _gate is None:
+        with _gate_lock:
+            if _gate is None:
+                _gate = threading.Semaphore(max(1, get_settings().flaresolverr_concurrency))
+    return _gate
+
+
+def _flaresolverr_get(url: str, *, attempts: int = 3) -> str:
+    # Fetch a Cloudflare-protected page's HTML via FlareSolverr. Its 500s are
+    # usually transient, so retry with linear backoff before giving up.
     settings = get_settings()
     if not settings.flaresolverr_url:
         raise HLTVError("FlareSolverr is not configured (set CS2_FLARESOLVERR_URL)")
-    try:
-        import requests
+    import requests
 
-        resp = requests.post(
-            f"{settings.flaresolverr_url.rstrip('/')}/v1",
-            json={
-                "cmd": "request.get",
-                "url": url,
-                "maxTimeout": int(settings.request_timeout_s * 1000),
-            },
-            timeout=settings.request_timeout_s + 30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:
-        raise HLTVError(f"FlareSolverr request failed: {exc}") from exc
-    if data.get("status") != "ok":
-        raise HLTVError(f"FlareSolverr error: {data.get('message', 'unknown')}")
-    return data.get("solution", {}).get("response", "")
+    endpoint = f"{settings.flaresolverr_url.rstrip('/')}/v1"
+    payload = {
+        "cmd": "request.get",
+        "url": url,
+        "maxTimeout": int(settings.request_timeout_s * 1000),
+    }
+    last_err: Exception | None = None
+    with _flaresolverr_gate():
+        for attempt in range(attempts):
+            try:
+                resp = requests.post(endpoint, json=payload, timeout=settings.request_timeout_s + 30)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as exc:
+                last_err = exc
+            else:
+                if data.get("status") == "ok":
+                    return data.get("solution", {}).get("response", "")
+                last_err = HLTVError(f"FlareSolverr error: {data.get('message', 'unknown')}")
+            if attempt + 1 < attempts:
+                time.sleep(settings.request_delay_s * (attempt + 1))
+    raise HLTVError(f"FlareSolverr request failed after {attempts} attempts: {last_err}")
 
 
 def map_from_filename(name: str) -> str | None:
