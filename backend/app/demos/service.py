@@ -9,7 +9,8 @@ from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, Kill, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
-from app.parsing.parser import ParseError, parse_demo
+from app.parsing.parser import ParseError
+from app.parsing.runner import run_parse
 from app.parsing.replay import replay_to_dict
 from fastapi import HTTPException
 from pathlib import Path
@@ -135,7 +136,7 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
     replay_path(demo.id).unlink(missing_ok=True)
 
     try:
-        parsed = parse_demo(
+        parsed = run_parse(
             Path(demo.file_path) if demo.file_path else Path(),
             map_hint=demo.map_id,
             team_hint=demo.team,
