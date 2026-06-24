@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.analytics.routes import router as maps_router
+from app.analytics.routes import analytics_router, router as maps_router
 from app.auth.routes import router as auth_router
 from app.auth.security import hash_password
 from app.config import get_settings
@@ -72,6 +72,7 @@ def create_app() -> FastAPI:
             groups_router,
             demos_router,
             maps_router,
+            analytics_router,
             hltv_router,
     ):
         app.include_router(router)

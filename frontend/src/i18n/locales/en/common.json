@@ -4,6 +4,7 @@
   },
   "nav": {
     "demos": "Demos",
+    "analytics": "Analysis",
     "hltv": "HLTV",
     "groups": "Groups",
     "maps": "Maps",
@@ -69,6 +70,7 @@
     "matchDate": "Match date",
     "mapAutoDetected": "The map, team and opponent are detected automatically when the demo is parsed.",
     "uploaded": "Uploaded: {{rounds}} rounds, {{utility}} utility events",
+    "duplicateNote": "This demo was already uploaded; reusing the existing parse ({{rounds}} rounds, {{utility}} utility events).",
     "deleteConfirm": "Delete this demo?",
     "summary": "Summary",
     "rounds": "Rounds",
@@ -145,5 +147,14 @@
     "region": "Region",
     "activeDuty": "Active Duty Map Pool",
     "reserve": "Reserve Map Pool"
+  },
+  "analytics": {
+    "title": "Tactical analysis",
+    "subtitle": "Real historical execution-site frequencies and win rates over matching rounds.",
+    "allTeams": "All teams",
+    "siteDistribution": "Plant-site distribution",
+    "summary": "{{rounds}} rounds across {{demos}} demos · overall win rate {{winRate}}",
+    "winRate": "Win rate",
+    "noData": "No rounds match these filters."
   }
 }

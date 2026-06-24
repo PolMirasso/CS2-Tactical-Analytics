@@ -80,6 +80,8 @@ class UploadResult(BaseModel):
     demo: DemoOut
     rounds: int
     utility_events: int
+    # True when the same file was already stored (deduped by sha256, not re-parsed).
+    duplicate: bool = False
 
 
 # demo analysis (parsed rounds + utility)
@@ -186,6 +188,24 @@ class DownloadDemosIn(BaseModel):
     map_id: str | None = None
     date_range: DateRange = DateRange.LAST_3_MONTHS
     visibility: Visibility = Visibility.PUBLIC
+
+
+# analytics (aggregated historical insights)
+class SiteStat(BaseModel):
+    site: str  # A / B / Mid / NoPlant
+    rounds: int
+    pct: float  # 0..1
+    wins: int
+    win_rate: float  # 0..1
+
+
+class SiteDistributionOut(BaseModel):
+    map_id: str
+    team: str | None = None
+    total_rounds: int
+    total_demos: int
+    overall_win_rate: float
+    sites: list[SiteStat]
 
 
 # maps

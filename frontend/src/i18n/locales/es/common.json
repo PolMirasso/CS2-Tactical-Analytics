@@ -4,6 +4,7 @@
   },
   "nav": {
     "demos": "Demos",
+    "analytics": "Análisis",
     "hltv": "HLTV",
     "groups": "Grupos",
     "maps": "Mapas",
@@ -69,6 +70,7 @@
     "matchDate": "Fecha del partido",
     "mapAutoDetected": "El mapa, el equipo y el rival se detectan automáticamente al parsear la demo.",
     "uploaded": "Subido: {{rounds}} rondas, {{utility}} eventos de utility",
+    "duplicateNote": "Este demo ya estaba subido; se reutiliza el parseo existente ({{rounds}} rondas, {{utility}} eventos de utility).",
     "deleteConfirm": "¿Eliminar este demo?",
     "summary": "Resumen",
     "rounds": "Rondas",
@@ -145,5 +147,14 @@
     "region": "Región",
     "activeDuty": "Mapas activos",
     "reserve": "Mapas de reserva"
+  },
+  "analytics": {
+    "title": "Análisis táctico",
+    "subtitle": "Frecuencias históricas reales de sites de ejecución y win rate sobre las rondas que coinciden.",
+    "allTeams": "Todos los equipos",
+    "siteDistribution": "Distribución de sites de plant",
+    "summary": "{{rounds}} rondas en {{demos}} demos · win rate global {{winRate}}",
+    "winRate": "Win rate",
+    "noData": "Ninguna ronda coincide con estos filtros."
   }
 }

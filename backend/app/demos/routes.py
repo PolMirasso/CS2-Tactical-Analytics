@@ -5,7 +5,7 @@ from datetime import date
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.demos import service
-from app.domain.enums import DemoSource, Visibility
+from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, User
 from app.analytics.maps import calibration, radar_file
 from app.domain.schemas import (
@@ -44,7 +44,7 @@ def upload_demo(
     if not (file.filename or "").lower().endswith(".dem"):
         raise HTTPException(status_code=400, detail="Expected a .dem file")
 
-    demo = service.store_upload(
+    demo, created = service.store_upload(
         session,
         user,
         file.file,
@@ -57,8 +57,13 @@ def upload_demo(
         event=event,
         match_date=match_date,
     )
-    n_rounds, n_util = service.parse_and_store(session, demo)
-    return UploadResult(demo=_to_out(demo), rounds=n_rounds, utility_events=n_util)
+    if created or demo.status != str(DemoStatus.PARSED):
+        n_rounds, n_util = service.parse_and_store(session, demo)
+    else:
+        n_rounds, n_util = service.count_analysis(session, demo)
+    return UploadResult(
+        demo=_to_out(demo), rounds=n_rounds, utility_events=n_util, duplicate=not created
+    )
 
 
 @router.get("", response_model=DemoListOut)

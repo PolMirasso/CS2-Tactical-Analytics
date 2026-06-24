@@ -12,6 +12,7 @@ const icon = (path: string): ReactNode => (
 
 const NAV: { to: string; end?: boolean; key: string; icon: ReactNode }[] = [
   { to: '/', end: true, key: 'nav.demos', icon: icon('M10 8l6 4-6 4V8zM4 4h16v16H4z') },
+  { to: '/analytics', key: 'nav.analytics', icon: icon('M3 3v18h18M7 14l4-4 3 3 5-6') },
   { to: '/hltv', key: 'nav.hltv', icon: icon('M12 3v12m0 0l-4-4m4 4l4-4M5 21h14') },
   { to: '/groups', key: 'nav.groups', icon: icon('M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm12 10v-2a4 4 0 00-3-3.87M16 3.13A4 4 0 0118 11') },
   { to: '/maps', key: 'nav.maps', icon: icon('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zm0 0v13m6-10v13') },

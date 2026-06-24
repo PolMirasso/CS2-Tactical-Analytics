@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.auth.deps import get_current_user, require_admin
 from app.db import get_session, session_scope
 from app.demos import service as demo_service
-from app.domain.enums import DemoSource, JobStatus
+from app.domain.enums import DemoSource, DemoStatus, JobStatus
 from app.domain.models import DownloadJob, User
 from app.domain.schemas import DownloadDemosIn, DownloadJobOut
 from app.domain.schemas import TeamHit as TeamHitOut
@@ -77,7 +77,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                     with session_scope() as session:
                         owner = session.get(User, owner_id)
                         with dem_path.open("rb") as fh:
-                            demo = demo_service.store_upload(
+                            demo, created = demo_service.store_upload(
                                 session,
                                 owner,
                                 fh,
@@ -92,7 +92,10 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 match_date=archive.match_date,
                                 hltv_match_id=archive.match_id,
                             )
-                        demo_service.parse_and_store(session, demo)
+                        # A series archive can hold a map already ingested in a
+                        # prior run; skip re-parsing those duplicates.
+                        if created or demo.status != str(DemoStatus.PARSED):
+                            demo_service.parse_and_store(session, demo)
                         demo_ids.append(demo.id)
                     _update(
                         matches=matches,

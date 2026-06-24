@@ -71,8 +71,12 @@ def store_upload(
         event: str | None = None,
         match_date: date | None = None,
         hltv_match_id: str | None = None,
-) -> Demo:
-    """Persist an uploaded demo file (dedup per-owner by sha256)."""
+) -> tuple[Demo, bool]:
+    """Persist an uploaded demo file, deduped per-owner by sha256.
+
+    Returns ``(demo, created)``; ``created`` is ``False`` when the same file was
+    already stored, so the caller can skip a redundant re-parse.
+    """
     settings = get_settings()
     tmp = settings.demos_dir / f".incoming-{owner.id}-{filename}"
     sha, size = _hash_and_save(fileobj, tmp)
@@ -82,7 +86,7 @@ def store_upload(
     )
     if existing is not None:
         tmp.unlink(missing_ok=True)
-        return existing
+        return existing, False
 
     final = settings.demos_dir / f"{sha}.dem"
     if final.exists():
@@ -107,7 +111,18 @@ def store_upload(
     )
     session.add(demo)
     session.flush()
-    return demo
+    return demo, True
+
+
+def count_analysis(session: Session, demo: Demo) -> tuple[int, int]:
+    """(n_rounds, n_utility) already stored for a demo, without loading the rows."""
+    n_rounds = session.scalar(
+        select(func.count()).select_from(Round).where(Round.demo_id == demo.id)
+    ) or 0
+    n_util = session.scalar(
+        select(func.count()).select_from(UtilityEvent).where(UtilityEvent.demo_id == demo.id)
+    ) or 0
+    return n_rounds, n_util
 
 
 def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:

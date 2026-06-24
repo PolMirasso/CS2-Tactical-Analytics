@@ -29,7 +29,10 @@ export function UploadDemoForm() {
     try {
       const res = await upload.mutateAsync(form)
       setNote(
-        t('demos.uploaded', { rounds: res.rounds, utility: res.utility_events }),
+        t(res.duplicate ? 'demos.duplicateNote' : 'demos.uploaded', {
+          rounds: res.rounds,
+          utility: res.utility_events,
+        }),
       )
       setFile(null)
       ;(e.target as HTMLFormElement).reset()
