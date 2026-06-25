@@ -173,6 +173,67 @@ export interface SiteDistributionParams {
   date_to?: string
 }
 
+// scouting / site prediction (ML)
+export interface UtilityInput {
+  util_type: UtilityType
+  zone?: string | null
+  region?: Region | null
+  round_time_s: number
+  side: string
+}
+
+export interface PredictIn {
+  map_id: string
+  team?: string | null
+  opponent?: string | null
+  buy_type: BuyType
+  equip_value?: number
+  utility: UtilityInput[]
+}
+
+export interface SiteProb {
+  site: Site
+  prob: number
+}
+
+export interface PredictOut {
+  map_id: string
+  team: string | null
+  predicted_site: Site
+  confidence: number
+  source: 'model' | 'baseline'
+  sites: SiteProb[]
+  baseline: SiteProb[]
+}
+
+export interface ZoneUtilStat {
+  zone: string
+  region: Region | null
+  smoke: number
+  flash: number
+  molotov: number
+  he: number
+  total: number
+}
+
+export interface TendenciesOut {
+  map_id: string
+  team: string | null
+  total_rounds: number
+  sites: SiteStat[]
+  heatmap: ZoneUtilStat[]
+}
+
+export interface ModelStatusOut {
+  trained: boolean
+  trained_at: string | null
+  n_rounds: number
+  n_teams: number
+  classes: string[]
+  accuracy: number | null
+  baseline_accuracy: number | null
+}
+
 export interface ZoneOut {
   id: string
   name: string

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.domain.models import Demo, Round, User
-from app.domain.schemas import SiteDistributionOut, SiteStat
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+from app.domain.models import Demo, Round, User, UtilityEvent
+from app.domain.schemas import SiteDistributionOut, SiteStat, ZoneUtilStat
+
+_UTIL_TYPES = ("smoke", "flash", "molotov", "he")
 
 # Canonical plant-site order so the chart stays stable even when a site is unused.
 _SITE_ORDER = ("A", "B", "Mid", "NoPlant")
@@ -93,4 +96,41 @@ def site_distribution(
         total_demos=total_demos,
         overall_win_rate=total_wins / total_rounds if total_rounds else 0.0,
         sites=sites,
+    )
+
+
+def utility_heatmap(
+        session: Session,
+        user: User,
+        *,
+        map_id: str,
+        team: str | None = None,
+) -> list[ZoneUtilStat]:
+    """T-side utility counts per callout zone (and type) for a team on a map."""
+    conds = _base_conditions(session, user, map_id)
+    if team:
+        conds.append(Round.team.ilike(f"%{team}%"))
+
+    rows = session.execute(
+        select(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type, func.count())
+        .join(Round, Round.id == UtilityEvent.round_id)
+        .join(Demo, Demo.id == Round.demo_id)
+        .where(*conds, UtilityEvent.team == "t", UtilityEvent.zone.is_not(None))
+        .group_by(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type)
+    ).all()
+
+    agg: dict[str, dict] = {}
+    for zone, region, util, n in rows:
+        b = agg.setdefault(
+            zone,
+            {"zone": zone, "region": region, "smoke": 0,
+             "flash": 0, "molotov": 0, "he": 0, "total": 0},
+        )
+        if util in _UTIL_TYPES:
+            b[util] += n
+        b["total"] += n
+    return sorted(
+        (ZoneUtilStat(**b) for b in agg.values()),
+        key=lambda z: z.total,
+        reverse=True,
     )

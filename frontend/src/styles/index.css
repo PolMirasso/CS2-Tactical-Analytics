@@ -306,3 +306,35 @@ th {
   width: auto;
   margin: 0;
 }
+
+/* Print / PDF export (scouting report): hide chrome, re-theme to light. */
+.print-only {
+  display: none;
+}
+@media print {
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f1f1f4;
+    --border: #cccccc;
+    --text: #111418;
+    --muted: #555b66;
+  }
+  .sidebar,
+  .no-print {
+    display: none !important;
+  }
+  .app {
+    display: block;
+  }
+  .main {
+    padding: 0;
+  }
+  .print-only {
+    display: block;
+  }
+  .card {
+    break-inside: avoid;
+    margin-bottom: 12px;
+  }
+}

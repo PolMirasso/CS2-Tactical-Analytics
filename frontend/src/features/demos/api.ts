@@ -19,7 +19,8 @@ function qs(params: Record<string, string | number | undefined>): string {
 }
 
 export const demosApi = {
-  list: (params: DemoListParams = {}) => api.get<DemoListOut>(`/demos${qs(params)}`),
+  list: (params: DemoListParams = {}) =>
+    api.get<DemoListOut>(`/demos${qs(params as Record<string, string | number | undefined>)}`),
   get: (id: number) => api.get<DemoOut>(`/demos/${id}`),
   analysis: (id: number) => api.get<DemoAnalysisOut>(`/demos/${id}/analysis`),
   replayMeta: (id: number) => api.get<ReplayMetaOut>(`/demos/${id}/replay`),

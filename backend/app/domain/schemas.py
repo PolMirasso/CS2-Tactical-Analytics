@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from app.domain.enums import DateRange, Visibility
 from datetime import date, datetime
+
 from pydantic import BaseModel, EmailStr, Field
+
+from app.domain.enums import DateRange, Visibility
 
 
 # auth
@@ -133,7 +135,7 @@ class MapCalibration(BaseModel):
     scale: float
     # Two-level maps (e.g. nuke): players below ``lower_level_max_units`` (world z)
     # project with ``lower``, which the SimpleRadar draws as a separate inset.
-    lower: "MapCalibration | None" = None
+    lower: MapCalibration | None = None
     lower_level_max_units: float | None = None
 
 
@@ -206,6 +208,67 @@ class SiteDistributionOut(BaseModel):
     total_demos: int
     overall_win_rate: float
     sites: list[SiteStat]
+
+
+# scouting / site prediction (ML)
+class UtilityInput(BaseModel):
+    util_type: str  # smoke / flash / molotov / he
+    zone: str | None = None
+    region: str | None = None
+    round_time_s: float = 0.0
+    side: str = "t"
+
+
+class PredictIn(BaseModel):
+    map_id: str
+    team: str | None = None
+    opponent: str | None = None
+    buy_type: str = "full"
+    equip_value: int = 0
+    utility: list[UtilityInput] = []
+
+
+class SiteProb(BaseModel):
+    site: str  # A / B / Mid / NoPlant
+    prob: float  # 0..1
+
+
+class PredictOut(BaseModel):
+    map_id: str
+    team: str | None = None
+    predicted_site: str
+    confidence: float
+    source: str  # "model" (MLP) or "baseline" (historical base rate fallback)
+    sites: list[SiteProb]
+    baseline: list[SiteProb]
+
+
+class ZoneUtilStat(BaseModel):
+    zone: str
+    region: str | None = None
+    smoke: int = 0
+    flash: int = 0
+    molotov: int = 0
+    he: int = 0
+    total: int = 0
+
+
+class TendenciesOut(BaseModel):
+    map_id: str
+    team: str | None = None
+    total_rounds: int
+    sites: list[SiteStat]
+    heatmap: list[ZoneUtilStat]
+
+
+class ModelStatusOut(BaseModel):
+    trained: bool
+    trained_at: datetime | None = None
+    n_rounds: int = 0
+    n_teams: int = 0
+    classes: list[str] = []
+    accuracy: float | None = None
+    baseline_accuracy: float | None = None
 
 
 # maps

@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from app.analytics.routes import analytics_router, router as maps_router
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
+
+from app.analytics.routes import analytics_router
+from app.analytics.routes import router as maps_router
 from app.auth.routes import router as auth_router
 from app.auth.security import hash_password
 from app.config import get_settings
@@ -10,10 +17,7 @@ from app.domain.enums import JobStatus, Role
 from app.domain.models import DownloadJob, User
 from app.groups.routes import router as groups_router
 from app.hltv.routes import router as hltv_router
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from app.ml.routes import router as scouting_router
 
 
 def _bootstrap_admin() -> None:
@@ -74,6 +78,7 @@ def create_app() -> FastAPI:
             maps_router,
             analytics_router,
             hltv_router,
+            scouting_router,
     ):
         app.include_router(router)
     return app
