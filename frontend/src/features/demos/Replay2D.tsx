@@ -697,8 +697,8 @@ function ReplayStage({
             })}
 
             {/* Dropped C4: nobody is carrying it and it isn't planted yet. */}
-            {!c4Planted && c4Holder < 0 && c4.x != null && (() => {
-              const [bx, by] = project(c4.x, c4.y, c4.z ?? undefined)
+            {!c4Planted && c4Holder < 0 && c4.x != null && c4.y != null && (() => {
+              const [bx, by] = project(c4.x!, c4.y!, c4.z ?? undefined)
               return (
                 <g style={{ pointerEvents: 'none' }}>
                   <rect x={bx - 11} y={by - 8} width={22} height={16} rx={3} fill="#8a3520" stroke="#ffb37a" strokeWidth={1.5} opacity={0.9} />

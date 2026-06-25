@@ -19,6 +19,7 @@ dependencies = [
     "lxml>=5.3",
     "rarfile>=4.2", # HLTV GOTV archives are .rar
     "awpy>=2.0", # CS2 .dem parsing
+    "scikit-learn>=1.5", # site-prediction MLP (brings numpy/scipy/joblib)
     "pandas>=2.2",
     "pyarrow>=18.0",
     "psycopg[binary]>=3.2", # PostgreSQL driver (SQLAlchemy postgresql+psycopg)

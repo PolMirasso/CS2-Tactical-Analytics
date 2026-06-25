@@ -5,6 +5,7 @@
   "nav": {
     "demos": "Demos",
     "analytics": "Analysis",
+    "scouting": "Scouting",
     "hltv": "HLTV",
     "groups": "Groups",
     "maps": "Maps",
@@ -156,5 +157,33 @@
     "summary": "{{rounds}} rounds across {{demos}} demos · overall win rate {{winRate}}",
     "winRate": "Win rate",
     "noData": "No rounds match these filters."
+  },
+  "scouting": {
+    "title": "Opponent scouting",
+    "subtitle": "Place the opponent's opening utility on the map and the model predicts which site they'll execute. Compare against their historical tendencies and export to PDF.",
+    "team": "Opponent team",
+    "roundTime": "Round time",
+    "addHint": "Pick a utility type and time, then click a map zone to place it. Click a token to remove it.",
+    "placed": "Placed utility",
+    "noTokens": "No utility placed yet. Pick a type above and click the map.",
+    "clear": "Clear",
+    "analyze": "Analyze",
+    "prediction": "Prediction",
+    "predictedSite": "Most likely site",
+    "modelSource": "Model (neural net)",
+    "baselineSource": "Historical base rate",
+    "baseline": "Historical frequency",
+    "baselineHint": "The bar is the model probability; the vertical tick is the team's historical frequency (baseline).",
+    "tendencies": "Historical tendencies",
+    "tendenciesSummary": "{{rounds}} T-side rounds analyzed.",
+    "heatmap": "Utility heatmap (T side)",
+    "noTendencies": "No historical rounds for this team on this map.",
+    "train": "Train model",
+    "trained": "Model trained · {{rounds}} rounds · accuracy {{acc}}",
+    "untrained": "Model not trained (using historical base rate)",
+    "baselineAccuracy": "Baseline accuracy",
+    "reportTitle": "Scouting report",
+    "exportPdf": "Export to PDF",
+    "utilTypes": { "smoke": "Smoke", "flash": "Flash", "molotov": "Molotov", "he": "HE" }
   }
 }

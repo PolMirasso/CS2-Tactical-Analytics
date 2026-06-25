@@ -11,6 +11,7 @@ import { GroupsPage } from '@/features/groups/GroupsPage'
 import { MapsPage } from '@/features/maps/MapsPage'
 import { MapEditorPage } from '@/features/maps/MapEditorPage'
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage'
+import { ScoutingPage } from '@/features/scouting/ScoutingPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: 'demos/:id', element: <DemoDetailPage /> },
       { path: 'demos/:id/replay', element: <ReplayPage /> },
       { path: 'analytics', element: <AnalyticsPage /> },
+      { path: 'scouting', element: <ScoutingPage /> },
       { path: 'hltv', element: <HltvPage /> },
       { path: 'groups', element: <GroupsPage /> },
       { path: 'maps', element: <MapsPage /> },

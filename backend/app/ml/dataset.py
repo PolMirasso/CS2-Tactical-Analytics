@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.domain.models import Demo, Round, User, UtilityEvent
+from app.ml.features import round_features
+
+
+def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], dict]:
+    """All visible T-side rounds → (feature dicts, target sites, meta)."""
+    from app.demos.service import _visibility_clause
+
+    rounds = list(
+        session.scalars(
+            select(Round)
+            .join(Demo, Demo.id == Round.demo_id)
+            .where(_visibility_clause(session, user), Round.team.is_not(None))
+        )
+    )
+    if not rounds:
+        return [], [], {"n_rounds": 0, "n_teams": 0}
+
+    util_by_round: dict[int, list[UtilityEvent]] = {}
+    for u in session.scalars(
+        select(UtilityEvent).where(UtilityEvent.round_id.in_([r.id for r in rounds]))
+    ):
+        util_by_round.setdefault(u.round_id, []).append(u)
+
+    feats: list[dict] = []
+    targets: list[str] = []
+    teams: set[str] = set()
+    for r in rounds:
+        feats.append(
+            round_features(
+                map_id=r.map_id,
+                team=r.team,
+                opponent=r.opponent,
+                buy_type=r.buy_type,
+                equip_value=r.equip_value,
+                utility=util_by_round.get(r.id, []),
+            )
+        )
+        targets.append(r.target_site)
+        if r.team:
+            teams.add(r.team)
+    return feats, targets, {"n_rounds": len(feats), "n_teams": len(teams)}
