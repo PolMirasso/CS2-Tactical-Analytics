@@ -31,6 +31,7 @@ export function HltvPage() {
   const [team, setTeam] = useState<TeamHit | null>(null)
   const [dateRange, setDateRange] = useState<DateRange>('last_3_months')
   const [visibility, setVisibility] = useState<Visibility>('public')
+  const [maxMatches, setMaxMatches] = useState(100)
   const [error, setError] = useState<string | null>(null)
 
   const start = useStartDownload()
@@ -48,6 +49,7 @@ export function HltvPage() {
         team_name: team.name,
         date_range: dateRange,
         visibility,
+        max_matches: maxMatches,
       })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error'))
@@ -94,7 +96,19 @@ export function HltvPage() {
                   <option value="private">private</option>
                 </select>
               </div>
+              <div>
+                <label htmlFor="maxm">{t('hltv.maxMatches')}</label>
+                <input
+                  id="maxm"
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={maxMatches}
+                  onChange={(e) => setMaxMatches(Math.max(1, Math.min(200, +e.target.value || 1)))}
+                />
+              </div>
             </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{t('hltv.maxMatchesHint')}</p>
             {error && <p className="error">{error}</p>}
             <button onClick={onStart} disabled={!isAdmin || start.isPending}>
               {t('hltv.startDownload')}

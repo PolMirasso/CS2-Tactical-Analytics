@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     flaresolverr_url: str = ""
     # Concurrent FlareSolverr solves; keep at 1 unless you scale the solver.
     flaresolverr_concurrency: int = 1
+    # max matches to downland
+    hltv_max_matches: int = 100
 
     # When true, demo "parsing" fabricates plausible rounds instead of reading the .dem with awpy. Lets the ingestion pipeline run without real demos
     use_sample_data: bool = False

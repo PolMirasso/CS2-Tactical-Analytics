@@ -111,6 +111,8 @@
     "searchPlaceholder": "Search team by name…",
     "selectTeam": "Selected team",
     "dateRange": "Date range",
+    "maxMatches": "Max series",
+    "maxMatchesHint": "Each series holds 2-3 maps (~1 GB each). Within the date range, the newest series up to this many are downloaded.",
     "startDownload": "Start download",
     "jobs": "Download jobs",
     "matches": "Matches",

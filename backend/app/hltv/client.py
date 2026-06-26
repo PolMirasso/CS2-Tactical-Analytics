@@ -211,7 +211,7 @@ def iter_team_demo_archives(
         map_id: str | None,
         date_range: DateRange,
         *,
-        max_matches: int = 5,
+        max_matches: int = 100,
         on_total: "Callable[[int], None] | None" = None,
 ) -> Iterator[DemoArchive]:
     # Yield GOTV demo archives one match at a time, as each is downloaded
@@ -252,7 +252,7 @@ def iter_team_demo_archives(
 
 
 def download_team_demos(
-        team_id: str, map_id: str | None, date_range: DateRange, *, max_matches: int = 5
+        team_id: str, map_id: str | None, date_range: DateRange, *, max_matches: int = 100
 ) -> list[DemoArchive]:
     return list(
         iter_team_demo_archives(team_id, map_id, date_range, max_matches=max_matches)

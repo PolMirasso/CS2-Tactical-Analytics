@@ -145,6 +145,7 @@ export interface DownloadDemosIn {
   map_id?: string | null
   date_range?: DateRange
   visibility?: Visibility
+  max_matches?: number
 }
 
 // analytics (aggregated historical insights)

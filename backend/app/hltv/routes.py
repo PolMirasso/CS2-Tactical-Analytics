@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.auth.deps import get_current_user, require_admin
+from app.config import get_settings
 from app.db import get_session, session_scope
 from app.demos import service as demo_service
 from app.domain.enums import DemoSource, DemoStatus, JobStatus
@@ -64,6 +65,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 body.team_id,
                 body.map_id,
                 body.date_range,
+                max_matches=body.max_matches or get_settings().hltv_max_matches,
                 on_total=lambda n: _update(matches_total=n),
         ):
             matches += 1
