@@ -178,7 +178,9 @@ export interface UtilityInput {
   util_type: UtilityType
   zone?: string | null
   region?: Region | null
-  round_time_s: number
+  time_from?: number
+  time_to?: number
+  round_time_s?: number
   side: string
 }
 
@@ -232,6 +234,8 @@ export interface ModelStatusOut {
   classes: string[]
   accuracy: number | null
   baseline_accuracy: number | null
+  //{ layers: '64→32', alpha: '0.001' }.
+  params?: Record<string, string> | null
 }
 
 export interface ZoneOut {

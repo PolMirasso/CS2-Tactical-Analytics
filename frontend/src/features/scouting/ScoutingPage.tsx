@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, PredictOut, Site, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, PredictOut, Region, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeams } from '@/features/analytics/hooks'
 import { useMaps } from '@/features/maps/hooks'
-import { ScoutingRadar, UTIL_COLOR, type Token } from './ScoutingRadar'
+import { ScoutingRadar, UTIL_COLOR, type DrawnRect, type Token } from './ScoutingRadar'
 import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
+const REGIONS: Region[] = ['A', 'B', 'Mid']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
 const SITE_ORDER: Site[] = ['A', 'B', 'Mid', 'NoPlant']
 const SITE_COLOR: Record<string, string> = {
@@ -21,6 +22,33 @@ const BUY_EQUIP: Record<string, number> = {
 
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`
 const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`
+const clampS = (v: number) => Math.max(0, Math.min(Math.round(v || 0), 115))
+
+function pointInPolygon(x: number, y: number, poly: [number, number][]): boolean {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]
+    const [xj, yj] = poly[j]
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+function regionAt(zones: ZoneOut[], x: number, y: number): Region {
+  for (const z of zones) {
+    if (z.polygon && pointInPolygon(x, y, z.polygon)) return z.region
+  }
+  let best: ZoneOut | null = null
+  let bd = Infinity
+  for (const z of zones) {
+    const d = (z.centroid[0] - x) ** 2 + (z.centroid[1] - y) ** 2
+    if (d < bd) {
+      bd = d
+      best = z
+    }
+  }
+  return best?.region ?? 'Mid'
+}
 
 export function ScoutingPage() {
   const { t } = useTranslation()
@@ -33,7 +61,10 @@ export function ScoutingPage() {
   const [buyType, setBuyType] = useState<BuyType>('full')
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
-  const [activeTime, setActiveTime] = useState(10)
+  const [activeFrom, setActiveFrom] = useState(5)
+  const [activeTo, setActiveTo] = useState(15)
+  const setFrom = (v: number) => { const f = clampS(v); setActiveFrom(f); setActiveTo((t) => Math.max(t, f)) }
+  const setTo = (v: number) => { const t = clampS(v); setActiveTo(t); setActiveFrom((f) => Math.min(f, t)) }
 
   useEffect(() => {
     if (!mapId && maps && maps.length > 0) setMapId(maps[0].id)
@@ -42,7 +73,6 @@ export function ScoutingPage() {
   const { data: teams } = useTeams(mapId || undefined)
   const map = useMemo(() => maps?.find((m) => m.id === mapId) ?? null, [maps, mapId])
   const zones: ZoneOut[] = map?.zones ?? []
-  const zoneName = useMemo(() => new Map(zones.map((z) => [z.id, z.name])), [zones])
 
   const tendencies = useTendencies(mapId || undefined, team || undefined)
   const modelStatus = useModelStatus()
@@ -55,23 +85,38 @@ export function ScoutingPage() {
     predict.reset()
   }, [mapId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addToken = (z: ZoneOut) => {
+  const addDrawnZone = (rect: DrawnRect) => {
     setTokens((ts) => [
       ...ts,
       {
         id: makeId(),
         util_type: activeUtil,
-        zone: z.id,
-        region: z.region,
-        round_time_s: activeTime,
-        x: z.centroid[0],
-        y: z.centroid[1],
+        region: regionAt(zones, rect.x, rect.y),
+        time_from: activeFrom,
+        time_to: activeTo,
+        x: rect.x,
+        y: rect.y,
+        w: rect.w,
+        h: rect.h,
       },
     ])
   }
   const removeToken = (id: string) => setTokens((ts) => ts.filter((tk) => tk.id !== id))
-  const setTokenTime = (id: string, v: number) =>
-    setTokens((ts) => ts.map((tk) => (tk.id === id ? { ...tk, round_time_s: v } : tk)))
+  const setTokenRegion = (id: string, region: Region) =>
+    setTokens((ts) => ts.map((tk) => (tk.id === id ? { ...tk, region } : tk)))
+
+  const setTokenFrom = (id: string, v: number) =>
+    setTokens((ts) => ts.map((tk) => {
+      if (tk.id !== id) return tk
+      const from = clampS(v)
+      return { ...tk, time_from: from, time_to: Math.max(tk.time_to, from) }
+    }))
+  const setTokenTo = (id: string, v: number) =>
+    setTokens((ts) => ts.map((tk) => {
+      if (tk.id !== id) return tk
+      const to = clampS(v)
+      return { ...tk, time_to: to, time_from: Math.min(tk.time_from, to) }
+    }))
 
   const analyze = () => {
     if (!mapId) return
@@ -82,9 +127,9 @@ export function ScoutingPage() {
       equip_value: BUY_EQUIP[buyType] ?? 0,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
-        zone: tk.zone,
         region: tk.region,
-        round_time_s: tk.round_time_s,
+        time_from: tk.time_from,
+        time_to: tk.time_to,
         side: 't',
       })),
     })
@@ -149,6 +194,11 @@ export function ScoutingPage() {
               {t('scouting.baselineAccuracy')}: {pct(ms.baseline_accuracy)}
             </span>
           )}
+          {ms?.trained && ms.params?.layers && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {t('scouting.network')}: {ms.params.layers} · α {ms.params.alpha}
+            </span>
+          )}
           {isAdmin && (
             <button className="ghost" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
               {trainModel.isPending ? t('common.loading') : t('scouting.train')}
@@ -182,26 +232,31 @@ export function ScoutingPage() {
                   </button>
                 ))}
               </div>
-              <label style={{ marginBottom: 2 }}>
-                {t('scouting.roundTime')}: <strong style={{ color: 'var(--text)' }}>{activeTime}s</strong>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={45}
-                value={activeTime}
-                onChange={(e) => setActiveTime(+e.target.value)}
-                style={{ marginBottom: 6 }}
-              />
+              <label style={{ marginBottom: 4, display: 'block' }}>{t('scouting.timeWindow')}</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span className="muted" style={{ fontSize: 13 }}>{t('scouting.from')}</span>
+                <input
+                  type="number" min={0} max={115} value={activeFrom}
+                  onChange={(e) => setFrom(+e.target.value)}
+                  style={{ width: 70, margin: 0, padding: '4px 6px' }}
+                />
+                <span className="muted" style={{ fontSize: 13 }}>{t('scouting.to')}</span>
+                <input
+                  type="number" min={0} max={115} value={activeTo}
+                  onChange={(e) => setTo(+e.target.value)}
+                  style={{ width: 70, margin: 0, padding: '4px 6px' }}
+                />
+                <span className="muted" style={{ fontSize: 12 }}>s</span>
+              </div>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>{t('scouting.addHint')}</p>
             </div>
             {map ? (
               <ScoutingRadar
                 mapId={map.id}
-                zones={zones}
                 tokens={tokens}
-                onZoneClick={addToken}
+                onDrawZone={addDrawnZone}
                 onRemoveToken={removeToken}
+                drawColor={UTIL_COLOR[activeUtil]}
               />
             ) : (
               <p className="muted">{t('common.loading')}</p>
@@ -236,15 +291,34 @@ export function ScoutingPage() {
                     >
                       <span style={{ width: 12, height: 12, borderRadius: 3, background: UTIL_COLOR[tk.util_type], flexShrink: 0 }} />
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
-                        {t(`scouting.utilTypes.${tk.util_type}`)} · {zoneName.get(tk.zone) ?? tk.zone}
+                        {t(`scouting.utilTypes.${tk.util_type}`)}
                       </span>
+                      <select
+                        value={tk.region}
+                        onChange={(e) => setTokenRegion(tk.id, e.target.value as Region)}
+                        title={t('scouting.region')}
+                        style={{ width: 62, margin: 0, padding: '4px 6px' }}
+                      >
+                        {REGIONS.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
                       <input
                         type="number"
                         min={0}
                         max={115}
-                        value={tk.round_time_s}
-                        onChange={(e) => setTokenTime(tk.id, +e.target.value)}
-                        style={{ width: 64, margin: 0, padding: '4px 6px' }}
+                        value={tk.time_from}
+                        onChange={(e) => setTokenFrom(tk.id, +e.target.value)}
+                        style={{ width: 50, margin: 0, padding: '4px 6px' }}
+                      />
+                      <span className="muted" style={{ fontSize: 12 }}>–</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={115}
+                        value={tk.time_to}
+                        onChange={(e) => setTokenTo(tk.id, +e.target.value)}
+                        style={{ width: 50, margin: 0, padding: '4px 6px' }}
                       />
                       <span className="muted" style={{ fontSize: 12 }}>s</span>
                       <button className="ghost" style={{ padding: '2px 8px' }} onClick={() => removeToken(tk.id)}>✕</button>

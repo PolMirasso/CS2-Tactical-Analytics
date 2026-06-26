@@ -29,6 +29,19 @@ def _side(ev) -> str:
     return str(_attr(ev, "side") or _attr(ev, "team") or "t").lower()
 
 
+def _event_time(ev) -> float:
+    """Representative throw time (s into the round)"""
+    lo = _attr(ev, "time_from")
+    hi = _attr(ev, "time_to")
+    if lo is not None and hi is not None:
+        return (float(lo) + float(hi)) / 2.0
+    if lo is not None:
+        return float(lo)
+    if hi is not None:
+        return float(hi)
+    return float(_attr(ev, "round_time_s") or 0.0)
+
+
 def round_features(
     *,
     map_id: str | None,
@@ -66,7 +79,7 @@ def round_features(
         if util is None:
             continue
         region = _attr(ev, "region")
-        t = float(_attr(ev, "round_time_s") or 0.0)
+        t = _event_time(ev)
         n_total += 1
         feats[f"u_{util}"] += 1.0
         if region in _REGIONS:
