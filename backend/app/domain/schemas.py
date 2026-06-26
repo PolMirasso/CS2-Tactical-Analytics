@@ -190,6 +190,8 @@ class DownloadDemosIn(BaseModel):
     map_id: str | None = None
     date_range: DateRange = DateRange.LAST_3_MONTHS
     visibility: Visibility = Visibility.PUBLIC
+    # Max series to pull
+    max_matches: int | None = Field(default=None, ge=1, le=200)
 
 
 # analytics (aggregated historical insights)

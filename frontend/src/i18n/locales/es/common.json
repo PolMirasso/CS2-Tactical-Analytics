@@ -111,6 +111,8 @@
     "searchPlaceholder": "Buscar equipo por nombre…",
     "selectTeam": "Equipo seleccionado",
     "dateRange": "Rango de fechas",
+    "maxMatches": "Máx. series",
+    "maxMatchesHint": "Cada serie trae 2-3 mapas (~1 GB cada uno). Dentro del rango de fechas se descargan las series más recientes hasta este número.",
     "startDownload": "Iniciar descarga",
     "jobs": "Trabajos de descarga",
     "matches": "Partidos",
