@@ -31,6 +31,7 @@ class SitePredictor:
     n_teams: int = 0
     accuracy: float | None = None
     baseline_accuracy: float | None = None
+    params: dict[str, str] = field(default_factory=dict)
 
     @property
     def trained(self) -> bool:
@@ -39,7 +40,7 @@ class SitePredictor:
     @classmethod
     def train(cls, feats: list[dict], targets: list[str], meta: dict) -> SitePredictor:
         from sklearn.feature_extraction import DictVectorizer
-        from sklearn.model_selection import cross_val_score
+        from sklearn.model_selection import GridSearchCV, StratifiedKFold
         from sklearn.neural_network import MLPClassifier
         from sklearn.pipeline import Pipeline
         from sklearn.preprocessing import StandardScaler
@@ -59,22 +60,46 @@ class SitePredictor:
         if len(feats) < MIN_ROUNDS or len(set(targets)) < 2:
             return self
 
-        pipe = Pipeline(
-            [
-                ("vec", DictVectorizer(sparse=True)),
-                ("scale", StandardScaler(with_mean=False)),
-                ("mlp", MLPClassifier(hidden_layer_sizes=(64,), max_iter=600, random_state=0)),
-            ]
-        )
-        cv = min(5, min(Counter(targets).values()))
-        if cv >= 2:
-            try:
-                self.accuracy = float(cross_val_score(pipe, feats, targets, cv=cv).mean())
-            except Exception:
-                self.accuracy = None
-        pipe.fit(feats, targets)
-        if self.accuracy is None:
+        def make_pipe(hidden=(64,), alpha=1e-3) -> Pipeline:
+            return Pipeline(
+                [
+                    ("vec", DictVectorizer(sparse=True)),
+                    ("scale", StandardScaler(with_mean=False)),
+                    (
+                        "mlp",
+                        MLPClassifier(
+                            hidden_layer_sizes=hidden,
+                            alpha=alpha,
+                            solver="adam",
+                            activation="relu",
+                            max_iter=800,
+                            n_iter_no_change=15,
+                            random_state=0,
+                        ),
+                    ),
+                ]
+            )
+
+        n_splits = min(5, min(Counter(targets).values()))
+        if n_splits >= 2:
+            cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=0)
+            grid = {
+                "mlp__hidden_layer_sizes": [(64,), (64, 32)],
+                "mlp__alpha": [1e-4, 1e-3, 1e-2],
+            }
+            search = GridSearchCV(make_pipe(), grid, cv=cv, scoring="accuracy", n_jobs=-1)
+            search.fit(feats, targets)
+            pipe = search.best_estimator_
+            self.accuracy = float(search.best_score_)
+            hidden = search.best_params_["mlp__hidden_layer_sizes"]
+            alpha = search.best_params_["mlp__alpha"]
+        else:
+            hidden, alpha = (64, 32), 1e-2
+            pipe = make_pipe(hidden, alpha)
+            pipe.fit(feats, targets)
             self.accuracy = float(pipe.score(feats, targets))
+
+        self.params = {"layers": "→".join(str(h) for h in hidden), "alpha": f"{alpha:g}"}
         self.pipeline = pipe
         self.classes = list(pipe.named_steps["mlp"].classes_)
         self.trained_at = datetime.now(UTC)

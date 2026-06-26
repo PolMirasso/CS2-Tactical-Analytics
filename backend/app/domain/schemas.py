@@ -215,6 +215,8 @@ class UtilityInput(BaseModel):
     util_type: str  # smoke / flash / molotov / he
     zone: str | None = None
     region: str | None = None
+    time_from: float | None = None
+    time_to: float | None = None
     round_time_s: float = 0.0
     side: str = "t"
 
@@ -269,6 +271,7 @@ class ModelStatusOut(BaseModel):
     classes: list[str] = []
     accuracy: float | None = None
     baseline_accuracy: float | None = None
+    params: dict[str, str] | None = None
 
 
 # maps

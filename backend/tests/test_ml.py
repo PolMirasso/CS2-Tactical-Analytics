@@ -42,6 +42,23 @@ def test_round_features_use_t_side_only():
     assert feats["map"] == "de_mirage"
 
 
+def test_round_features_time_window_uses_midpoint():
+    feats = round_features(
+        map_id="de_mirage",
+        team="X",
+        opponent="Y",
+        buy_type="full",
+        equip_value=20_000,
+        utility=[
+            {"util_type": "smoke", "region": "A", "time_from": 4, "time_to": 10, "side": "t"},
+            {"util_type": "flash", "region": "B", "time_from": 30, "time_to": 40, "side": "t"},
+        ],
+    )
+    assert feats["t_min"] == 7.0  # midpoint of 4-10
+    assert feats["t_mean"] == 21.0  # (7 + 35) / 2
+    assert feats["n_opening"] == 1.0  # only the 4-10 window (mid 7) is "opening"
+
+
 def test_untrained_predictor_returns_none():
     p = SitePredictor()
     assert p.trained is False
@@ -76,6 +93,25 @@ def test_predict_contract(client):
     assert len(body["baseline"]) == 4
     assert body["source"] in ("model", "baseline")
     assert body["predicted_site"] in SITES
+
+
+def test_predict_accepts_time_window(client):
+    token = register_and_login(client, "mlwindow@example.com")
+    _upload(client, token, map_id="de_mirage", team="NaVi", visibility="private")
+    resp = client.post(
+        "/scouting/predict",
+        json={
+            "map_id": "de_mirage",
+            "team": "NaVi",
+            "buy_type": "full",
+            "utility": [
+                {"util_type": "smoke", "region": "A", "time_from": 4.0, "time_to": 12.0, "side": "t"}
+            ],
+        },
+        headers=auth(token),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["predicted_site"] in SITES
 
 
 def test_train_requires_admin(client):
