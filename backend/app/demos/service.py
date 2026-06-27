@@ -126,7 +126,9 @@ def count_analysis(session: Session, demo: Demo) -> tuple[int, int]:
     return n_rounds, n_util
 
 
-def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
+def parse_and_store(
+        session: Session, demo: Demo, *, team_hint: str | None = None
+) -> tuple[int, int]:
     # Parse ``demo`` into rounds + utility events. Returns (n_rounds, n_utility)
     # Wipe any prior parse so re-parsing is idempotent
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
@@ -139,7 +141,9 @@ def parse_and_store(session: Session, demo: Demo) -> tuple[int, int]:
         parsed = run_parse(
             Path(demo.file_path) if demo.file_path else Path(),
             map_hint=demo.map_id,
-            team_hint=demo.team,
+            # Anchor to the searched team; in-demo clans still win when present,
+            # but this fills the team when the demo carries no clan tags.
+            team_hint=demo.team or team_hint,
         )
     except ParseError as exc:
         demo.status = str(DemoStatus.FAILED)
