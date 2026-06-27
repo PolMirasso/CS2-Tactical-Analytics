@@ -16,6 +16,7 @@ from app.demos.routes import router as demos_router
 from app.domain.enums import JobStatus, Role
 from app.domain.models import DownloadJob, User
 from app.groups.routes import router as groups_router
+from app.hltv import jobs
 from app.hltv.routes import router as hltv_router
 from app.ml.routes import router as scouting_router
 
@@ -40,7 +41,9 @@ def _fail_orphaned_jobs() -> None:
     with session_scope() as session:
         stale = session.scalars(
             select(DownloadJob).where(
-                DownloadJob.status.in_([str(JobStatus.PENDING), str(JobStatus.RUNNING)])
+                DownloadJob.status.in_(
+                    [str(JobStatus.PENDING), str(JobStatus.RUNNING), str(JobStatus.PAUSED)]
+                )
             )
         ).all()
         for job in stale:
@@ -54,6 +57,7 @@ async def lifespan(_app: FastAPI):
     _bootstrap_admin()
     _fail_orphaned_jobs()
     yield
+    jobs.cancel_all()
 
 
 def create_app() -> FastAPI:
