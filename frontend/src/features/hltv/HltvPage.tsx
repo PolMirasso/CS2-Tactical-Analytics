@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { formatDate } from '@/lib/format'
 import type { DateRange, DownloadJobOut, TeamHit, Visibility } from '@/types/api'
 import { TeamSearch } from './TeamSearch'
-import { useDownloadJobs, useStartDownload } from './hooks'
+import { useDownloadJobs, useJobAction, useStartDownload } from './hooks'
 
 // Overall progress: matches are the stable unit (a job has a fixed match total,
 // but its demo total only grows as each match archive is downloaded).
@@ -131,6 +131,7 @@ export function HltvPage() {
                 <th>{t('hltv.matches')}</th>
                 <th>{t('hltv.ingested')}</th>
                 <th>{t('demos.created')}</th>
+                <th>{t('hltv.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -169,10 +170,13 @@ export function HltvPage() {
                           : job.demos_ingested}
                       </td>
                       <td className="muted">{formatDate(job.created_at)}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <JobActions job={job} disabled={!isAdmin} />
+                      </td>
                     </tr>
                     {open && (
                       <tr>
-                        <td colSpan={6} style={{ background: 'rgba(255,255,255,0.02)' }}>
+                        <td colSpan={7} style={{ background: 'rgba(255,255,255,0.02)' }}>
                           <JobDetails job={job} />
                         </td>
                       </tr>
@@ -184,6 +188,39 @@ export function HltvPage() {
           </table>
         )}
       </div>
+    </div>
+  )
+}
+
+function JobActions({ job, disabled }: { job: DownloadJobOut; disabled: boolean }) {
+  const { t } = useTranslation()
+  const action = useJobAction()
+  const run = (a: 'pause' | 'resume' | 'cancel' | 'retry') =>
+    action.mutate({ id: job.id, action: a })
+  const busy = disabled || action.isPending
+
+  const buttons: { label: string; a: 'pause' | 'resume' | 'cancel' | 'retry' }[] = []
+  if (job.status === 'running') buttons.push({ label: t('hltv.pause'), a: 'pause' })
+  if (job.status === 'paused') buttons.push({ label: t('hltv.resume'), a: 'resume' })
+  if (job.status === 'running' || job.status === 'paused' || job.status === 'pending')
+    buttons.push({ label: t('hltv.cancel'), a: 'cancel' })
+  if (job.status === 'failed' || job.status === 'cancelled')
+    buttons.push({ label: t('hltv.retry'), a: 'retry' })
+
+  if (buttons.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {buttons.map(({ label, a }) => (
+        <button
+          key={a}
+          className="secondary"
+          style={{ padding: '2px 8px', fontSize: 12 }}
+          disabled={busy}
+          onClick={() => run(a)}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   )
 }

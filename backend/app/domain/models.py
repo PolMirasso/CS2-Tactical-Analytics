@@ -101,6 +101,7 @@ class DownloadJob(Base):
     map_id: Mapped[str | None] = mapped_column(String, nullable=True)
     date_range: Mapped[str] = mapped_column(String)
     visibility: Mapped[str] = mapped_column(String)
+    max_matches: Mapped[int | None] = mapped_column(nullable=True)
 
     matches: Mapped[int] = mapped_column(default=0)
     matches_total: Mapped[int] = mapped_column(default=0)

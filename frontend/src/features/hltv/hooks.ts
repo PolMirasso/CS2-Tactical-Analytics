@@ -26,3 +26,21 @@ export function useStartDownload() {
     onSuccess: () => qc.invalidateQueries({ queryKey: JOBS_KEY }),
   })
 }
+
+type JobAction = 'pause' | 'resume' | 'cancel' | 'retry'
+
+const JOB_ACTIONS = {
+  pause: hltvApi.pauseJob,
+  resume: hltvApi.resumeJob,
+  cancel: hltvApi.cancelJob,
+  retry: hltvApi.retryJob,
+}
+
+export function useJobAction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: JobAction }) =>
+      JOB_ACTIONS[action](id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: JOBS_KEY }),
+  })
+}

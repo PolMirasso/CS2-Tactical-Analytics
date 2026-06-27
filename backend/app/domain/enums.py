@@ -34,8 +34,10 @@ class InviteStatus(StrEnum):
 class JobStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class Side(StrEnum):

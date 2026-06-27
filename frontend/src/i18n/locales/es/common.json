@@ -120,6 +120,11 @@
     "progress": "Progreso",
     "demos": "Demos",
     "updated": "Actualizado",
+    "actions": "Acciones",
+    "pause": "Pausar",
+    "resume": "Continuar",
+    "cancel": "Cancelar",
+    "retry": "Reintentar",
     "noJobs": "Aún no hay trabajos de descarga.",
     "noMatches": "Sin partidos en este periodo (el equipo puede estar inactivo o haber cambiado de nombre).",
     "range": {

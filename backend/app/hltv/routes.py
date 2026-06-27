@@ -4,11 +4,11 @@ from app.auth.deps import get_current_user, require_admin
 from app.config import get_settings
 from app.db import get_session, session_scope
 from app.demos import service as demo_service
-from app.domain.enums import DemoSource, DemoStatus, JobStatus
+from app.domain.enums import DateRange, DemoSource, DemoStatus, JobStatus, Visibility
 from app.domain.models import DownloadJob, User
 from app.domain.schemas import DownloadDemosIn, DownloadJobOut
 from app.domain.schemas import TeamHit as TeamHitOut
-from app.hltv import client
+from app.hltv import client, jobs
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -53,6 +53,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 for key, value in fields.items():
                     setattr(job, key, value)
 
+    control = jobs.register(job_id)
     _update(status=str(JobStatus.RUNNING))
 
     demo_ids: list[int] = []
@@ -68,6 +69,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 max_matches=body.max_matches or get_settings().hltv_max_matches,
                 on_total=lambda n: _update(matches_total=n),
         ):
+            control.checkpoint()
             matches += 1
             # Each archive's demo count is only known once it's downloaded, so
             # the demos total grows as matches are processed.
@@ -75,6 +77,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
             _update(matches=matches, demos_total=demos_total)
             try:
                 for dem_path in archive.dem_paths:
+                    control.checkpoint()
                     demo_map = client.map_from_filename(dem_path.name) or body.map_id
                     with session_scope() as session:
                         owner = session.get(User, owner_id)
@@ -107,6 +110,14 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
             finally:
                 # Drop the multi-GB download once its demos are stored.
                 client.cleanup_archive(archive)
+    except jobs.JobCancelled:
+        _update(
+            status=str(JobStatus.CANCELLED),
+            matches=matches,
+            demos_ingested=len(demo_ids),
+            demo_ids=",".join(map(str, demo_ids)),
+        )
+        return
     except client.HLTVError as exc:
         _update(status=str(JobStatus.FAILED), error=str(exc)[:500])
         return
@@ -119,6 +130,8 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
             demo_ids=",".join(map(str, demo_ids)),
         )
         return
+    finally:
+        jobs.discard(job_id)
 
     _update(
         status=str(JobStatus.COMPLETED),
@@ -157,6 +170,7 @@ def download_demos(
         map_id=body.map_id,
         date_range=str(body.date_range),
         visibility=str(body.visibility),
+        max_matches=body.max_matches,
     )
     session.add(job)
 
@@ -175,6 +189,95 @@ def get_download_job(
     job = session.get(DownloadJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Download job not found")
+    return _job_out(job)
+
+
+def _require_job(session: Session, job_id: str) -> DownloadJob:
+    job = session.get(DownloadJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Download job not found")
+    return job
+
+
+@router.post("/download/{job_id}/pause", response_model=DownloadJobOut)
+def pause_download_job(
+        job_id: str,
+        admin: User = Depends(require_admin),
+        session: Session = Depends(get_session),
+) -> DownloadJobOut:
+    job = _require_job(session, job_id)
+    control = jobs.get(job_id)
+    if job.status != str(JobStatus.RUNNING) or control is None:
+        raise HTTPException(status_code=409, detail="Job is not running")
+    control.pause()
+    job.status = str(JobStatus.PAUSED)
+    session.commit()
+    session.refresh(job)
+    return _job_out(job)
+
+
+@router.post("/download/{job_id}/resume", response_model=DownloadJobOut)
+def resume_download_job(
+        job_id: str,
+        admin: User = Depends(require_admin),
+        session: Session = Depends(get_session),
+) -> DownloadJobOut:
+    job = _require_job(session, job_id)
+    control = jobs.get(job_id)
+    if job.status != str(JobStatus.PAUSED) or control is None:
+        raise HTTPException(status_code=409, detail="Job is not paused")
+    control.resume()
+    job.status = str(JobStatus.RUNNING)
+    session.commit()
+    session.refresh(job)
+    return _job_out(job)
+
+
+@router.post("/download/{job_id}/cancel", response_model=DownloadJobOut)
+def cancel_download_job(
+        job_id: str,
+        admin: User = Depends(require_admin),
+        session: Session = Depends(get_session),
+) -> DownloadJobOut:
+    job = _require_job(session, job_id)
+    if job.status not in {str(JobStatus.PENDING), str(JobStatus.RUNNING), str(JobStatus.PAUSED)}:
+        raise HTTPException(status_code=409, detail="Job is not cancellable")
+    control = jobs.get(job_id)
+    if control is not None:
+        # The worker will set CANCELLED
+        control.cancel()
+    else:
+        # No live worker
+        job.status = str(JobStatus.CANCELLED)
+        session.commit()
+    session.refresh(job)
+    return _job_out(job)
+
+
+@router.post("/download/{job_id}/retry", response_model=DownloadJobOut)
+def retry_download_job(
+        job_id: str,
+        background_tasks: BackgroundTasks,
+        admin: User = Depends(require_admin),
+        session: Session = Depends(get_session),
+) -> DownloadJobOut:
+    job = _require_job(session, job_id)
+    if job.status not in {str(JobStatus.FAILED), str(JobStatus.CANCELLED)}:
+        raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
+    # Restart the same job; already-ingested demos are skipped via dedup.
+    body = DownloadDemosIn(
+        team_id=job.team_id,
+        team_name=job.team_name,
+        map_id=job.map_id,
+        date_range=DateRange(job.date_range),
+        visibility=Visibility(job.visibility),
+        max_matches=job.max_matches,
+    )
+    job.status = str(JobStatus.PENDING)
+    job.error = None
+    session.commit()
+    session.refresh(job)
+    background_tasks.add_task(_run_download_job, job.id, job.owner_id, body)
     return _job_out(job)
 
 
