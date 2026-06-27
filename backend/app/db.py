@@ -40,7 +40,8 @@ def _add_missing_columns() -> None:
 
     wanted = {
         "download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
-                          "demos_total": "INTEGER NOT NULL DEFAULT 0"},
+                          "demos_total": "INTEGER NOT NULL DEFAULT 0",
+                          "max_matches": "INTEGER"},
         "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR"},
     }
     insp = inspect(_engine)

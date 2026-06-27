@@ -120,6 +120,11 @@
     "progress": "Progress",
     "demos": "Demos",
     "updated": "Updated",
+    "actions": "Actions",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "retry": "Retry",
     "noJobs": "No download jobs yet.",
     "noMatches": "No matches in this period (the team may be inactive or renamed).",
     "range": {
