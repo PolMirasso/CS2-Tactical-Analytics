@@ -100,7 +100,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                         # A series archive can hold a map already ingested in a
                         # prior run; skip re-parsing those duplicates.
                         if created or demo.status != str(DemoStatus.PARSED):
-                            demo_service.parse_and_store(session, demo)
+                            demo_service.parse_and_store(session, demo, team_hint=body.team_name)
                         demo_ids.append(demo.id)
                     _update(
                         matches=matches,
