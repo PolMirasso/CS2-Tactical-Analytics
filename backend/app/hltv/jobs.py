@@ -53,3 +53,11 @@ def get(job_id: str) -> JobControl | None:
 def discard(job_id: str) -> None:
     with _lock:
         _registry.pop(job_id, None)
+
+
+def cancel_all() -> None:
+    #on shutdown, unblock every live worker
+    with _lock:
+        controls = list(_registry.values())
+    for control in controls:
+        control.cancel()
