@@ -54,6 +54,24 @@ export function useReparseDemo() {
   })
 }
 
+export function useReparseAll() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (mapId?: string) => demosApi.reparseAll(mapId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...KEY, 'reparse-status'] }),
+  })
+}
+
+export function useReparseStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, 'reparse-status'],
+    queryFn: () => demosApi.reparseAllStatus(),
+    enabled,
+    // poll while a job runs so the progress advances live; stop when idle.
+    refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
+  })
+}
+
 export function useDeleteDemo() {
   const qc = useQueryClient()
   return useMutation({

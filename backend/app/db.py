@@ -43,6 +43,7 @@ def _add_missing_columns() -> None:
                           "demos_total": "INTEGER NOT NULL DEFAULT 0",
                           "max_matches": "INTEGER"},
         "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR"},
+        "utility_events": {"radar_x": "FLOAT", "radar_y": "FLOAT"},
     }
     insp = inspect(_engine)
     for table, columns in wanted.items():

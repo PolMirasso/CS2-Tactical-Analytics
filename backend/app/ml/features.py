@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.analytics.maps import get_map
 from app.domain.enums import Region, Site, UtilityType
 
 # Canonical label order for the softmax output.
@@ -9,8 +10,12 @@ _REGIONS = [r.value for r in Region]  # A, B, Mid
 _UTILS = [u.value for u in UtilityType]  # smoke, flash, molotov, he
 
 _EQUIP_NORM = 25_000.0
+ROUND_TIME_S = 115.0
 # Grenades thrown within this many seconds of freeze-end count as "opening" util.
 _OPENING_WINDOW_S = 15.0
+
+# perutility token = [smoke, flash, molotov, he, x01, y01, t01].
+TOKEN_DIM = len(_UTILS) + 3
 
 
 def _attr(obj, name):
@@ -42,7 +47,55 @@ def _event_time(ev) -> float:
     return float(_attr(ev, "round_time_s") or 0.0)
 
 
-def round_features(
+def _radar_pos(map_id: str | None, ev) -> tuple[float, float] | None:
+    """Utility position in 1024-space radar pixels"""
+    rx, ry = _attr(ev, "radar_x"), _attr(ev, "radar_y")
+    if rx is None or ry is None:
+        rx, ry = _attr(ev, "x"), _attr(ev, "y")
+    if rx is not None and ry is not None:
+        return float(rx), float(ry)
+
+    game_map = get_map(map_id or "")
+    if game_map is None:
+        return None
+    zid = _attr(ev, "zone")
+    if zid is not None:
+        for z in game_map.zones:
+            if z.id == zid:
+                return z.centroid
+    region = _attr(ev, "region")
+    if region is not None:
+        cs = [z.centroid for z in game_map.zones if z.region.value == region]
+        if cs:
+            return (sum(c[0] for c in cs) / len(cs), sum(c[1] for c in cs) / len(cs))
+    return None
+
+
+def _clamp01(v: float) -> float:
+    return 0.0 if v < 0.0 else 1.0 if v > 1.0 else v
+
+
+def round_tokens(map_id: str | None, utility) -> list[list[float]]:
+    """One round is a set of per-utility tokens (only T-side opening util)"""
+    tokens: list[list[float]] = []
+    for ev in utility or []:
+        if _side(ev) != "t":
+            continue
+        util = _norm_util(_attr(ev, "util_type"))
+        if util is None:
+            continue
+        one_hot = [1.0 if util == u else 0.0 for u in _UTILS]
+        pos = _radar_pos(map_id, ev)
+        if pos is None:
+            x01 = y01 = 0.5  # unknown location → centre of the radar
+        else:
+            x01, y01 = _clamp01(pos[0] / 1024.0), _clamp01(pos[1] / 1024.0)
+        t01 = _clamp01(_event_time(ev) / ROUND_TIME_S)
+        tokens.append([*one_hot, x01, y01, t01])
+    return tokens
+
+
+def round_context(
     *,
     map_id: str | None,
     team: str | None,
@@ -51,23 +104,19 @@ def round_features(
     equip_value: float | int | None,
     utility,
 ) -> dict[str, float | str]:
-    """One round → the model's feature dict (shared by training and inference).
-
-    Only T-side utility is considered (the executing side). Categorical keys
-    (map/team/opponent/buy) are left as strings for the DictVectorizer to one-hot.
+    """Round-level context fed to the DeepSets head alongside the pooled set.
+    Categorical keys (map/team/opponent/buy) stay strings for the
+    DictVectorizer to one-hot; the rest are normalised scalars
     """
-    feats: dict[str, float | str] = {
+    ctx: dict[str, float | str] = {
         "map": map_id or "?",
         "team": team or "?",
         "opponent": opponent or "?",
         "buy": buy_type or "?",
         "equip": float(equip_value or 0) / _EQUIP_NORM,
     }
-    for r in _REGIONS:
-        for u in _UTILS:
-            feats[f"r_{r}_{u}"] = 0.0
     for u in _UTILS:
-        feats[f"u_{u}"] = 0.0
+        ctx[f"u_{u}"] = 0.0
 
     times: list[float] = []
     n_total = 0
@@ -78,18 +127,15 @@ def round_features(
         util = _norm_util(_attr(ev, "util_type"))
         if util is None:
             continue
-        region = _attr(ev, "region")
         t = _event_time(ev)
         n_total += 1
-        feats[f"u_{util}"] += 1.0
-        if region in _REGIONS:
-            feats[f"r_{region}_{util}"] += 1.0
+        ctx[f"u_{util}"] += 1.0
         times.append(t)
         if t <= _OPENING_WINDOW_S:
             n_opening += 1
 
-    feats["n_util"] = float(n_total)
-    feats["n_opening"] = float(n_opening)
-    feats["t_min"] = min(times) if times else 0.0
-    feats["t_mean"] = (sum(times) / len(times)) if times else 0.0
-    return feats
+    ctx["n_util"] = float(n_total)
+    ctx["n_opening"] = float(n_opening)
+    ctx["t_min"] = (min(times) / ROUND_TIME_S) if times else 0.0
+    ctx["t_mean"] = (sum(times) / len(times) / ROUND_TIME_S) if times else 0.0
+    return ctx

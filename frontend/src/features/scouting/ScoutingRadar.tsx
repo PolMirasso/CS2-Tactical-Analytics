@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { apiUrl } from '@/lib/apiClient'
-import type { Region, UtilityType, ZoneOut, ZoneUtilStat } from '@/types/api'
+import { fmtClock } from './clock'
+import type { UtilityType, ZoneOut, ZoneUtilStat } from '@/types/api'
 
 const VIEW = 1024
 const MIN_BOX = 46
@@ -22,7 +23,6 @@ const REGION_COLOR: Record<string, string> = { A: '#4f8cff', B: '#ff5d5d', Mid: 
 export interface Token {
   id: string
   util_type: UtilityType
-  region: Region
   time_from: number
   time_to: number
   x: number
@@ -251,7 +251,7 @@ export function ScoutingRadar({
               paintOrder="stroke"
               style={{ pointerEvents: 'none' }}
             >
-              {tk.region} · {tk.time_from}–{tk.time_to}s
+              {fmtClock(tk.time_from)}–{fmtClock(tk.time_to)}
             </text>
           </g>
         ))}

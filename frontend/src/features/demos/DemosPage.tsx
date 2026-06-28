@@ -3,14 +3,17 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatBytes, formatDate, formatDay } from '@/lib/format'
+import { useAuth } from '@/features/auth/AuthContext'
 import { useMaps } from '@/features/maps/hooks'
 import { UploadDemoForm } from './UploadDemoForm'
-import { useDemos } from './hooks'
+import { useDemos, useReparseAll, useReparseStatus } from './hooks'
 
 const PAGE_SIZE = 25
 
 export function DemosPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const { data: maps } = useMaps()
   const [mapId, setMapId] = useState('')
   const [team, setTeam] = useState('')
@@ -36,10 +39,53 @@ export function DemosPage() {
   const total = data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const reparseAll = useReparseAll()
+  const reparseStatus = useReparseStatus(isAdmin)
+  const job = reparseStatus.data
+  const selectedMapName = maps?.find((m) => m.id === mapId)?.name
+
   return (
     <div>
       <h1>{t('demos.title')}</h1>
       <UploadDemoForm />
+
+      {isAdmin && (
+        <div className="card">
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => reparseAll.mutate(mapId || undefined)}
+              disabled={reparseAll.isPending || !!job?.running}
+            >
+              {job?.running
+                ? t('demos.reparsing')
+                : mapId
+                  ? t('demos.reparseMap', { map: selectedMapName ?? mapId })
+                  : t('demos.reparseAll')}
+            </button>
+            {job && (job.running || job.total > 0) && (
+              <span className="muted" style={{ fontSize: 13 }}>
+                {job.done}/{job.total}
+                {job.failed > 0 ? ` · ${t('demos.reparseFailed', { n: job.failed })}` : ''}
+                {!job.running && job.total > 0 ? ` · ${t('demos.reparseDone')}` : ''}
+              </span>
+            )}
+          </div>
+          {job && job.total > 0 && (
+            <div style={{ background: '#1f2937', borderRadius: 4, height: 8, marginTop: 8 }}>
+              <div
+                style={{
+                  width: `${(job.done / job.total) * 100}%`,
+                  height: '100%',
+                  background: job.running ? 'var(--accent, #4f8cff)' : '#10b981',
+                  borderRadius: 4,
+                  transition: 'width 0.3s',
+                }}
+              />
+            </div>
+          )}
+          <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>{t('demos.reparseHint')}</p>
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>

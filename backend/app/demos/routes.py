@@ -4,7 +4,7 @@ from datetime import date
 
 from app.auth.deps import get_current_user
 from app.db import get_session
-from app.demos import service
+from app.demos import reparse, service
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, User
 from app.analytics.maps import calibration, radar_file
@@ -15,6 +15,7 @@ from app.domain.schemas import (
     MapCalibration,
     PlayerStatOut,
     ReplayMetaOut,
+    ReparseStatusOut,
     RoundOut,
     UploadResult,
     UtilityEventOut,
@@ -179,6 +180,38 @@ def reparse_demo(
         raise HTTPException(status_code=403, detail="Only the owner can re-parse this demo")
     n_rounds, n_util = service.parse_and_store(session, demo)
     return UploadResult(demo=_to_out(demo), rounds=n_rounds, utility_events=n_util)
+
+
+def _reparse_status_out(st) -> ReparseStatusOut:
+    return ReparseStatusOut(
+        running=st.running,
+        total=st.total,
+        done=st.done,
+        ok=st.ok,
+        failed=st.failed,
+        map_id=st.map_id,
+        started_at=st.started_at,
+        finished_at=st.finished_at,
+    )
+
+
+@router.post("/reparse-all", response_model=ReparseStatusOut)
+def reparse_all(
+        map_id: str | None = None,
+        user: User = Depends(get_current_user),
+) -> ReparseStatusOut:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can re-parse all demos")
+    return _reparse_status_out(reparse.start(map_id))
+
+
+@router.get("/reparse-all/status", response_model=ReparseStatusOut)
+def reparse_all_status(
+        user: User = Depends(get_current_user),
+) -> ReparseStatusOut:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can view this")
+    return _reparse_status_out(reparse.status())
 
 
 @router.delete("/{demo_id}", status_code=204)

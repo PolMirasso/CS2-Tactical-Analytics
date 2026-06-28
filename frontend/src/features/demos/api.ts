@@ -4,6 +4,7 @@ import type {
   DemoListOut,
   DemoListParams,
   DemoOut,
+  ReparseStatus,
   ReplayMetaOut,
   ReplayRound,
   UploadResult,
@@ -28,5 +29,8 @@ export const demosApi = {
     api.get<ReplayRound>(`/demos/${id}/replay/${round}`),
   upload: (form: FormData) => api.postForm<UploadResult>('/demos/upload', form),
   reparse: (id: number) => api.post<UploadResult>(`/demos/${id}/parse`),
+  reparseAll: (mapId?: string) =>
+    api.post<ReparseStatus>(`/demos/reparse-all${mapId ? `?map_id=${encodeURIComponent(mapId)}` : ''}`),
+  reparseAllStatus: () => api.get<ReparseStatus>('/demos/reparse-all/status'),
   remove: (id: number) => api.del<void>(`/demos/${id}`),
 }

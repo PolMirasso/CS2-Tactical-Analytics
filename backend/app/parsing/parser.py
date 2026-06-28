@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from app.analytics.maps import classify_point, get_map, list_maps
+from app.analytics.maps import classify_point, get_map, list_maps, to_radar_pixel
 from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
 from app.parsing.replay import ReplayData, build_replay, build_sample_replay
@@ -61,6 +61,9 @@ class UtilData:
     region: str | None
     round_time_s: float
     side: str  # "t" / "ct"
+    # detonation position in 1024-space radar pixels
+    radar_x: float | None = None  
+    radar_y: float | None = None
 
 
 @dataclass
@@ -137,10 +140,40 @@ def classify_buy(
     return base
 
 
-def _site_from_bomb(bomb_site: str | None) -> str:
-    return {"bombsite_a": Site.A.value, "bombsite_b": Site.B.value}.get(
-        bomb_site or "", Site.NO_PLANT.value
-    )
+def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, str]:
+    # round planted site from the bomb_planted event
+    events = getattr(demo, "events", None) or {}
+    planted = events.get("bomb_planted")
+    if planted is None or planted.is_empty():
+        return {}
+
+    windows: list[tuple[int, float, float]] = []
+    for r in rounds_df.iter_rows(named=True):
+        start = float(r.get("start") or 0)
+        end = float(r.get("official_end") or r.get("end") or start)
+        windows.append((int(r["round_num"]), start, end))
+
+    out: dict[int, str] = {}
+    for row in planted.iter_rows(named=True):
+        tick = row.get("tick")
+        if tick is None:
+            continue
+        place = str(row.get("user_place") or "")
+        if place.endswith("A"):
+            site = Site.A.value
+        elif place.endswith("B"):
+            site = Site.B.value
+        else:
+            x, y = row.get("user_X"), row.get("user_Y")
+            zone = classify_point(map_id, x, y) if x is not None and y is not None else None
+            site = zone.region.value if zone and zone.region.value in (Site.A.value, Site.B.value) else None
+        if site is None:
+            continue
+        for rnum, start, end in windows:
+            if start <= float(tick) <= end:
+                out[rnum] = site
+                break
+    return out
 
 
 def _grenade_type(raw: str | None) -> UtilityType | None:
@@ -212,6 +245,7 @@ def _parse_with_awpy(
         raise ParseError("demo produced no rounds")
 
     tickrate = float(getattr(demo, "tickrate", 128) or 128)
+    planted_sites = _planted_sites(demo, rounds_df, map_id)
     rounds: list[RoundData] = []
     # Both clans appear on T and CT across a match (sides swap at the half), so
     # tally every clan we see regardless of side and resolve the matchup later.
@@ -230,7 +264,7 @@ def _parse_with_awpy(
         rounds.append(
             RoundData(
                 round_number=rnum,
-                target_site=_site_from_bomb(r.get("bomb_site")),
+                target_site=planted_sites.get(rnum, Site.NO_PLANT.value),
                 buy_type=classify_buy(equip, rnum, _hero_weapon(t_rows)).value,
                 equip_value=equip,
                 team=team,
@@ -507,7 +541,9 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
             continue
         rnum = int(rnum)
         x, y = g.get("X"), g.get("Y")
-        zone = classify_point(map_id, x, y) if x is not None and y is not None else None
+        has_pos = x is not None and y is not None
+        zone = classify_point(map_id, x, y) if has_pos else None
+        radar = to_radar_pixel(map_id, x, y) if has_pos else (None, None)
         freeze_end = freeze_by_round.get(rnum, 0)
         round_time = max(0.0, (float(g.get("throw_tick", freeze_end)) - float(freeze_end)) / tickrate)
         side = side_lookup.get((rnum, g.get("thrower_steamid")), "")
@@ -519,6 +555,8 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
                 region=zone.region.value if zone else None,
                 round_time_s=round_time,
                 side=side,
+                radar_x=radar[0],
+                radar_y=radar[1],
             )
         )
     return out
