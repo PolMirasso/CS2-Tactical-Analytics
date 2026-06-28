@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, PredictOut, Region, Site, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, PredictOut, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeams } from '@/features/analytics/hooks'
 import { useMaps } from '@/features/maps/hooks'
 import { ScoutingRadar, UTIL_COLOR, type DrawnRect, type Token } from './ScoutingRadar'
+import { ScoutingTimeline } from './ScoutingTimeline'
+import { fmtClock } from './clock'
 import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
-const REGIONS: Region[] = ['A', 'B', 'Mid']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
 const SITE_ORDER: Site[] = ['A', 'B', 'Mid', 'NoPlant']
 const SITE_COLOR: Record<string, string> = {
@@ -24,32 +25,6 @@ const pct = (v: number) => `${(v * 100).toFixed(0)}%`
 const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`
 const clampS = (v: number) => Math.max(0, Math.min(Math.round(v || 0), 115))
 
-function pointInPolygon(x: number, y: number, poly: [number, number][]): boolean {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]
-    const [xj, yj] = poly[j]
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-
-function regionAt(zones: ZoneOut[], x: number, y: number): Region {
-  for (const z of zones) {
-    if (z.polygon && pointInPolygon(x, y, z.polygon)) return z.region
-  }
-  let best: ZoneOut | null = null
-  let bd = Infinity
-  for (const z of zones) {
-    const d = (z.centroid[0] - x) ** 2 + (z.centroid[1] - y) ** 2
-    if (d < bd) {
-      bd = d
-      best = z
-    }
-  }
-  return best?.region ?? 'Mid'
-}
-
 export function ScoutingPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -63,8 +38,7 @@ export function ScoutingPage() {
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
   const [activeFrom, setActiveFrom] = useState(5)
   const [activeTo, setActiveTo] = useState(15)
-  const setFrom = (v: number) => { const f = clampS(v); setActiveFrom(f); setActiveTo((t) => Math.max(t, f)) }
-  const setTo = (v: number) => { const t = clampS(v); setActiveTo(t); setActiveFrom((f) => Math.min(f, t)) }
+  const setActiveWindow = (from: number, to: number) => { setActiveFrom(clampS(from)); setActiveTo(clampS(to)) }
 
   useEffect(() => {
     if (!mapId && maps && maps.length > 0) setMapId(maps[0].id)
@@ -91,7 +65,6 @@ export function ScoutingPage() {
       {
         id: makeId(),
         util_type: activeUtil,
-        region: regionAt(zones, rect.x, rect.y),
         time_from: activeFrom,
         time_to: activeTo,
         x: rect.x,
@@ -102,21 +75,11 @@ export function ScoutingPage() {
     ])
   }
   const removeToken = (id: string) => setTokens((ts) => ts.filter((tk) => tk.id !== id))
-  const setTokenRegion = (id: string, region: Region) =>
-    setTokens((ts) => ts.map((tk) => (tk.id === id ? { ...tk, region } : tk)))
 
-  const setTokenFrom = (id: string, v: number) =>
-    setTokens((ts) => ts.map((tk) => {
-      if (tk.id !== id) return tk
-      const from = clampS(v)
-      return { ...tk, time_from: from, time_to: Math.max(tk.time_to, from) }
-    }))
-  const setTokenTo = (id: string, v: number) =>
-    setTokens((ts) => ts.map((tk) => {
-      if (tk.id !== id) return tk
-      const to = clampS(v)
-      return { ...tk, time_to: to, time_from: Math.min(tk.time_from, to) }
-    }))
+  const setTokenWindow = (id: string, from: number, to: number) =>
+    setTokens((ts) => ts.map((tk) =>
+      tk.id === id ? { ...tk, time_from: clampS(from), time_to: clampS(to) } : tk,
+    ))
 
   const analyze = () => {
     if (!mapId) return
@@ -127,7 +90,8 @@ export function ScoutingPage() {
       equip_value: BUY_EQUIP[buyType] ?? 0,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
-        region: tk.region,
+        x: tk.x,
+        y: tk.y,
         time_from: tk.time_from,
         time_to: tk.time_to,
         side: 't',
@@ -233,22 +197,16 @@ export function ScoutingPage() {
                 ))}
               </div>
               <label style={{ marginBottom: 4, display: 'block' }}>{t('scouting.timeWindow')}</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span className="muted" style={{ fontSize: 13 }}>{t('scouting.from')}</span>
-                <input
-                  type="number" min={0} max={115} value={activeFrom}
-                  onChange={(e) => setFrom(+e.target.value)}
-                  style={{ width: 70, margin: 0, padding: '4px 6px' }}
-                />
-                <span className="muted" style={{ fontSize: 13 }}>{t('scouting.to')}</span>
-                <input
-                  type="number" min={0} max={115} value={activeTo}
-                  onChange={(e) => setTo(+e.target.value)}
-                  style={{ width: 70, margin: 0, padding: '4px 6px' }}
-                />
-                <span className="muted" style={{ fontSize: 12 }}>s</span>
-              </div>
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>{t('scouting.addHint')}</p>
+              <ScoutingTimeline
+                tokens={tokens}
+                activeUtil={activeUtil}
+                activeFrom={activeFrom}
+                activeTo={activeTo}
+                drawColor={UTIL_COLOR[activeUtil]}
+                onActive={setActiveWindow}
+                onToken={setTokenWindow}
+              />
+              <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>{t('scouting.addHint')}</p>
             </div>
             {map ? (
               <ScoutingRadar
@@ -293,34 +251,9 @@ export function ScoutingPage() {
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
                         {t(`scouting.utilTypes.${tk.util_type}`)}
                       </span>
-                      <select
-                        value={tk.region}
-                        onChange={(e) => setTokenRegion(tk.id, e.target.value as Region)}
-                        title={t('scouting.region')}
-                        style={{ width: 62, margin: 0, padding: '4px 6px' }}
-                      >
-                        {REGIONS.map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={0}
-                        max={115}
-                        value={tk.time_from}
-                        onChange={(e) => setTokenFrom(tk.id, +e.target.value)}
-                        style={{ width: 50, margin: 0, padding: '4px 6px' }}
-                      />
-                      <span className="muted" style={{ fontSize: 12 }}>–</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={115}
-                        value={tk.time_to}
-                        onChange={(e) => setTokenTo(tk.id, +e.target.value)}
-                        style={{ width: 50, margin: 0, padding: '4px 6px' }}
-                      />
-                      <span className="muted" style={{ fontSize: 12 }}>s</span>
+                      <span className="muted" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                        {fmtClock(tk.time_from)}–{fmtClock(tk.time_to)}
+                      </span>
                       <button className="ghost" style={{ padding: '2px 8px' }} onClick={() => removeToken(tk.id)}>✕</button>
                     </div>
                   ))}

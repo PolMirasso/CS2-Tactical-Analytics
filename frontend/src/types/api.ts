@@ -66,6 +66,17 @@ export interface UploadResult {
   duplicate: boolean
 }
 
+export interface ReparseStatus {
+  running: boolean
+  total: number
+  done: number
+  ok: number
+  failed: number
+  map_id: string | null
+  started_at: string | null
+  finished_at: string | null
+}
+
 export interface UtilityEventOut {
   id: number
   util_type: UtilityType
@@ -185,6 +196,9 @@ export interface UtilityInput {
   util_type: UtilityType
   zone?: string | null
   region?: Region | null
+  // drawn position in 1024-space radar pixels (deepsets)
+  x?: number 
+  y?: number
   time_from?: number
   time_to?: number
   round_time_s?: number

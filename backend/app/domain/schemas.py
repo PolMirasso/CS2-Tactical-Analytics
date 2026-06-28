@@ -86,6 +86,17 @@ class UploadResult(BaseModel):
     duplicate: bool = False
 
 
+class ReparseStatusOut(BaseModel):
+    running: bool
+    total: int
+    done: int
+    ok: int
+    failed: int
+    map_id: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 # demo analysis (parsed rounds + utility)
 class UtilityEventOut(BaseModel):
     id: int
@@ -217,6 +228,9 @@ class UtilityInput(BaseModel):
     util_type: str  # smoke / flash / molotov / he
     zone: str | None = None
     region: str | None = None
+# position in 1024-space radar pixels (drives the DeepSets model)
+    x: float | None = None
+    y: float | None = None
     time_from: float | None = None
     time_to: float | None = None
     round_time_s: float = 0.0

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 
-from app.ml.features import SITES, round_features
+from app.ml.features import SITES, TOKEN_DIM, round_context, round_tokens
 from app.ml.model import SitePredictor
 from tests.conftest import auth, register_and_login
 
@@ -19,31 +19,38 @@ def _admin(client) -> str:
     return resp.json()["access_token"]
 
 
-# --- unit: feature extractor + untrained predictor (order-independent) ---
+# unit: token/context builders + untrained predictor (order-independent)
 
-def test_round_features_use_t_side_only():
-    feats = round_features(
-        map_id="de_mirage",
-        team="X",
-        opponent="Y",
-        buy_type="full",
-        equip_value=20_000,
-        utility=[
-            {"util_type": "smoke", "region": "A", "round_time_s": 5, "side": "t"},
-            {"util_type": "flash", "region": "A", "round_time_s": 40, "side": "t"},
-            {"util_type": "smoke", "region": "B", "round_time_s": 5, "side": "ct"},
+def test_round_tokens_use_t_side_only_and_position():
+    tokens = round_tokens(
+        "de_mirage",
+        [
+            {"util_type": "smoke", "x": 100.0, "y": 200.0, "round_time_s": 5, "side": "t"},
+            {"util_type": "flash", "x": 300.0, "y": 400.0, "round_time_s": 40, "side": "t"},
+            {"util_type": "smoke", "x": 500.0, "y": 600.0, "round_time_s": 5, "side": "ct"},
         ],
     )
     assert SITES == ["A", "B", "Mid", "NoPlant"]
-    assert feats["u_smoke"] == 1.0  # the CT smoke is ignored
-    assert feats["r_A_smoke"] == 1.0
-    assert feats["n_util"] == 2.0
-    assert feats["n_opening"] == 1.0  # the 40s flash is not "opening"
-    assert feats["map"] == "de_mirage"
+    assert len(tokens) == 2  # the CT smoke is ignored
+    assert all(len(tk) == TOKEN_DIM for tk in tokens)
+    assert tokens[0][:4] == [1.0, 0.0, 0.0, 0.0]  # smoke one-hot
+    assert tokens[1][:4] == [0.0, 1.0, 0.0, 0.0]  # flash one-hot
+    assert tokens[0][4] == 100.0 / 1024.0  # x normalised to 1024-space
+    assert tokens[0][5] == 200.0 / 1024.0
 
 
-def test_round_features_time_window_uses_midpoint():
-    feats = round_features(
+def test_round_tokens_fall_back_to_region_centroid():
+    # x/y: the position is resolved from the region centroid, still in [0, 1]
+    tokens = round_tokens(
+        "de_mirage",
+        [{"util_type": "smoke", "region": "A", "round_time_s": 5, "side": "t"}],
+    )
+    assert len(tokens) == 1
+    assert 0.0 <= tokens[0][4] <= 1.0 and 0.0 <= tokens[0][5] <= 1.0
+
+
+def test_round_context_t_side_and_timing():
+    ctx = round_context(
         map_id="de_mirage",
         team="X",
         opponent="Y",
@@ -52,11 +59,16 @@ def test_round_features_time_window_uses_midpoint():
         utility=[
             {"util_type": "smoke", "region": "A", "time_from": 4, "time_to": 10, "side": "t"},
             {"util_type": "flash", "region": "B", "time_from": 30, "time_to": 40, "side": "t"},
+            {"util_type": "smoke", "region": "B", "round_time_s": 5, "side": "ct"},
         ],
     )
-    assert feats["t_min"] == 7.0  # midpoint of 4-10
-    assert feats["t_mean"] == 21.0  # (7 + 35) / 2
-    assert feats["n_opening"] == 1.0  # only the 4-10 window (mid 7) is "opening"
+    assert ctx["map"] == "de_mirage"
+    assert ctx["u_smoke"] == 1.0  # the CT smoke is ignored
+    assert ctx["u_flash"] == 1.0
+    assert ctx["n_util"] == 2.0
+    assert ctx["n_opening"] == 1.0  # only the 4-10 window (mid 7) is "opening"
+    assert ctx["t_min"] == 7.0 / 115.0  # midpoint of 4-10, normalised by round time
+    assert ctx["t_mean"] == 21.0 / 115.0  # ((7 + 35) / 2) / 115
 
 
 def test_untrained_predictor_returns_none():
@@ -71,7 +83,7 @@ def test_untrained_predictor_returns_none():
     )
 
 
-# --- API ---
+# API
 
 def test_predict_contract(client):
     token = register_and_login(client, "mlpredict@example.com")

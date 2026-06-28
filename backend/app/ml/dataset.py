@@ -4,11 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
-from app.ml.features import round_features
+from app.ml.features import round_context, round_tokens
 
 
 def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], dict]:
-    """All visible T-side rounds → (feature dicts, target sites, meta)."""
+    # all visible T-side rounds (samples, target sites, meta)
     from app.demos.service import _visibility_clause
 
     rounds = list(
@@ -27,21 +27,25 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
     ):
         util_by_round.setdefault(u.round_id, []).append(u)
 
-    feats: list[dict] = []
+    samples: list[dict] = []
     targets: list[str] = []
     teams: set[str] = set()
     for r in rounds:
-        feats.append(
-            round_features(
-                map_id=r.map_id,
-                team=r.team,
-                opponent=r.opponent,
-                buy_type=r.buy_type,
-                equip_value=r.equip_value,
-                utility=util_by_round.get(r.id, []),
-            )
+        util = util_by_round.get(r.id, [])
+        samples.append(
+            {
+                "tokens": round_tokens(r.map_id, util),
+                "context": round_context(
+                    map_id=r.map_id,
+                    team=r.team,
+                    opponent=r.opponent,
+                    buy_type=r.buy_type,
+                    equip_value=r.equip_value,
+                    utility=util,
+                ),
+            }
         )
         targets.append(r.target_site)
         if r.team:
             teams.add(r.team)
-    return feats, targets, {"n_rounds": len(feats), "n_teams": len(teams)}
+    return samples, targets, {"n_rounds": len(samples), "n_teams": len(teams)}
