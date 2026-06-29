@@ -30,7 +30,7 @@ def test_round_tokens_use_t_side_only_and_position():
             {"util_type": "smoke", "x": 500.0, "y": 600.0, "round_time_s": 5, "side": "ct"},
         ],
     )
-    assert SITES == ["A", "B", "Mid", "NoPlant"]
+    assert SITES == ["A", "B", "NoPlant"]
     assert len(tokens) == 2  # the CT smoke is ignored
     assert all(len(tk) == TOKEN_DIM for tk in tokens)
     assert tokens[0][:4] == [1.0, 0.0, 0.0, 0.0]  # smoke one-hot
@@ -102,7 +102,7 @@ def test_predict_contract(client):
     body = resp.json()
     assert [s["site"] for s in body["sites"]] == SITES
     assert abs(sum(s["prob"] for s in body["sites"]) - 1.0) < 1e-6
-    assert len(body["baseline"]) == 4
+    assert len(body["baseline"]) == 3
     assert body["source"] in ("model", "baseline")
     assert body["predicted_site"] in SITES
 

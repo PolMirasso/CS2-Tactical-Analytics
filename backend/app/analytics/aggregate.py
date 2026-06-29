@@ -11,7 +11,7 @@ from app.domain.schemas import SiteDistributionOut, SiteStat, ZoneUtilStat
 _UTIL_TYPES = ("smoke", "flash", "molotov", "he")
 
 # Canonical plant-site order so the chart stays stable even when a site is unused.
-_SITE_ORDER = ("A", "B", "Mid", "NoPlant")
+_SITE_ORDER = ("A", "B", "NoPlant")
 
 
 def _base_conditions(session: Session, user: User, map_id: str):

@@ -25,8 +25,8 @@ def test_site_distribution_aggregates_rounds(client):
     assert body["total_demos"] >= 1
 
     sites = body["sites"]
-    # All four canonical sites are always present (zero-padded) and ordered.
-    assert [s["site"] for s in sites] == ["A", "B", "Mid", "NoPlant"]
+    # The canonical plant sites are always present (zero-padded) and ordered.
+    assert [s["site"] for s in sites] == ["A", "B", "NoPlant"]
     assert sum(s["rounds"] for s in sites) == body["total_rounds"]
     assert abs(sum(s["pct"] for s in sites) - 1.0) < 1e-6
     for s in sites:

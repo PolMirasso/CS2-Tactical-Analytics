@@ -3,8 +3,8 @@ from __future__ import annotations
 from app.analytics.maps import get_map
 from app.domain.enums import Region, Site, UtilityType
 
-# Canonical label order for the softmax output.
-SITES: list[str] = [s.value for s in Site]
+# Canonical label order for the softmax output
+SITES: list[str] = [s.value for s in Site if s is not Site.MID]
 
 _REGIONS = [r.value for r in Region]  # A, B, Mid
 _UTILS = [u.value for u in UtilityType]  # smoke, flash, molotov, he

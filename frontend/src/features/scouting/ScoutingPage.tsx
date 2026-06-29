@@ -11,12 +11,10 @@ import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hook
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
-const SITE_ORDER: Site[] = ['A', 'B', 'Mid', 'NoPlant']
+const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
 const SITE_COLOR: Record<string, string> = {
   A: '#f59e0b', B: '#3b82f6', Mid: '#10b981', NoPlant: '#6b7280',
 }
-// Representative T-side equipment value per buy, so the model's `equip` feature
-// isn't zero at inference (the UI only exposes the buy category).
 const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
 }
@@ -92,6 +90,8 @@ export function ScoutingPage() {
         util_type: tk.util_type,
         x: tk.x,
         y: tk.y,
+        w: tk.w,
+        h: tk.h,
         time_from: tk.time_from,
         time_to: tk.time_to,
         side: 't',
