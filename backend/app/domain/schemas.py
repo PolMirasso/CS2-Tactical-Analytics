@@ -231,6 +231,9 @@ class UtilityInput(BaseModel):
 # position in 1024-space radar pixels (drives the DeepSets model)
     x: float | None = None
     y: float | None = None
+    # drawn box size (1024-space)
+    w: float | None = None
+    h: float | None = None
     time_from: float | None = None
     time_to: float | None = None
     round_time_s: float = 0.0

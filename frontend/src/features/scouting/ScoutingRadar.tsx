@@ -94,21 +94,26 @@ export function ScoutingRadar({
   }
   const finish = () => {
     if (!draft) return
-    let w = Math.abs(draft.x1 - draft.x0)
-    let h = Math.abs(draft.y1 - draft.y0)
-    let cx: number
-    let cy: number
-    if (w < MIN_BOX || h < MIN_BOX) {
-      w = Math.max(w, MIN_BOX)
-      h = Math.max(h, MIN_BOX)
-      cx = draft.x0
-      cy = draft.y0
-    } else {
-      cx = (draft.x0 + draft.x1) / 2
-      cy = (draft.y0 + draft.y1) / 2
-    }
+    const { x0, y0 } = draft
+    const w = Math.abs(draft.x1 - draft.x0)
+    const h = Math.abs(draft.y1 - draft.y0)
     setDraft(null)
-    onDrawZone?.({ x: Math.round(cx), y: Math.round(cy), w: Math.round(w), h: Math.round(h) })
+
+    // todo check when a box inside a box
+    if (w >= MIN_BOX || h >= MIN_BOX) {
+      onDrawZone?.({
+        x: Math.round((draft.x0 + draft.x1) / 2),
+        y: Math.round((draft.y0 + draft.y1) / 2),
+        w: Math.round(w),
+        h: Math.round(h),
+      })
+      return
+    }
+    const hit = [...tokens].reverse().find(
+      (tk) => Math.abs(x0 - tk.x) <= tk.w / 2 && Math.abs(y0 - tk.y) <= tk.h / 2,
+    )
+    if (hit && onRemoveToken) onRemoveToken(hit.id)
+    else onDrawZone?.({ x: Math.round(x0), y: Math.round(y0), w: MIN_BOX, h: MIN_BOX })
   }
 
   return (
@@ -211,9 +216,7 @@ export function ScoutingRadar({
         {tokens.map((tk) => (
           <g
             key={tk.id}
-            style={{ cursor: onRemoveToken ? 'pointer' : 'default' }}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => onRemoveToken?.(tk.id)}
+            style={{ pointerEvents: 'none' }}
           >
             <rect
               x={tk.x - tk.w / 2}

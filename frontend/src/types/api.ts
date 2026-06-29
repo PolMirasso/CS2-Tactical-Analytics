@@ -197,8 +197,11 @@ export interface UtilityInput {
   zone?: string | null
   region?: Region | null
   // drawn position in 1024-space radar pixels (deepsets)
-  x?: number 
+  x?: number
   y?: number
+  // drawn box size
+  w?: number
+  h?: number
   time_from?: number
   time_to?: number
   round_time_s?: number
