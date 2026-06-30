@@ -199,6 +199,7 @@
     "train": "Entrenar modelo",
     "trained": "Modelo entrenado · {{rounds}} rondas · acierto {{acc}}",
     "untrained": "Modelo sin entrenar (se usa la base histórica)",
+    "siteAccuracy": "Acierto de site (en plants)",
     "baselineAccuracy": "Acierto baseline",
     "network": "Red",
     "reportTitle": "Informe de scouting",

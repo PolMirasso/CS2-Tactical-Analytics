@@ -289,6 +289,7 @@ class ModelStatusOut(BaseModel):
     n_teams: int = 0
     classes: list[str] = []
     accuracy: float | None = None
+    site_accuracy: float | None = None
     baseline_accuracy: float | None = None
     params: dict[str, str] | None = None
 

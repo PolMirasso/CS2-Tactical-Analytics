@@ -109,8 +109,10 @@ class DeepSets:
         weight_decay: float = 1e-4,
         patience: int = 50,
         seed: int = 0,
-    ) -> tuple[DeepSets, float]:
-        """Fit on (token_sets, ctx, y). Returns (model, validation_accuracy)."""
+    ) -> tuple[DeepSets, float, np.ndarray]:
+        """Fit on (token_sets, ctx, y) returns (model, validation_accuracy, val_idx) 
+        val_idx are the row indices held out for validation (empty when the set was too small to split)
+        """
         n = len(token_sets)
         model = cls._init(token_sets[0].shape[1] if n else 7, ctx.shape[1], n_classes, seed=seed)
 
@@ -185,4 +187,4 @@ class DeepSets:
 
         if best_params is not None:
             model.params = best_params
-        return model, float(best_acc)
+        return model, float(best_acc), val_idx

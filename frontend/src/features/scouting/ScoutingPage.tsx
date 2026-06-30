@@ -153,14 +153,19 @@ export function ScoutingPage() {
                 : t('scouting.untrained')
             }
           />
+          {ms?.trained && ms.site_accuracy != null && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {t('scouting.siteAccuracy')}: {pct(ms.site_accuracy)}
+            </span>
+          )}
           {ms?.trained && ms.baseline_accuracy != null && (
             <span className="muted" style={{ fontSize: 12 }}>
               {t('scouting.baselineAccuracy')}: {pct(ms.baseline_accuracy)}
             </span>
           )}
-          {ms?.trained && ms.params?.layers && (
+          {ms?.trained && ms.params?.site && (
             <span className="muted" style={{ fontSize: 12 }}>
-              {t('scouting.network')}: {ms.params.layers} · α {ms.params.alpha}
+              {t('scouting.network')}: gate {ms.params.gate} · site {ms.params.site} · α {ms.params.alpha}
             </span>
           )}
           {isAdmin && (

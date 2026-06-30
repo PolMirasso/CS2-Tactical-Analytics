@@ -199,6 +199,7 @@
     "train": "Train model",
     "trained": "Model trained · {{rounds}} rounds · accuracy {{acc}}",
     "untrained": "Model not trained (using historical base rate)",
+    "siteAccuracy": "Site accuracy (on plants)",
     "baselineAccuracy": "Baseline accuracy",
     "network": "Network",
     "reportTitle": "Scouting report",

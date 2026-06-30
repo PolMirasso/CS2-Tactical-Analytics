@@ -91,19 +91,23 @@ def _to_array(tokens: list[list[float]]) -> np.ndarray:
 
 @dataclass
 class SitePredictor:
-    net: DeepSets | None = None
-    vectorizer: object | None = None
+    # Two stages, kept apart so the context can't drown the position signal: a context-driven gate (plant vs NoPlant) + a position-only site head (A vs B).
+
+    gate_net: DeepSets | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
+    gate_vec: object | None = None
+    site_net: DeepSets | None = None  # 0 = A, 1 = B 
     classes: list[str] = field(default_factory=list)
     trained_at: datetime | None = None
     n_rounds: int = 0
     n_teams: int = 0
-    accuracy: float | None = None
+    accuracy: float | None = None  # held-out 3-class
+    site_accuracy: float | None = None  # held-out A-vs-B given a plant
     baseline_accuracy: float | None = None
     params: dict[str, str] = field(default_factory=dict)
 
     @property
     def trained(self) -> bool:
-        return self.net is not None
+        return self.gate_net is not None and self.site_net is not None
 
     @classmethod
     def train(cls, samples: list[dict], targets: list[str], meta: dict) -> SitePredictor:
@@ -124,25 +128,69 @@ class SitePredictor:
             baseline_accuracy=baseline_acc,
         )
 
-        classes = [s for s in SITES if s in set(targets)]
-        if len(samples) < MIN_ROUNDS or len(classes) < 2:
+        # both stages need signal: ≥2 plant sites (A & B) to learn a site head and some NoPlant rounds to learn the gate
+        seen = set(targets)
+        classes = [s for s in SITES if s in seen]
+        if len(samples) < MIN_ROUNDS or not {"A", "B"} <= seen or "NoPlant" not in seen:
             return self
 
-        vec = DictVectorizer(sparse=False)
-        x_ctx = vec.fit_transform(contexts)
-        token_sets = [_to_array(s["tokens"]) for s in samples]
-        class_idx = {c: i for i, c in enumerate(classes)}
-        y = np.asarray([class_idx[t] for t in targets])
+        keep = [i for i, t in enumerate(targets) if t in set(SITES)]
+        tokens = [_to_array(samples[i]["tokens"]) for i in keep]
+        ctxs = [contexts[i] for i in keep]
+        tgt = [targets[i] for i in keep]
+        is_plant = [t in ("A", "B") for t in tgt]
 
-        net, val_acc = DeepSets.fit(
-            token_sets, x_ctx, y, len(classes), weight_decay=_WEIGHT_DECAY
+        # One outer holdout for honest, comparable metrics
+        rng = np.random.default_rng(0)
+        order = rng.permutation(len(keep))
+        n_val = max(2, len(keep) // 5)
+        va, tr = list(order[:n_val]), list(order[n_val:])
+
+        vec = DictVectorizer(sparse=False)
+        vec.fit([ctxs[i] for i in tr])  # train-only fit avoids leaking val categories
+        x_ctx = vec.transform(ctxs)
+        dummy = np.zeros((len(keep), 1))  # site head is position-only (no context)
+
+        # plant (0) vs NoPlant (1), on context + tokens
+        y_gate = np.array([0 if p else 1 for p in is_plant])
+        gate_net, _, _ = DeepSets.fit(
+            [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2, weight_decay=_WEIGHT_DECAY
+        )
+        #  A (0) vs B (1) on plant rounds, map-aware tokens only
+        trp = [i for i in tr if is_plant[i]]
+        y_site = np.array([0 if tgt[i] == "A" else 1 for i in trp])
+        site_net, _, _ = DeepSets.fit(
+            [tokens[i] for i in trp], dummy[trp], y_site, 2, weight_decay=_WEIGHT_DECAY
         )
 
-        self.net = net
-        self.vectorizer = vec
+        def proba3(i):
+            pg = gate_net.predict_proba(tokens[i], x_ctx[i])  # [plant, NoPlant]
+            ps = site_net.predict_proba(tokens[i], dummy[i])  # [A, B]
+            return np.array([pg[0] * ps[0], pg[0] * ps[1], pg[1]])  # A, B, NoPlant
+
+        idx3 = {"A": 0, "B": 1, "NoPlant": 2}
+        self.accuracy = float(np.mean([np.argmax(proba3(i)) == idx3[tgt[i]] for i in va]))
+        vap = [i for i in va if is_plant[i]]
+        if vap:
+            self.site_accuracy = float(
+                np.mean([(0 if proba3(i)[0] >= proba3(i)[1] else 1) == idx3[tgt[i]] for i in vap])
+            )
+        # Fair baseline on the same held-out rows
+        tbl, gmode = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
+        base_ok = sum(
+            int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in va
+        )
+        self.baseline_accuracy = base_ok / len(va)
+
+        self.gate_net = gate_net
+        self.gate_vec = vec
+        self.site_net = site_net
         self.classes = classes
-        self.accuracy = val_acc
-        self.params = {"layers": net.layers, "alpha": f"{_WEIGHT_DECAY:g}"}
+        self.params = {
+            "gate": gate_net.layers,
+            "site": site_net.layers,
+            "alpha": f"{_WEIGHT_DECAY:g}",
+        }
         self.trained_at = datetime.now(UTC)
         return self
 
@@ -156,13 +204,17 @@ class SitePredictor:
         equip_value: float | int | None,
         utility,
     ) -> dict[str, float] | None:
-        """Per-site probabilities from the DeepSets net, or None when untrained"""
-        if self.net is None or self.vectorizer is None:
+        """Per-site probabilities P = [gate·site, gate·site, 1-gate], or None untrained"""
+        if self.gate_net is None or self.site_net is None or self.gate_vec is None:
+            return None
+        # A persisted model trained on a different token layout
+        if self.gate_net.token_dim != TOKEN_DIM or self.site_net.token_dim != TOKEN_DIM:
             return None
         # Average over (position, time) sampled inside each utility's box/window;
-        # context is recomputed per sample because the sampled time feeds it too.
+        # context is recomputed per sample because the sampled time feeds the gate
         sets = _sampled_utility_sets(utility, _N_SAMPLES)
-        proba = np.zeros(len(self.classes))
+        dummy = np.zeros(1)
+        proba = np.zeros(3)  # A, B, NoPlant
         for sampled in sets:
             ctx_dict = round_context(
                 map_id=map_id,
@@ -172,13 +224,14 @@ class SitePredictor:
                 equip_value=equip_value,
                 utility=sampled,
             )
-            x_ctx = np.asarray(self.vectorizer.transform([ctx_dict])[0], dtype=float)
+            x_ctx = np.asarray(self.gate_vec.transform([ctx_dict])[0], dtype=float)
             tokens = _to_array(round_tokens(map_id, sampled))
-            proba += self.net.predict_proba(tokens, x_ctx)
+            pg = self.gate_net.predict_proba(tokens, x_ctx)  # [plant, NoPlant]
+            ps = self.site_net.predict_proba(tokens, dummy)  # [A, B]
+            proba += np.array([pg[0] * ps[0], pg[0] * ps[1], pg[1]])
         proba /= len(sets)
 
-        out = {s: 0.0 for s in SITES}
-        for cls_name, p in zip(self.classes, proba, strict=True):
-            out[cls_name] = float(p)
+        triple = {"A": proba[0], "B": proba[1], "NoPlant": proba[2]}
+        out = {s: float(triple.get(s, 0.0)) for s in SITES}
         total = sum(out.values()) or 1.0
         return {k: v / total for k, v in out.items()}
