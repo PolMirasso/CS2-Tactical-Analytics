@@ -23,12 +23,29 @@ const DATE_RANGES: DateRange[] = [
   'last_12_months',
 ]
 
+const MAPS = [
+  'de_ancient',
+  'de_anubis',
+  'de_dust2',
+  'de_inferno',
+  'de_mirage',
+  'de_nuke',
+  'de_overpass',
+  'de_train',
+  'de_vertigo',
+]
+const mapLabel = (id: string) => {
+  const bare = id.replace(/^de_/, '')
+  return bare.charAt(0).toUpperCase() + bare.slice(1)
+}
+
 export function HltvPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
   const [team, setTeam] = useState<TeamHit | null>(null)
+  const [mapId, setMapId] = useState<string>('')
   const [dateRange, setDateRange] = useState<DateRange>('last_3_months')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [maxMatches, setMaxMatches] = useState(100)
@@ -47,6 +64,7 @@ export function HltvPage() {
       await start.mutateAsync({
         team_id: team.id,
         team_name: team.name,
+        map_id: mapId || undefined,
         date_range: dateRange,
         visibility,
         max_matches: maxMatches,
@@ -71,6 +89,17 @@ export function HltvPage() {
               {t('hltv.selectTeam')}: <strong>{team.name}</strong> (#{team.id})
             </p>
             <div className="row" style={{ maxWidth: 520 }}>
+              <div>
+                <label htmlFor="map">{t('hltv.map')}</label>
+                <select id="map" value={mapId} onChange={(e) => setMapId(e.target.value)}>
+                  <option value="">{t('hltv.allMaps')}</option>
+                  {MAPS.map((m) => (
+                    <option key={m} value={m}>
+                      {mapLabel(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label htmlFor="range">{t('hltv.dateRange')}</label>
                 <select
@@ -266,6 +295,7 @@ function JobDetails({ job }: { job: DownloadJobOut }) {
   const rows: [string, string][] = [
     [t('hltv.matches'), job.matches_total ? `${job.matches} / ${job.matches_total}` : `${job.matches}`],
     [t('hltv.demos'), job.demos_total ? `${job.demos_ingested} / ${job.demos_total}` : `${job.demos_ingested}`],
+    [t('hltv.map'), job.map_id ? mapLabel(job.map_id) : t('hltv.allMaps')],
     [t('hltv.dateRange'), t(`hltv.range.${job.date_range}`, job.date_range)],
     [t('demos.visibility'), job.visibility],
     [t('demos.created'), formatDate(job.created_at)],

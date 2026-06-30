@@ -5,7 +5,26 @@ import time
 
 import app.hltv.client as client
 from app.config import get_settings
-from app.hltv.client import _match_involves_team
+from app.hltv.client import _match_involves_team, _select_dem_members, map_from_filename
+
+
+def test_map_from_filename_reads_map_or_none():
+    assert map_from_filename("esl-faze-vs-navi-mirage.dem") == "de_mirage"
+    assert map_from_filename("blast-g2-vs-vitality-de_nuke.dem") == "de_nuke"
+    assert map_from_filename("grand-final-spirit-vs-faze-m3.dem") is None  # no map name
+
+
+def test_select_dem_members_filters_by_map():
+    members = [
+        "faze-vs-navi-mirage.dem",
+        "faze-vs-navi-m2-inferno.dem",
+        "faze-vs-navi-m3.dem", 
+        "readme.txt",
+    ]
+    assert _select_dem_members(members, None) == members[:3]  # all .dem, no junk
+    assert _select_dem_members(members, "de_mirage") == ["faze-vs-navi-mirage.dem"]
+    assert _select_dem_members(members, "de_inferno") == ["faze-vs-navi-m2-inferno.dem"]
+    assert _select_dem_members(members, "de_nuke") == []
 
 
 def test_match_involves_team_matches_team_link():

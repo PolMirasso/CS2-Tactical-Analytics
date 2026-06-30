@@ -116,6 +116,8 @@
     "adminOnly": "Solo los administradores pueden iniciar descargas de HLTV.",
     "searchPlaceholder": "Buscar equipo por nombre…",
     "selectTeam": "Equipo seleccionado",
+    "map": "Mapa",
+    "allMaps": "Todos los mapas",
     "dateRange": "Rango de fechas",
     "maxMatches": "Máx. series",
     "maxMatchesHint": "Cada serie trae 2-3 mapas (~1 GB cada uno). Dentro del rango de fechas se descargan las series más recientes hasta este número.",
