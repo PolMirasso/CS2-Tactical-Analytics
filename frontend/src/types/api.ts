@@ -257,8 +257,9 @@ export interface ModelStatusOut {
   n_teams: number
   classes: string[]
   accuracy: number | null
+  site_accuracy: number | null
   baseline_accuracy: number | null
-  //{ layers: '64→32', alpha: '0.001' }.
+  //{ gate: 'φ15→32→24 · ρ32→2', site: '…', alpha: '0.0001' }.
   params?: Record<string, string> | null
 }
 

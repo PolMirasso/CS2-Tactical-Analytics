@@ -38,9 +38,9 @@ def _load_from_disk() -> SitePredictor | None:
         obj = joblib.load(path)
     except Exception:
         return None
-    # Reject a model pickled by an incompatible older version (it would be missing
-    # the DeepSets fields); the caller falls back to the baseline until retrained.
-    if not isinstance(obj, SitePredictor) or not hasattr(obj, "net"):
+    # Reject a model pickled by an incompatible older version (single-head models
+    # lack the two-stage gate/site fields); the caller falls back to the baseline until retrained
+    if not isinstance(obj, SitePredictor) or not hasattr(obj, "gate_net"):
         return None
     return obj
 

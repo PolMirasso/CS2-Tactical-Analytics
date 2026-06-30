@@ -29,6 +29,7 @@ def _status(p: SitePredictor) -> ModelStatusOut:
         n_teams=p.n_teams,
         classes=p.classes,
         accuracy=p.accuracy,
+        site_accuracy=getattr(p, "site_accuracy", None),
         baseline_accuracy=p.baseline_accuracy,
         params=getattr(p, "params", None) or None,
     )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.analytics.maps import get_map
+from app.analytics.maps import get_map, list_maps
 from app.domain.enums import Region, Site, UtilityType
 
 # Canonical label order for the softmax output
@@ -8,14 +8,15 @@ SITES: list[str] = [s.value for s in Site if s is not Site.MID]
 
 _REGIONS = [r.value for r in Region]  # A, B, Mid
 _UTILS = [u.value for u in UtilityType]  # smoke, flash, molotov, he
+_MAP_ORDER = [m.id for m in list_maps()]
 
 _EQUIP_NORM = 25_000.0
 ROUND_TIME_S = 115.0
 # Grenades thrown within this many seconds of freeze-end count as "opening" util.
 _OPENING_WINDOW_S = 15.0
 
-# perutility token = [smoke, flash, molotov, he, x01, y01, t01].
-TOKEN_DIM = len(_UTILS) + 3
+# per-utility token = [smoke, flash, molotov, he, x01, y01, t01, map one-hot].
+TOKEN_DIM = len(_UTILS) + 3 + len(_MAP_ORDER)
 
 
 def _attr(obj, name):
@@ -77,6 +78,7 @@ def _clamp01(v: float) -> float:
 
 def round_tokens(map_id: str | None, utility) -> list[list[float]]:
     """One round is a set of per-utility tokens (only T-side opening util)"""
+    map_oh = [1.0 if map_id == m else 0.0 for m in _MAP_ORDER]
     tokens: list[list[float]] = []
     for ev in utility or []:
         if _side(ev) != "t":
@@ -91,7 +93,7 @@ def round_tokens(map_id: str | None, utility) -> list[list[float]]:
         else:
             x01, y01 = _clamp01(pos[0] / 1024.0), _clamp01(pos[1] / 1024.0)
         t01 = _clamp01(_event_time(ev) / ROUND_TIME_S)
-        tokens.append([*one_hot, x01, y01, t01])
+        tokens.append([*one_hot, x01, y01, t01, *map_oh])
     return tokens
 
 
