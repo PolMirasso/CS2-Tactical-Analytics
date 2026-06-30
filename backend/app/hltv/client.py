@@ -145,6 +145,13 @@ def map_from_filename(name: str) -> str | None:
     return token if token.startswith("de_") else f"de_{token}"
 
 
+def _select_dem_members(members: list[str], map_id: str | None) -> list[str]:
+    dems = [m for m in members if m.lower().endswith(".dem")]
+    if not map_id:
+        return dems
+    return [m for m in dems if map_from_filename(Path(m).name) == map_id]
+
+
 def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
     """Pull the event name and match date from an HLTV match page's HTML."""
     event = None
@@ -236,7 +243,7 @@ def iter_team_demo_archives(
             match_id = id_match.group(1) if id_match else match_url.rstrip("/").split("/")[-1]
             event, match_date = _parse_match_meta(html)
             work_dir, dem_paths = _download_and_extract(
-                f"{settings.hltv_base_url}{demo_links[0]}", match_id
+                f"{settings.hltv_base_url}{demo_links[0]}", match_id, map_id
             )
         except HLTVError:
             continue  # skip a failed match, keep going
@@ -249,6 +256,8 @@ def iter_team_demo_archives(
                 dem_paths=dem_paths,
                 work_dir=work_dir,
             )
+        elif work_dir is not None:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def download_team_demos(
@@ -259,11 +268,9 @@ def download_team_demos(
     )
 
 
-def _download_and_extract(demo_url: str, match_id: str) -> tuple[Path, list[Path]]:
-    # Download a GOTV ``.rar`` and extract *every* ``.dem`` member. The archive
-    # holds all maps of the series, so we ingest them all rather than discard
-    # the ones we already paid to download. Returns (work_dir, dem_paths).
-
+def _download_and_extract(
+        demo_url: str, match_id: str, map_id: str | None = None
+) -> tuple[Path, list[Path]]:
     settings = get_settings()
     try:
         import rarfile
@@ -284,7 +291,7 @@ def _download_and_extract(demo_url: str, match_id: str) -> tuple[Path, list[Path
     except Exception as exc:
         raise HLTVError(f"failed to read GOTV archive: {exc}") from exc
 
-    wanted = [m for m in members if m.lower().endswith(".dem")]
+    wanted = _select_dem_members(members, map_id)
 
     out: list[Path] = []
     for member in wanted:
