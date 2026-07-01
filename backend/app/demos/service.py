@@ -186,6 +186,7 @@ def parse_and_store(
                 region=u.region,
                 radar_x=u.radar_x,
                 radar_y=u.radar_y,
+                z=u.z,
                 round_time_s=u.round_time_s,
                 team=u.side,
             )

@@ -68,7 +68,7 @@ export function AnalyticsPage() {
         <label>{t('demos.buy')}</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {BUY_TYPES.map((b) => (
-            <label key={b} style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'normal' }}>
+            <label key={b} style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'normal', whiteSpace: 'nowrap' }}>
               <input type="checkbox" checked={buyTypes.includes(b)} onChange={() => toggleBuy(b)} />
               {t(`demos.buyTypes.${b}`)}
             </label>

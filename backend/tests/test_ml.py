@@ -49,6 +49,30 @@ def test_round_tokens_fall_back_to_region_centroid():
     assert 0.0 <= tokens[0][4] <= 1.0 and 0.0 <= tokens[0][5] <= 1.0
 
 
+def test_round_tokens_z_level_separates_nuke_upper_lower():
+    # nuke a upper b lowwer 
+    upper = round_tokens(
+        "de_nuke",
+        [{"util_type": "smoke", "x": 500.0, "y": 500.0, "round_time_s": 5, "side": "t", "z": 0.0}],
+    )
+    lower = round_tokens(
+        "de_nuke",
+        [{"util_type": "smoke", "x": 500.0, "y": 500.0, "round_time_s": 5, "side": "t", "z": -600.0}],
+    )
+    unknown = round_tokens(
+        "de_nuke",
+        [{"util_type": "smoke", "x": 500.0, "y": 500.0, "round_time_s": 5, "side": "t"}],
+    )
+    single = round_tokens(
+        "de_mirage",
+        [{"util_type": "smoke", "x": 500.0, "y": 500.0, "round_time_s": 5, "side": "t", "z": -600.0}],
+    )
+    assert upper[0][7] == 0.0
+    assert lower[0][7] == 1.0
+    assert unknown[0][7] == 0.5
+    assert single[0][7] == 0.5
+
+
 def test_round_context_t_side_and_timing():
     ctx = round_context(
         map_id="de_mirage",

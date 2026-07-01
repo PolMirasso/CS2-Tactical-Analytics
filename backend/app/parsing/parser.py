@@ -62,8 +62,10 @@ class UtilData:
     round_time_s: float
     side: str  # "t" / "ct"
     # detonation position in 1024-space radar pixels
-    radar_x: float | None = None  
+    radar_x: float | None = None
     radar_y: float | None = None
+    # separates upper/lower on two-level maps (nuke)
+    z: float | None = None
 
 
 @dataclass
@@ -528,6 +530,7 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
                 pl.col("tick").min().alias("throw_tick"),
                 pl.col("X").last().alias("X"),
                 pl.col("Y").last().alias("Y"),
+                pl.col("Z").last().alias("Z") if "Z" in grenades.columns else pl.lit(None).alias("Z"),
             )
         )
     except Exception:
@@ -541,6 +544,7 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
             continue
         rnum = int(rnum)
         x, y = g.get("X"), g.get("Y")
+        z = g.get("Z")
         has_pos = x is not None and y is not None
         zone = classify_point(map_id, x, y) if has_pos else None
         radar = to_radar_pixel(map_id, x, y) if has_pos else (None, None)
@@ -557,6 +561,7 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
                 side=side,
                 radar_x=radar[0],
                 radar_y=radar[1],
+                z=float(z) if z is not None else None,
             )
         )
     return out

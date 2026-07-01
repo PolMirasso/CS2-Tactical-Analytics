@@ -170,6 +170,12 @@ _LOWER_LEVEL: dict[str, tuple[tuple[float, float, float], float]] = {
 }
 
 
+def lower_level_threshold(map_id: str) -> float | None:
+    """World-z below which a point is on the lower level (nuke), None for single-level maps"""
+    lower = _LOWER_LEVEL.get(map_id)
+    return lower[1] if lower is not None else None
+
+
 def calibration(map_id: str) -> dict | None:
     known = _CALIBRATION.get(map_id)
     if known is not None:

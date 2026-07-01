@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.analytics.maps import get_map, list_maps
+from app.analytics.maps import get_map, list_maps, lower_level_threshold
 from app.domain.enums import Region, Site, UtilityType
 
 # Canonical label order for the softmax output
@@ -15,8 +15,10 @@ ROUND_TIME_S = 115.0
 # Grenades thrown within this many seconds of freeze-end count as "opening" util.
 _OPENING_WINDOW_S = 15.0
 
-# per-utility token = [smoke, flash, molotov, he, x01, y01, t01, map one-hot].
-TOKEN_DIM = len(_UTILS) + 3 + len(_MAP_ORDER)
+# per-utility token = [smoke, flash, molotov, he, x01, y01, t01, t01, z_lvl, map one-hot]
+TOKEN_DIM = len(_UTILS) + 4 + len(_MAP_ORDER)
+
+_Z_LVL_NEUTRAL = 0.5
 
 
 def _attr(obj, name):
@@ -76,6 +78,17 @@ def _clamp01(v: float) -> float:
     return 0.0 if v < 0.0 else 1.0 if v > 1.0 else v
 
 
+def _z_level(map_id: str | None, ev) -> float:
+    """Per-token height feature: 1=lower level, 0=upper, 0.5=unknown/single-level (nuke)"""
+    threshold = lower_level_threshold(map_id or "")
+    if threshold is None:
+        return _Z_LVL_NEUTRAL
+    z = _attr(ev, "z")
+    if z is None:
+        return _Z_LVL_NEUTRAL
+    return 1.0 if float(z) < threshold else 0.0
+
+
 def round_tokens(map_id: str | None, utility) -> list[list[float]]:
     """One round is a set of per-utility tokens (only T-side opening util)"""
     map_oh = [1.0 if map_id == m else 0.0 for m in _MAP_ORDER]
@@ -93,7 +106,8 @@ def round_tokens(map_id: str | None, utility) -> list[list[float]]:
         else:
             x01, y01 = _clamp01(pos[0] / 1024.0), _clamp01(pos[1] / 1024.0)
         t01 = _clamp01(_event_time(ev) / ROUND_TIME_S)
-        tokens.append([*one_hot, x01, y01, t01, *map_oh])
+        z_lvl = _z_level(map_id, ev)
+        tokens.append([*one_hot, x01, y01, t01, z_lvl, *map_oh])
     return tokens
 
 

@@ -145,6 +145,8 @@ class UtilityEvent(Base):
     # position in 1024-space radar pixels (drives the DeepSets model)
     radar_x: Mapped[float | None] = mapped_column(Float, nullable=True)
     radar_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # detonation world height; separates upper/lower on two-level maps (nuke)
+    z: Mapped[float | None] = mapped_column(Float, nullable=True)
     round_time_s: Mapped[float] = mapped_column(default=0.0)
     team: Mapped[str | None] = mapped_column(String, nullable=True)
 
