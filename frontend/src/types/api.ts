@@ -250,6 +250,12 @@ export interface TendenciesOut {
   heatmap: ZoneUtilStat[]
 }
 
+export interface ReliabilityBin {
+  confidence: number
+  accuracy: number
+  count: number
+}
+
 export interface ModelStatusOut {
   trained: boolean
   trained_at: string | null
@@ -259,7 +265,11 @@ export interface ModelStatusOut {
   accuracy: number | null
   site_accuracy: number | null
   baseline_accuracy: number | null
-  //{ gate: 'φ15→32→24 · ρ32→2', site: '…', alpha: '0.0001' }.
+  // calibration (temperature scaling): ECE after vs. before + diagram bins
+  ece: number | null
+  ece_uncalibrated: number | null
+  reliability?: ReliabilityBin[] | null
+  //gate mean site alpha pooling gate_T site_T
   params?: Record<string, string> | null
 }
 

@@ -282,6 +282,12 @@ class TendenciesOut(BaseModel):
     heatmap: list[ZoneUtilStat]
 
 
+class ReliabilityBin(BaseModel):
+    confidence: float
+    accuracy: float
+    count: int
+
+
 class ModelStatusOut(BaseModel):
     trained: bool
     trained_at: datetime | None = None
@@ -291,6 +297,10 @@ class ModelStatusOut(BaseModel):
     accuracy: float | None = None
     site_accuracy: float | None = None
     baseline_accuracy: float | None = None
+    # Confidence calibration
+    ece: float | None = None
+    ece_uncalibrated: float | None = None
+    reliability: list[ReliabilityBin] | None = None
     params: dict[str, str] | None = None
 
 

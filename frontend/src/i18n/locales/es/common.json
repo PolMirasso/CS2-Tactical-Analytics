@@ -204,6 +204,11 @@
     "siteAccuracy": "Acierto de site (en plants)",
     "baselineAccuracy": "Acierto baseline",
     "network": "Red",
+    "calibration": "Calibración",
+    "reliabilityTitle": "Fiabilidad (confianza vs. acierto)",
+    "reliabilityHint": "La diagonal es la calibración perfecta; los puntos por debajo = sobreconfianza.",
+    "confidence": "confianza",
+    "observed": "acierto",
     "reportTitle": "Informe de scouting",
     "exportPdf": "Exportar a PDF",
     "utilTypes": { "smoke": "Humo", "flash": "Flash", "molotov": "Molotov", "he": "HE" }

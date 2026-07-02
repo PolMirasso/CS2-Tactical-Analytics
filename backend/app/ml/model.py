@@ -6,13 +6,15 @@ from datetime import UTC, datetime
 
 import numpy as np
 
-from app.ml.deepsets import DeepSets
+from app.ml.deepsets import DeepSets, _softmax
 from app.ml.features import SITES, TOKEN_DIM, _attr, round_context, round_tokens
 
 # Below this many rounds (or < 2 distinct sites) we don't fit the net and serve
 # the historical base rate instead — too little signal to learn anything.
 MIN_ROUNDS = 20
 _WEIGHT_DECAY = 1e-4
+# Set pooling over the round's utility tokens: mean (baseline), sum (keeps cardinality) or attention (learned per-grenade weights)
+_POOLING = "mean"
 # How many landing points to draw inside each drawn box at inference. The model
 # is point-trained, so the drawn box means "lands somewhere in this area" and the
 # time window means "active across this span": we average the prediction over
@@ -89,9 +91,35 @@ def _to_array(tokens: list[list[float]]) -> np.ndarray:
     return np.asarray(tokens, dtype=float).reshape(-1, TOKEN_DIM)
 
 
+def _reliability(
+    conf: list[float], correct: list[int], n_bins: int = 10
+) -> tuple[float, list[dict[str, float]]]:
+    """Reliability diagram + ECE for a set of (max-prob confidence, was-it-right).
+    ECE = Σ_bins (n_bin/N)·|accuracy - confidence|. Bins are equal-width on [0,1]
+    empty ones are dropped 
+    """
+    c = np.asarray(conf, dtype=float)
+    ok = np.asarray(correct, dtype=float)
+    n = len(c)
+    if n == 0:
+        return 0.0, []
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    bins: list[dict[str, float]] = []
+    ece = 0.0
+    for lo, hi in zip(edges[:-1], edges[1:], strict=True):
+        m = (c > lo) & (c <= hi) if lo > 0 else (c >= lo) & (c <= hi)
+        cnt = int(m.sum())
+        if cnt == 0:
+            continue
+        acc, avg_conf = float(ok[m].mean()), float(c[m].mean())
+        bins.append({"confidence": avg_conf, "accuracy": acc, "count": cnt})
+        ece += (cnt / n) * abs(acc - avg_conf)
+    return float(ece), bins
+
+
 @dataclass
 class SitePredictor:
-    # Two stages, kept apart so the context can't drown the position signal: a context-driven gate (plant vs NoPlant) + a position-only site head (A vs B).
+    # Two stages, kept apart so context can't drown the position signal: a context-driven gate (plant vs NoPlant) + a position-only site head (A vs B)
 
     gate_net: DeepSets | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
     gate_vec: object | None = None
@@ -103,6 +131,10 @@ class SitePredictor:
     accuracy: float | None = None  # held-out 3-class
     site_accuracy: float | None = None  # held-out A-vs-B given a plant
     baseline_accuracy: float | None = None
+    # Confidence calibration (temperature scaling)
+    ece: float | None = None
+    ece_uncalibrated: float | None = None
+    reliability: list[dict[str, float]] = field(default_factory=list)
     params: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -128,7 +160,7 @@ class SitePredictor:
             baseline_accuracy=baseline_acc,
         )
 
-        # both stages need signal: ≥2 plant sites (A & B) to learn a site head and some NoPlant rounds to learn the gate
+        # both stages need signal: ≥2 plant sites (A & B) for the site head and some NoPlant rounds for the gate
         seen = set(targets)
         classes = [s for s in SITES if s in seen]
         if len(samples) < MIN_ROUNDS or not {"A", "B"} <= seen or "NoPlant" not in seen:
@@ -154,23 +186,56 @@ class SitePredictor:
         # plant (0) vs NoPlant (1), on context + tokens
         y_gate = np.array([0 if p else 1 for p in is_plant])
         gate_net, _, _ = DeepSets.fit(
-            [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2, weight_decay=_WEIGHT_DECAY
+            [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2,
+            weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
         )
         #  A (0) vs B (1) on plant rounds, map-aware tokens only
         trp = [i for i in tr if is_plant[i]]
         y_site = np.array([0 if tgt[i] == "A" else 1 for i in trp])
         site_net, _, _ = DeepSets.fit(
-            [tokens[i] for i in trp], dummy[trp], y_site, 2, weight_decay=_WEIGHT_DECAY
+            [tokens[i] for i in trp], dummy[trp], y_site, 2,
+            weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
         )
 
-        def proba3(i):
-            pg = gate_net.predict_proba(tokens[i], x_ctx[i])  # [plant, NoPlant]
-            ps = site_net.predict_proba(tokens[i], dummy[i])  # [A, B]
-            return np.array([pg[0] * ps[0], pg[0] * ps[1], pg[1]])  # A, B, NoPlant
+        # Temperature scaling on the held-out rows: one scalar per net (NLL fit) never moves a binary argmax (site_accuracy unchanged)
+        vap = [i for i in va if is_plant[i]]
+        gate_logits = np.array([gate_net.predict_logits(tokens[i], x_ctx[i]) for i in va])
+        gate_net.temperature = DeepSets.fit_temperature(gate_logits, y_gate[va])
+        if vap:
+            site_logits = np.array([site_net.predict_logits(tokens[i], dummy[i]) for i in vap])
+            y_site_va = np.array([0 if tgt[i] == "A" else 1 for i in vap])
+            site_net.temperature = DeepSets.fit_temperature(site_logits, y_site_va)
 
         idx3 = {"A": 0, "B": 1, "NoPlant": 2}
+
+        def proba3(i, *, calibrated: bool = True):
+            if calibrated:
+                pg = gate_net.predict_proba(tokens[i], x_ctx[i])  # [plant, NoPlant]
+                ps = site_net.predict_proba(tokens[i], dummy[i])  # [A, B]
+            else:
+                pg = _softmax(gate_net.predict_logits(tokens[i], x_ctx[i]))
+                ps = _softmax(site_net.predict_logits(tokens[i], dummy[i]))
+            return np.array([pg[0] * ps[0], pg[0] * ps[1], pg[1]])  # A, B, NoPlant
+
+        def _conf_correct(calibrated: bool) -> tuple[list[float], list[int]]:
+            conf, ok = [], []
+            for i in va:
+                p = proba3(i, calibrated=calibrated)
+                conf.append(float(p.max()))
+                ok.append(int(np.argmax(p) == idx3[tgt[i]]))
+            return conf, ok
+
+        # Keep the temperatures only if they cut the held-out ECE (a scalar can misfit a tiny holdout); else T=1, so after is never worse than before
+        ece_before, _ = _reliability(*_conf_correct(False))
+        ece_after, bins_after = _reliability(*_conf_correct(True))
+        if ece_after > ece_before:
+            gate_net.temperature = site_net.temperature = 1.0
+            ece_after, bins_after = _reliability(*_conf_correct(True))
+        self.ece, self.reliability = ece_after, bins_after
+        self.ece_uncalibrated = ece_before
+
+        # Measured with the final temperatures (what model_proba serves): gate T can shift the plant/NoPlant boundary, so 3-class acc is post-calibration.
         self.accuracy = float(np.mean([np.argmax(proba3(i)) == idx3[tgt[i]] for i in va]))
-        vap = [i for i in va if is_plant[i]]
         if vap:
             self.site_accuracy = float(
                 np.mean([(0 if proba3(i)[0] >= proba3(i)[1] else 1) == idx3[tgt[i]] for i in vap])
@@ -190,6 +255,9 @@ class SitePredictor:
             "gate": gate_net.layers,
             "site": site_net.layers,
             "alpha": f"{_WEIGHT_DECAY:g}",
+            "pooling": _POOLING,
+            "gate_T": f"{gate_net.temperature:.2f}",
+            "site_T": f"{site_net.temperature:.2f}",
         }
         self.trained_at = datetime.now(UTC)
         return self

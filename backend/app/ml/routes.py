@@ -11,6 +11,7 @@ from app.domain.schemas import (
     ModelStatusOut,
     PredictIn,
     PredictOut,
+    ReliabilityBin,
     SiteProb,
     TendenciesOut,
 )
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/scouting", tags=["scouting"])
 
 
 def _status(p: SitePredictor) -> ModelStatusOut:
+    bins = getattr(p, "reliability", None) or None
     return ModelStatusOut(
         trained=p.trained,
         trained_at=p.trained_at,
@@ -31,6 +33,9 @@ def _status(p: SitePredictor) -> ModelStatusOut:
         accuracy=p.accuracy,
         site_accuracy=getattr(p, "site_accuracy", None),
         baseline_accuracy=p.baseline_accuracy,
+        ece=getattr(p, "ece", None),
+        ece_uncalibrated=getattr(p, "ece_uncalibrated", None),
+        reliability=[ReliabilityBin(**b) for b in bins] if bins else None,
         params=getattr(p, "params", None) or None,
     )
 

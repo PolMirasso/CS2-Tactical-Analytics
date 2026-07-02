@@ -204,6 +204,11 @@
     "siteAccuracy": "Site accuracy (on plants)",
     "baselineAccuracy": "Baseline accuracy",
     "network": "Network",
+    "calibration": "Calibration",
+    "reliabilityTitle": "Reliability (confidence vs. accuracy)",
+    "reliabilityHint": "The diagonal is perfect calibration; dots below it = over-confident.",
+    "confidence": "confidence",
+    "observed": "accuracy",
     "reportTitle": "Scouting report",
     "exportPdf": "Export to PDF",
     "utilTypes": { "smoke": "Smoke", "flash": "Flash", "molotov": "Molotov", "he": "HE" }

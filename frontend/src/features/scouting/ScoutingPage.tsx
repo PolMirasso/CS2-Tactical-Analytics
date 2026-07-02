@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, PredictOut, Site, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeams } from '@/features/analytics/hooks'
 import { useMaps } from '@/features/maps/hooks'
@@ -168,12 +168,21 @@ export function ScoutingPage() {
               {t('scouting.network')}: gate {ms.params.gate} · site {ms.params.site} · α {ms.params.alpha}
             </span>
           )}
+          {ms?.trained && ms.ece != null && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {t('scouting.calibration')}: ECE {pct(ms.ece_uncalibrated ?? ms.ece)} → {pct(ms.ece)}
+              {ms.params?.gate_T && ` · T ${ms.params.gate_T}/${ms.params.site_T}`}
+            </span>
+          )}
           {isAdmin && (
             <button className="ghost" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
               {trainModel.isPending ? t('common.loading') : t('scouting.train')}
             </button>
           )}
         </div>
+        {ms?.trained && ms.reliability && ms.reliability.length > 0 && (
+          <ReliabilityDiagram bins={ms.reliability} />
+        )}
       </div>
 
       {/* Tactical board */}
@@ -328,6 +337,48 @@ function Bar({ label, value, color, note }: { label: string; value: number; colo
       <div style={{ background: '#1f2937', borderRadius: 4, height: 14, marginTop: 2 }}>
         <div style={{ width: `${value * 100}%`, height: '100%', background: color, borderRadius: 4, minWidth: value > 0 ? 2 : 0 }} />
       </div>
+    </div>
+  )
+}
+
+// calibration plot
+function ReliabilityDiagram({ bins }: { bins: ReliabilityBin[] }) {
+  const { t } = useTranslation()
+  const P = { l: 22, r: 10, t: 10, b: 26 }
+  const S = 150
+  const w = P.l + S + P.r
+  const h = P.t + S + P.b
+  const X = (c: number) => P.l + c * S
+  const Y = (a: number) => P.t + (1 - a) * S
+  const pts = [...bins].sort((a, b) => a.confidence - b.confidence)
+  const maxCount = Math.max(1, ...pts.map((b) => b.count))
+  const line = pts.map((b) => `${X(b.confidence).toFixed(1)},${Y(b.accuracy).toFixed(1)}`).join(' ')
+  return (
+    <div className="no-print" style={{ marginTop: 12 }}>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{t('scouting.reliabilityTitle')}</div>
+      <svg width={w} height={h} role="img" aria-label={t('scouting.reliabilityTitle')} style={{ maxWidth: '100%' }}>
+        <rect x={P.l} y={P.t} width={S} height={S} fill="none" stroke="var(--border)" />
+        <line x1={X(0.5)} y1={P.t} x2={X(0.5)} y2={P.t + S} stroke="var(--border)" strokeDasharray="2 3" opacity={0.6} />
+        <line x1={P.l} y1={Y(0.5)} x2={P.l + S} y2={Y(0.5)} stroke="var(--border)" strokeDasharray="2 3" opacity={0.6} />
+        <line x1={X(0)} y1={Y(0)} x2={X(1)} y2={Y(1)} stroke="var(--muted)" strokeDasharray="4 3" />
+        {pts.length > 1 && <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth={2} />}
+        {pts.map((b, i) => (
+          <circle
+            key={i}
+            cx={X(b.confidence)}
+            cy={Y(b.accuracy)}
+            r={4 + 3 * (b.count / maxCount)}
+            fill="var(--accent)"
+            stroke="var(--bg)"
+            strokeWidth={1.5}
+          >
+            <title>{`${t('scouting.confidence')} ${pct(b.confidence)} · ${t('scouting.observed')} ${pct(b.accuracy)} · n=${b.count}`}</title>
+          </circle>
+        ))}
+        <text x={P.l + S / 2} y={h - 3} fontSize={10} fill="var(--muted)" textAnchor="middle">{t('scouting.confidence')}</text>
+        <text x={9} y={P.t + S / 2} fontSize={10} fill="var(--muted)" textAnchor="middle" transform={`rotate(-90 9 ${P.t + S / 2})`}>{t('scouting.observed')}</text>
+      </svg>
+      <div className="muted" style={{ fontSize: 11 }}>{t('scouting.reliabilityHint')}</div>
     </div>
   )
 }

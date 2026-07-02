@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import io
 
+import numpy as np
+
+from app.ml.deepsets import POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TOKEN_DIM, round_context, round_tokens
-from app.ml.model import SitePredictor
+from app.ml.model import SitePredictor, _reliability
 from tests.conftest import auth, register_and_login
 
 
@@ -93,6 +96,82 @@ def test_round_context_t_side_and_timing():
     assert ctx["n_opening"] == 1.0  # only the 4-10 window (mid 7) is "opening"
     assert ctx["t_min"] == 7.0 / 115.0  # midpoint of 4-10, normalised by round time
     assert ctx["t_mean"] == 21.0 / 115.0  # ((7 + 35) / 2) / 115
+
+
+# deepSets pooling (fwd/bwd) + temperature calibration
+def _finite_diff_grad_ok(pooling: str) -> None:
+    """Every param's analytic grad matches central finite differences of the loss."""
+    rng = np.random.default_rng(1)
+    net = DeepSets._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, pooling=pooling, seed=1)
+    tokens = rng.standard_normal((4, 5))
+    ctx = rng.standard_normal(4)
+    y = 2
+    _, grads = net._backward_one(tokens, ctx, y)
+
+    def loss() -> float:
+        return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
+
+    eps = 1e-6
+    for k, p in net.params.items():
+        flat, g = p.ravel(), grads[k].ravel()
+        for j in range(flat.size):
+            orig = flat[j]
+            flat[j] = orig + eps
+            lp = loss()
+            flat[j] = orig - eps
+            lm = loss()
+            flat[j] = orig
+            num = (lp - lm) / (2 * eps)
+            assert abs(num - g[j]) < 1e-4, (pooling, k, j, num, g[j])
+
+
+def test_all_poolings_backprop_matches_finite_differences():
+    for pooling in POOLINGS:
+        _finite_diff_grad_ok(pooling)
+
+
+def test_sum_pool_keeps_cardinality_and_attention_is_normalised():
+    z2 = np.ones((3, 6))
+    pooled_sum, _ = DeepSets._init(5, 4, 2, d_embed=6, pooling="sum")._pool(z2)
+    assert np.allclose(pooled_sum, 3.0)
+
+    net = DeepSets._init(5, 4, 2, d_embed=6, pooling="attention", seed=0)
+    z2 = np.random.default_rng(0).standard_normal((5, 6))
+    net.params["w_att"] = z2[0].copy()
+    pooled, (_, _, (_, att)) = net._pool(z2)
+    assert abs(att.sum() - 1.0) < 1e-9 
+    assert not np.allclose(pooled, z2.mean(axis=0)) 
+
+
+def test_fit_temperature_softens_overconfident_logits():
+    rng = np.random.default_rng(0)
+    n = 200
+    y = rng.integers(0, 2, n)
+    logits = np.zeros((n, 2))
+    for i in range(n):
+        cls = y[i] if rng.random() < 0.7 else 1 - y[i]  
+        logits[i, cls] = 6.0 
+    t = DeepSets.fit_temperature(logits, y)
+    assert t > 1.0 
+    assert DeepSets._nll(logits, y, t) < DeepSets._nll(logits, y, 1.0)
+
+
+def test_temperature_preserves_binary_argmax():
+    net = DeepSets._init(5, 3, 2, seed=0)
+    rng = np.random.default_rng(0)
+    tokens, ctx = rng.standard_normal((3, 5)), rng.standard_normal(3)
+    before = int(np.argmax(net.predict_proba(tokens, ctx)))
+    net.temperature = 4.2
+    assert int(np.argmax(net.predict_proba(tokens, ctx))) == before
+
+
+def test_reliability_ece():
+    ece, bins = _reliability([0.9] * 10, [1] * 9 + [0])
+    assert abs(ece) < 1e-9
+    assert len(bins) == 1 and bins[0]["count"] == 10
+
+    ece2, _ = _reliability([0.99] * 10, [1] + [0] * 9)
+    assert abs(ece2 - 0.89) < 1e-9
 
 
 def test_untrained_predictor_returns_none():
