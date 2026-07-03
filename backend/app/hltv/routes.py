@@ -75,11 +75,18 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
             # the demos total grows as matches are processed.
             demos_total += len(archive.dem_paths)
             _update(matches=matches, demos_total=demos_total)
+            # The opponent is the match's other team (the searched team is ours).
+            opponent_id = next(
+                (tid for tid, _ in archive.teams if tid != body.team_id), None
+            )
             try:
                 for dem_path in archive.dem_paths:
                     control.checkpoint()
                     demo_map = client.map_from_filename(dem_path.name) or body.map_id
                     with session_scope() as session:
+                        demo_service.upsert_team(session, body.team_id, body.team_name)
+                        for tid, name in archive.teams:
+                            demo_service.upsert_team(session, tid, name)
                         owner = session.get(User, owner_id)
                         with dem_path.open("rb") as fh:
                             demo, created = demo_service.store_upload(
@@ -90,8 +97,8 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 source=DemoSource.HLTV,
                                 visibility=body.visibility,
                                 map_id=demo_map,
-                                # Tag with the real in-demo clans (a team may be
-                                # renamed/rebranded vs the searched name on HLTV).
+                                # Parser resolves the in-demo clans; they are then
+                                # rewritten to canonical HLTV names below.
                                 team=None,
                                 event=archive.event,
                                 match_date=archive.match_date,
@@ -101,6 +108,11 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                         # prior run; skip re-parsing those duplicates.
                         if created or demo.status != str(DemoStatus.PARSED):
                             demo_service.parse_and_store(session, demo, team_hint=body.team_name)
+                        demo_service.apply_canonical_teams(
+                            session, demo,
+                            team_hltv_id=body.team_id,
+                            opponent_hltv_id=opponent_id,
+                        )
                         demo_ids.append(demo.id)
                     _update(
                         matches=matches,

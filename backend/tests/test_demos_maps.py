@@ -181,6 +181,50 @@ def test_analysis_includes_players_and_winner(client):
     assert all(r["winner"] in ("t", "ct") for r in body["rounds"])
 
 
+def test_apply_canonical_teams_remaps_clans_to_hltv_names(client):
+    # A demo whose parsed clan tags differ from HLTV's canonical names should end
+    # up with the canonical names on the demo and on every round (both clans).
+    from sqlalchemy import select
+    from app.db import session_scope
+    from app.demos import service
+    from app.domain.enums import DemoSource
+    from app.domain.models import Demo, Round, User
+
+    with session_scope() as session:
+        owner = session.scalar(select(User))
+        demo = Demo(
+            owner_id=owner.id, source=str(DemoSource.HLTV), map_id="de_mirage",
+            team="vitality-tag", opponent="faze-tag",
+        )
+        session.add(demo)
+        session.flush()
+        # T-side clan alternates across the halves -> both clans appear.
+        session.add(Round(demo_id=demo.id, round_number=1, map_id="de_mirage",
+                          team="vitality-tag", opponent="faze-tag", buy_type="pistol",
+                          target_site="A"))
+        session.add(Round(demo_id=demo.id, round_number=13, map_id="de_mirage",
+                          team="faze-tag", opponent="vitality-tag", buy_type="full",
+                          target_site="B"))
+        session.flush()
+
+        service.upsert_team(session, "9565", "Team Vitality")
+        service.upsert_team(session, "6667", "FaZe")
+        service.apply_canonical_teams(
+            session, demo, team_hltv_id="9565", opponent_hltv_id="6667"
+        )
+
+        assert (demo.team, demo.opponent) == ("Team Vitality", "FaZe")
+        assert (demo.team_hltv_id, demo.opponent_hltv_id) == ("9565", "6667")
+        rounds = list(session.scalars(
+            select(Round).where(Round.demo_id == demo.id)
+        ))
+        for r in rounds:
+            assert r.team in ("Team Vitality", "FaZe")
+            assert r.opponent in ("Team Vitality", "FaZe")
+        r13 = next(r for r in rounds if r.round_number == 13)
+        assert (r13.team, r13.opponent) == ("FaZe", "Team Vitality")
+
+
 def test_demo_list_pagination_and_filter(client):
     token = register_and_login(client, "pager@example.com")
     _upload(client, token, map_id="de_nuke", team="Spirit", visibility="private")

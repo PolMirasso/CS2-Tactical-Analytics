@@ -5,7 +5,12 @@ import time
 
 import app.hltv.client as client
 from app.config import get_settings
-from app.hltv.client import _match_involves_team, _select_dem_members, map_from_filename
+from app.hltv.client import (
+    _match_involves_team,
+    _parse_match_teams,
+    _select_dem_members,
+    map_from_filename,
+)
 
 
 def test_map_from_filename_reads_map_or_none():
@@ -41,6 +46,23 @@ def test_match_involves_team_rejects_other_team():
 
 def test_match_involves_team_accepts_stats_url_form():
     assert _match_involves_team("...?team=12591&map=...", "12591")
+
+
+def test_parse_match_teams_reads_both_teams():
+    # Each team logo anchor is followed by its teamName div; a sidebar /team/
+    # link without a teamName must be ignored.
+    html = (
+        '<a href="/team/4608/natus-vincere" class="team1"><img class="logo"></a>'
+        '<div class="teamName">Natus Vincere</div>'
+        '<a href="/team/6667/faze"><img class="logo"></a>'
+        '<div class="teamName">FaZe</div>'
+        '<a href="/team/9999/other-match-team">Other</a>'
+    )
+    assert _parse_match_teams(html) == [("4608", "Natus Vincere"), ("6667", "FaZe")]
+
+
+def test_parse_match_teams_empty_when_no_team_names():
+    assert _parse_match_teams('<a href="/team/1/x">X</a> vs <a href="/team/2/y">Y</a>') == []
 
 
 class _FakeResp:

@@ -7,7 +7,7 @@ import shutil
 from datetime import date
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
-from app.domain.models import Demo, Kill, PlayerStat, Round, User, UtilityEvent
+from app.domain.models import Demo, HltvTeam, Kill, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
 from app.parsing.parser import ParseError
 from app.parsing.runner import run_parse
@@ -113,6 +113,57 @@ def store_upload(
     session.add(demo)
     session.flush()
     return demo, True
+
+
+def upsert_team(session: Session, team_id: str | None, name: str | None) -> None:
+    """Record/refresh an HLTV team id"""
+    if not team_id or not name:
+        return
+    team = session.get(HltvTeam, team_id)
+    if team is None:
+        session.add(HltvTeam(id=team_id, name=name))
+    elif team.name != name:
+        team.name = name
+    session.flush()
+
+
+def team_name(session: Session, team_id: str | None) -> str | None:
+    if not team_id:
+        return None
+    team = session.get(HltvTeam, team_id)
+    return team.name if team is not None else None
+
+
+def apply_canonical_teams(
+        session: Session,
+        demo: Demo,
+        *,
+        team_hltv_id: str | None,
+        opponent_hltv_id: str | None,
+) -> None:
+    """Tag demo with HLTV team ids and rewrite the team name to the registrys canonical names"""
+    canon_team = team_name(session, team_hltv_id)
+    canon_opp = team_name(session, opponent_hltv_id)
+    mapping: dict[str, str] = {}
+    if demo.team and canon_team:
+        mapping[demo.team] = canon_team
+    if demo.opponent and canon_opp:
+        mapping[demo.opponent] = canon_opp
+
+    demo.team_hltv_id = team_hltv_id
+    demo.opponent_hltv_id = opponent_hltv_id
+    if canon_team:
+        demo.team = canon_team
+    if canon_opp:
+        demo.opponent = canon_opp
+
+    if mapping:
+        for r in session.scalars(select(Round).where(Round.demo_id == demo.id)):
+            if r.team in mapping:
+                r.team = mapping[r.team]
+            if r.opponent in mapping:
+                r.opponent = mapping[r.opponent]
+    session.flush()
 
 
 def count_analysis(session: Session, demo: Demo) -> tuple[int, int]:

@@ -33,6 +33,8 @@ class DemoArchive:
     event: str | None
     match_date: date | None
     dem_paths: list[Path]
+    # the match's two teams as (hltv_id, name)
+    teams: list[tuple[str, str]]  
     work_dir: Path | None = None  # temp dir to clean up once the match is ingested
 
 
@@ -169,6 +171,23 @@ def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
     return event, match_date
 
 
+# get team name 
+_MATCH_TEAM = re.compile(
+    r'href="/team/(\d+)/[^"]+"[^>]*>.*?</a>\s*<div class="teamName">\s*([^<]+?)\s*</div>',
+    re.DOTALL,
+)
+
+
+def _parse_match_teams(html: str) -> list[tuple[str, str]]:
+    """Return the match's teams as ``(hltv_id, name)``, de-duplicated by id."""
+    out: dict[str, str] = {}
+    for tid, name in _MATCH_TEAM.findall(html):
+        name = re.sub(r"\s+", " ", name).strip()
+        if tid and name and tid not in out:
+            out[tid] = name
+    return list(out.items())
+
+
 def _match_involves_team(html: str, team_id: str) -> bool:
     """True if ``team_id`` is one of the two teams on a match page.
 
@@ -242,6 +261,7 @@ def iter_team_demo_archives(
             id_match = re.search(r"/matches/(\d+)", match_url)
             match_id = id_match.group(1) if id_match else match_url.rstrip("/").split("/")[-1]
             event, match_date = _parse_match_meta(html)
+            teams = _parse_match_teams(html)
             work_dir, dem_paths = _download_and_extract(
                 f"{settings.hltv_base_url}{demo_links[0]}", match_id, map_id
             )
@@ -254,6 +274,7 @@ def iter_team_demo_archives(
                 event=event,
                 match_date=match_date,
                 dem_paths=dem_paths,
+                teams=teams,
                 work_dir=work_dir,
             )
         elif work_dir is not None:

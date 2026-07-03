@@ -79,12 +79,26 @@ class Demo(Base):
     event: Mapped[str | None] = mapped_column(String, nullable=True)
     match_date: Mapped[date | None] = mapped_column(nullable=True)
     hltv_match_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # HLTV team ids
+    team_hltv_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    opponent_hltv_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
     file_path: Mapped[str | None] = mapped_column(String, nullable=True)
     sha256: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     size_bytes: Mapped[int | None] = mapped_column(nullable=True)
     error: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class HltvTeam(Base):
+    # latest canonical name
+    __tablename__ = "hltv_teams"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 class DownloadJob(Base):

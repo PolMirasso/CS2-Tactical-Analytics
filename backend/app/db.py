@@ -42,6 +42,7 @@ def _add_missing_columns() -> None:
         "download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
                           "demos_total": "INTEGER NOT NULL DEFAULT 0",
                           "max_matches": "INTEGER"},
+        "demos": {"team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR"},
         "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR"},
         "utility_events": {"radar_x": "FLOAT", "radar_y": "FLOAT", "z": "FLOAT"},
     }
