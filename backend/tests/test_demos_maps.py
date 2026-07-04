@@ -181,9 +181,8 @@ def test_analysis_includes_players_and_winner(client):
     assert all(r["winner"] in ("t", "ct") for r in body["rounds"])
 
 
-def test_apply_canonical_teams_remaps_clans_to_hltv_names(client):
-    # A demo whose parsed clan tags differ from HLTV's canonical names should end
-    # up with the canonical names on the demo and on every round (both clans).
+def test_apply_canonical_teams_tags_ids_and_drops_names(client):
+    # Each clan is mapped to its HLTV id on the demo and its rounds; no names stored.
     from sqlalchemy import select
     from app.db import session_scope
     from app.demos import service
@@ -213,16 +212,20 @@ def test_apply_canonical_teams_remaps_clans_to_hltv_names(client):
             session, demo, team_hltv_id="9565", opponent_hltv_id="6667"
         )
 
-        assert (demo.team, demo.opponent) == ("Team Vitality", "FaZe")
+        assert (demo.team, demo.opponent) == (None, None)
         assert (demo.team_hltv_id, demo.opponent_hltv_id) == ("9565", "6667")
+        assert service.resolve_team_names(session, {"9565", "6667"}) == {
+            "9565": "Team Vitality", "6667": "FaZe",
+        }
         rounds = list(session.scalars(
             select(Round).where(Round.demo_id == demo.id)
         ))
         for r in rounds:
-            assert r.team in ("Team Vitality", "FaZe")
-            assert r.opponent in ("Team Vitality", "FaZe")
+            assert r.team_hltv_id in ("9565", "6667")
+            assert r.opponent_hltv_id in ("9565", "6667")
         r13 = next(r for r in rounds if r.round_number == 13)
-        assert (r13.team, r13.opponent) == ("FaZe", "Team Vitality")
+        # Round 13: faze-tag executes vs vitality-tag.
+        assert (r13.team_hltv_id, r13.opponent_hltv_id) == ("6667", "9565")
 
 
 def test_demo_list_pagination_and_filter(client):

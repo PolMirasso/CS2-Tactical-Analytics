@@ -56,6 +56,11 @@ class InvitationOut(BaseModel):
     created_at: datetime
 
 
+class TeamRef(BaseModel):
+    id: str
+    name: str
+
+
 # demos
 class DemoOut(BaseModel):
     id: int
@@ -66,6 +71,8 @@ class DemoOut(BaseModel):
     map_id: str | None
     team: str | None
     opponent: str | None
+    team_hltv_id: str | None = None
+    opponent_hltv_id: str | None = None
     event: str | None
     match_date: date | None
     size_bytes: int | None
@@ -93,6 +100,17 @@ class ReparseStatusOut(BaseModel):
     ok: int
     failed: int
     map_id: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class BackfillStatusOut(BaseModel):
+    running: bool
+    total: int
+    done: int
+    updated: int
+    skipped: int
+    failed: int
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
@@ -320,4 +338,6 @@ class MapOut(BaseModel):
     zones: list[ZoneOut]
     # Present only when awpy radar assets + calibration exist for the map.
     has_radar: bool = False
+    # True when the map has parsed rounds
+    has_data: bool = False
     calibration: MapCalibration | None = None

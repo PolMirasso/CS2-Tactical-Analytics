@@ -134,6 +134,17 @@ def team_name(session: Session, team_id: str | None) -> str | None:
     return team.name if team is not None else None
 
 
+def resolve_team_names(session: Session, ids) -> dict[str, str]:
+    """hltv_id: name from the registry for the given ids"""
+    wanted = {i for i in ids if i}
+    if not wanted:
+        return {}
+    rows = session.execute(
+        select(HltvTeam.id, HltvTeam.name).where(HltvTeam.id.in_(wanted))
+    ).all()
+    return {i: n for i, n in rows}
+
+
 def apply_canonical_teams(
         session: Session,
         demo: Demo,
@@ -141,28 +152,23 @@ def apply_canonical_teams(
         team_hltv_id: str | None,
         opponent_hltv_id: str | None,
 ) -> None:
-    """Tag demo with HLTV team ids and rewrite the team name to the registrys canonical names"""
-    canon_team = team_name(session, team_hltv_id)
-    canon_opp = team_name(session, opponent_hltv_id)
-    mapping: dict[str, str] = {}
-    if demo.team and canon_team:
-        mapping[demo.team] = canon_team
-    if demo.opponent and canon_opp:
-        mapping[demo.opponent] = canon_opp
+    # attach HLTV team ids to the demo and its rounds
+    clan_to_id: dict[str, str] = {}
+    if demo.team and team_hltv_id:
+        clan_to_id[demo.team] = team_hltv_id
+    if demo.opponent and opponent_hltv_id:
+        clan_to_id[demo.opponent] = opponent_hltv_id
 
     demo.team_hltv_id = team_hltv_id
     demo.opponent_hltv_id = opponent_hltv_id
-    if canon_team:
-        demo.team = canon_team
-    if canon_opp:
-        demo.opponent = canon_opp
 
-    if mapping:
+    if clan_to_id:
         for r in session.scalars(select(Round).where(Round.demo_id == demo.id)):
-            if r.team in mapping:
-                r.team = mapping[r.team]
-            if r.opponent in mapping:
-                r.opponent = mapping[r.opponent]
+            r.team_hltv_id = clan_to_id.get(r.team)
+            r.opponent_hltv_id = clan_to_id.get(r.opponent)
+
+    demo.team = None
+    demo.opponent = None
     session.flush()
 
 
@@ -317,7 +323,17 @@ def list_visible(
         conds.append(Demo.map_id == map_id)
     if team:
         like = f"%{team}%"
-        conds.append(or_(Demo.team.ilike(like), Demo.opponent.ilike(like)))
+        # match the registry name via the demo's team id
+        matching_ids = [
+            i for (i,) in session.execute(
+                select(HltvTeam.id).where(HltvTeam.name.ilike(like))
+            ).all()
+        ]
+        clauses = [Demo.team.ilike(like), Demo.opponent.ilike(like)]
+        if matching_ids:
+            clauses.append(Demo.team_hltv_id.in_(matching_ids))
+            clauses.append(Demo.opponent_hltv_id.in_(matching_ids))
+        conds.append(or_(*clauses))
     if date_from:
         conds.append(Demo.match_date >= date_from)
     if date_to:

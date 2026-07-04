@@ -63,7 +63,8 @@ def upload_demo(
     else:
         n_rounds, n_util = service.count_analysis(session, demo)
     return UploadResult(
-        demo=_to_out(demo), rounds=n_rounds, utility_events=n_util, duplicate=not created
+        demo=_demo_out(session, demo), rounds=n_rounds, utility_events=n_util,
+        duplicate=not created,
     )
 
 
@@ -83,7 +84,9 @@ def list_demos(
         map_id=map_id, team=team, date_from=date_from, date_to=date_to,
         limit=limit, offset=offset,
     )
-    return DemoListOut(items=[_to_out(d) for d in demos], total=total)
+    ids = {i for d in demos for i in (d.team_hltv_id, d.opponent_hltv_id)}
+    names = service.resolve_team_names(session, ids)
+    return DemoListOut(items=[_to_out(d, names) for d in demos], total=total)
 
 
 @router.get("/{demo_id}", response_model=DemoOut)
@@ -92,7 +95,7 @@ def get_demo(
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
 ) -> DemoOut:
-    return _to_out(service.get_visible(session, user, demo_id))
+    return _demo_out(session, service.get_visible(session, user, demo_id))
 
 
 @router.get("/{demo_id}/analysis", response_model=DemoAnalysisOut)
@@ -103,13 +106,20 @@ def demo_analysis(
 ) -> DemoAnalysisOut:
     # Parsed rounds + utility for one demo (respects the demo's visibility).
     demo = service.get_visible(session, user, demo_id)
+    analysis = service.load_analysis(session, demo)
+    names = service.resolve_team_names(
+        session,
+        {demo.team_hltv_id, demo.opponent_hltv_id}
+        | {r.team_hltv_id for r, _ in analysis}
+        | {r.opponent_hltv_id for r, _ in analysis},
+    )
     rounds = [
         RoundOut(
             id=r.id,
             round_number=r.round_number,
             map_id=r.map_id,
-            team=r.team,
-            opponent=r.opponent,
+            team=names.get(r.team_hltv_id) or r.team,
+            opponent=names.get(r.opponent_hltv_id) or r.opponent,
             buy_type=r.buy_type,
             equip_value=r.equip_value,
             target_site=r.target_site,
@@ -119,13 +129,13 @@ def demo_analysis(
                 UtilityEventOut.model_validate(u, from_attributes=True) for u in utils
             ],
         )
-        for r, utils in service.load_analysis(session, demo)
+        for r, utils in analysis
     ]
     players = [
         PlayerStatOut.model_validate(p, from_attributes=True)
         for p in service.load_players(session, demo)
     ]
-    return DemoAnalysisOut(demo=_to_out(demo), rounds=rounds, players=players)
+    return DemoAnalysisOut(demo=_to_out(demo, names), rounds=rounds, players=players)
 
 
 @router.get("/{demo_id}/replay", response_model=ReplayMetaOut)
@@ -224,5 +234,30 @@ def remove_demo(
     service.delete_demo(session, user, demo)
 
 
-def _to_out(demo: Demo) -> DemoOut:
-    return DemoOut.model_validate(demo, from_attributes=True)
+def _to_out(demo: Demo, names: dict[str, str] | None = None) -> DemoOut:
+    names = names or {}
+    return DemoOut(
+        id=demo.id,
+        owner_id=demo.owner_id,
+        source=demo.source,
+        status=demo.status,
+        visibility=demo.visibility,
+        map_id=demo.map_id,
+        team=names.get(demo.team_hltv_id) or demo.team,
+        opponent=names.get(demo.opponent_hltv_id) or demo.opponent,
+        team_hltv_id=demo.team_hltv_id,
+        opponent_hltv_id=demo.opponent_hltv_id,
+        event=demo.event,
+        match_date=demo.match_date,
+        size_bytes=demo.size_bytes,
+        error=demo.error,
+        created_at=demo.created_at,
+    )
+
+
+def _demo_out(session: Session, demo: Demo) -> DemoOut:
+    """Serialize one demo with its team names resolved from the registry"""
+    names = service.resolve_team_names(
+        session, {demo.team_hltv_id, demo.opponent_hltv_id}
+    )
+    return _to_out(demo, names)

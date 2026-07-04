@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
-from app.domain.schemas import SiteDistributionOut, SiteStat, ZoneUtilStat
+from app.domain.schemas import SiteDistributionOut, SiteStat, TeamRef, ZoneUtilStat
 
 _UTIL_TYPES = ("smoke", "flash", "molotov", "he")
 
@@ -21,17 +21,34 @@ def _base_conditions(session: Session, user: User, map_id: str):
     return [Round.map_id == map_id, _visibility_clause(session, user)]
 
 
-def teams_for_map(session: Session, user: User, map_id: str) -> list[str]:
-    """Distinct executing-team names with parsed rounds on a map, most rounds first."""
+def _team_filter(team_id: str):
+    """Match rounds executed by ``team_id`` (HLTV id) or a raw clan (uploads)."""
+    return or_(Round.team_hltv_id == team_id, Round.team == team_id)
+
+
+def teams_for_map(session: Session, user: User, map_id: str) -> list[TeamRef]:
+    """Distinct executing teams with parsed rounds on a map, most rounds first"""
+    from app.demos.service import resolve_team_names
+
     conds = _base_conditions(session, user, map_id)
     rows = session.execute(
-        select(Round.team)
+        select(Round.team_hltv_id, Round.team, func.count())
         .join(Demo, Demo.id == Round.demo_id)
-        .where(*conds, Round.team.is_not(None))
-        .group_by(Round.team)
-        .order_by(func.count().desc())
+        .where(*conds, or_(Round.team_hltv_id.is_not(None), Round.team.is_not(None)))
+        .group_by(Round.team_hltv_id, Round.team)
     ).all()
-    return [t for (t,) in rows if t]
+
+    names = resolve_team_names(session, {tid for tid, _, _ in rows})
+    agg: dict[str, dict] = {}
+    for tid, raw, n in rows:
+        key = tid or raw
+        if not key:
+            continue
+        label = names.get(tid) or raw or tid
+        b = agg.setdefault(key, {"id": key, "name": label, "n": 0})
+        b["n"] += n
+    ordered = sorted(agg.values(), key=lambda b: b["n"], reverse=True)
+    return [TeamRef(id=b["id"], name=b["name"]) for b in ordered]
 
 
 def site_distribution(
@@ -47,7 +64,7 @@ def site_distribution(
     """Historical plant-site split (and per-site win rate) over matching T rounds."""
     conds = _base_conditions(session, user, map_id)
     if team:
-        conds.append(Round.team.ilike(f"%{team}%"))
+        conds.append(_team_filter(team))
     if buy_types:
         conds.append(Round.buy_type.in_(buy_types))
     if date_from:
@@ -109,7 +126,7 @@ def utility_heatmap(
     """T-side utility counts per callout zone (and type) for a team on a map."""
     conds = _base_conditions(session, user, map_id)
     if team:
-        conds.append(Round.team.ilike(f"%{team}%"))
+        conds.append(_team_filter(team))
 
     rows = session.execute(
         select(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type, func.count())

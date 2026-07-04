@@ -7,7 +7,7 @@ from app.analytics.maps import calibration, list_maps, radar_file
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.domain.models import User
-from app.domain.schemas import MapCalibration, MapOut, SiteDistributionOut, ZoneOut
+from app.domain.schemas import MapCalibration, MapOut, SiteDistributionOut, TeamRef, ZoneOut
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -17,7 +17,16 @@ analytics_router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("", response_model=list[MapOut])
-def get_maps() -> list[MapOut]:
+def get_maps(session: Session = Depends(get_session)) -> list[MapOut]:
+    from sqlalchemy import select as _select
+
+    from app.domain.models import Round
+
+    maps_with_data = {
+        m for (m,) in session.execute(
+            _select(Round.map_id).where(Round.map_id.is_not(None)).distinct()
+        ).all()
+    }
     out = []
     for m in list_maps():
         cal = calibration(m.id)
@@ -37,6 +46,7 @@ def get_maps() -> list[MapOut]:
                     for z in m.zones
                 ],
                 has_radar=radar_file(m.id) is not None,
+                has_data=m.id in maps_with_data,
                 calibration=MapCalibration(**cal) if cal else None,
             )
         )
@@ -51,12 +61,12 @@ def get_radar(map_id: str) -> FileResponse:
     return FileResponse(path, media_type="image/png")
 
 
-@analytics_router.get("/teams", response_model=list[str])
+@analytics_router.get("/teams", response_model=list[TeamRef])
 def get_teams(
         map_id: str,
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
-) -> list[str]:
+) -> list[TeamRef]:
     return aggregate.teams_for_map(session, user, map_id)
 
 

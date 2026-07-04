@@ -140,6 +140,8 @@ class Round(Base):
     map_id: Mapped[str] = mapped_column(String, index=True)
     team: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     opponent: Mapped[str | None] = mapped_column(String, nullable=True)
+    team_hltv_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    opponent_hltv_id: Mapped[str | None] = mapped_column(String, nullable=True)
     buy_type: Mapped[str] = mapped_column(String)
     equip_value: Mapped[int] = mapped_column(default=0)
     target_site: Mapped[str] = mapped_column(String)

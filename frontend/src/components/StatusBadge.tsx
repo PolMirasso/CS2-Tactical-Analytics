@@ -10,6 +10,7 @@ const TONE: Record<string, string> = {
   cancelled: 'failed',
   running: 'running',
   reparsing: 'running',
+  cancelling: 'running',
   paused: 'pending',
   pending: 'pending',
 }

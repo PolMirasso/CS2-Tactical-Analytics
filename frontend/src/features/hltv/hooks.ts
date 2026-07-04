@@ -12,7 +12,10 @@ export function useDownloadJobs() {
     refetchInterval: (query) => {
       const jobs = query.state.data ?? []
       const active = jobs.some(
-        (j) => j.status === 'running' || j.status === 'pending',
+        (j) =>
+          j.status === 'running' ||
+          j.status === 'pending' ||
+          j.status === 'cancelling',
       )
       return active ? 2000 : false
     },

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
@@ -15,7 +15,10 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
         session.scalars(
             select(Round)
             .join(Demo, Demo.id == Round.demo_id)
-            .where(_visibility_clause(session, user), Round.team.is_not(None))
+            .where(
+                _visibility_clause(session, user),
+                or_(Round.team_hltv_id.is_not(None), Round.team.is_not(None)),
+            )
         )
     )
     if not rounds:
@@ -32,13 +35,15 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
     teams: set[str] = set()
     for r in rounds:
         util = util_by_round.get(r.id, [])
+        team = r.team_hltv_id or r.team
+        opponent = r.opponent_hltv_id or r.opponent
         samples.append(
             {
                 "tokens": round_tokens(r.map_id, util),
                 "context": round_context(
                     map_id=r.map_id,
-                    team=r.team,
-                    opponent=r.opponent,
+                    team=team,
+                    opponent=opponent,
                     buy_type=r.buy_type,
                     equip_value=r.equip_value,
                     utility=util,
@@ -46,6 +51,6 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
             }
         )
         targets.append(r.target_site)
-        if r.team:
-            teams.add(r.team)
+        if team:
+            teams.add(team)
     return samples, targets, {"n_rounds": len(samples), "n_teams": len(teams)}

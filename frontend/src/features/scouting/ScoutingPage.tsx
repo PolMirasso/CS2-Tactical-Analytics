@@ -39,11 +39,16 @@ export function ScoutingPage() {
   const setActiveWindow = (from: number, to: number) => { setActiveFrom(clampS(from)); setActiveTo(clampS(to)) }
 
   useEffect(() => {
-    if (!mapId && maps && maps.length > 0) setMapId(maps[0].id)
+    if (!mapId && maps && maps.length > 0)
+      setMapId((maps.find((m) => m.has_data) ?? maps[0]).id)
   }, [maps, mapId])
 
   const { data: teams } = useTeams(mapId || undefined)
   const map = useMemo(() => maps?.find((m) => m.id === mapId) ?? null, [maps, mapId])
+  const teamName = useMemo(
+    () => teams?.find((tm) => tm.id === team)?.name ?? '',
+    [teams, team],
+  )
   const zones: ZoneOut[] = map?.zones ?? []
 
   const tendencies = useTendencies(mapId || undefined, team || undefined)
@@ -109,7 +114,7 @@ export function ScoutingPage() {
 
       <div className="print-only" style={{ marginBottom: 12 }}>
         <h2 style={{ marginBottom: 4 }}>
-          {t('scouting.reportTitle')}: {team || t('analytics.allTeams')} — {map?.name ?? mapId}
+          {t('scouting.reportTitle')}: {teamName || t('analytics.allTeams')} — {map?.name ?? mapId}
         </h2>
         <p className="muted">{t('demos.buy')}: {t(`demos.buyTypes.${buyType}`)}</p>
       </div>
@@ -130,7 +135,7 @@ export function ScoutingPage() {
             <select id="sc-team" value={team} onChange={(e) => setTeam(e.target.value)}>
               <option value="">{t('analytics.allTeams')}</option>
               {(teams ?? []).map((tm) => (
-                <option key={tm} value={tm}>{tm}</option>
+                <option key={tm.id} value={tm.id}>{tm.name}</option>
               ))}
             </select>
           </div>
@@ -289,7 +294,7 @@ export function ScoutingPage() {
 
       {/* Historical tendencies + utility heatmap */}
       <div className="card">
-        <h2>{t('scouting.tendencies')}{team ? ` · ${team}` : ''}</h2>
+        <h2>{t('scouting.tendencies')}{teamName ? ` · ${teamName}` : ''}</h2>
         {tendencies.isLoading && <p className="muted">{t('common.loading')}</p>}
         {tendencies.data && tendencies.data.total_rounds === 0 && (
           <p className="muted">{t('scouting.noTendencies')}</p>

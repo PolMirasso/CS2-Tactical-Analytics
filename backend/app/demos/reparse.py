@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from app.db import session_scope
-from app.demos.service import parse_and_store
+from app.demos.service import apply_canonical_teams, parse_and_store, team_name
 from app.domain.models import Demo
 
 
@@ -57,7 +57,14 @@ def _run(map_id: str | None) -> None:
                 with session_scope() as session:
                     demo = session.get(Demo, did)
                     if demo is not None:
-                        parse_and_store(session, demo)
+                        # tag rounds with the demo's HLTV ids
+                        hint = team_name(session, demo.team_hltv_id)
+                        parse_and_store(session, demo, team_hint=hint)
+                        apply_canonical_teams(
+                            session, demo,
+                            team_hltv_id=demo.team_hltv_id,
+                            opponent_hltv_id=demo.opponent_hltv_id,
+                        )
                 with _lock:
                     _state.ok += 1
             except Exception:

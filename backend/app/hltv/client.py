@@ -173,8 +173,12 @@ def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
 
 # get team name 
 _MATCH_TEAM = re.compile(
-    r'href="/team/(\d+)/[^"]+"[^>]*>.*?</a>\s*<div class="teamName">\s*([^<]+?)\s*</div>',
+    r'href="/team/(\d+)/[^"]*"[^>]*>.*?<div class="teamName">\s*([^<]+?)\s*</div>',
     re.DOTALL,
+)
+# fallback for when the header markup changes
+_MATCH_TEAM_JSONLD = re.compile(
+    r'"name":\s*"([^"]+)"\s*,\s*"url":\s*"[^"]*?/team/(\d+)/',
 )
 
 
@@ -185,6 +189,11 @@ def _parse_match_teams(html: str) -> list[tuple[str, str]]:
         name = re.sub(r"\s+", " ", name).strip()
         if tid and name and tid not in out:
             out[tid] = name
+    if len(out) < 2:
+        for name, tid in _MATCH_TEAM_JSONLD.findall(html):
+            name = re.sub(r"\s+", " ", name).strip()
+            if tid and name and tid not in out:
+                out[tid] = name
     return list(out.items())
 
 
@@ -239,6 +248,7 @@ def iter_team_demo_archives(
         *,
         max_matches: int = 100,
         on_total: "Callable[[int], None] | None" = None,
+        checkpoint: "Callable[[], None] | None" = None,
 ) -> Iterator[DemoArchive]:
     # Yield GOTV demo archives one match at a time, as each is downloaded
 
@@ -248,6 +258,9 @@ def iter_team_demo_archives(
         on_total(len(match_urls))
 
     for match_url in match_urls:
+        # honour a pending pause/cancel before starting another download
+        if checkpoint is not None:
+            checkpoint()
         time.sleep(settings.request_delay_s)  # be polite to HLTV
         try:
             html = _flaresolverr_get(match_url)

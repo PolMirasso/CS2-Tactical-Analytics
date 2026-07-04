@@ -10,6 +10,7 @@ export type JobStatus =
   | 'pending'
   | 'running'
   | 'paused'
+  | 'cancelling'
   | 'completed'
   | 'failed'
   | 'cancelled'
@@ -52,6 +53,8 @@ export interface DemoOut {
   map_id: string | null
   team: string | null
   opponent: string | null
+  team_hltv_id: string | null
+  opponent_hltv_id: string | null
   event: string | null
   match_date: string | null
   size_bytes: number | null
@@ -297,7 +300,13 @@ export interface MapOut {
   name: string
   zones: ZoneOut[]
   has_radar: boolean
+  has_data: boolean
   calibration: MapCalibration | null
+}
+
+export interface TeamRef {
+  id: string
+  name: string
 }
 
 // 2D replay

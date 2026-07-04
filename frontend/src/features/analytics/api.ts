@@ -1,5 +1,5 @@
 import { api } from '@/lib/apiClient'
-import type { SiteDistributionOut, SiteDistributionParams } from '@/types/api'
+import type { SiteDistributionOut, SiteDistributionParams, TeamRef } from '@/types/api'
 
 function buildQuery(params: SiteDistributionParams): string {
   const sp = new URLSearchParams()
@@ -14,7 +14,7 @@ function buildQuery(params: SiteDistributionParams): string {
 
 export const analyticsApi = {
   teams: (mapId: string) =>
-    api.get<string[]>(`/analytics/teams?map_id=${encodeURIComponent(mapId)}`),
+    api.get<TeamRef[]>(`/analytics/teams?map_id=${encodeURIComponent(mapId)}`),
   siteDistribution: (params: SiteDistributionParams) =>
     api.get<SiteDistributionOut>(`/analytics/site-distribution?${buildQuery(params)}`),
 }

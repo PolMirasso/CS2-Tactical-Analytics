@@ -22,7 +22,8 @@ export function AnalyticsPage() {
   const [buyTypes, setBuyTypes] = useState<BuyType[]>([])
 
   useEffect(() => {
-    if (!mapId && maps && maps.length > 0) setMapId(maps[0].id)
+    if (!mapId && maps && maps.length > 0)
+      setMapId((maps.find((m) => m.has_data) ?? maps[0]).id)
   }, [maps, mapId])
 
   const { data: teams } = useTeams(mapId || undefined)
@@ -59,7 +60,7 @@ export function AnalyticsPage() {
             <select id="an-team" value={team} onChange={(e) => setTeam(e.target.value)}>
               <option value="">{t('analytics.allTeams')}</option>
               {(teams ?? []).map((tm) => (
-                <option key={tm} value={tm}>{tm}</option>
+                <option key={tm.id} value={tm.id}>{tm.name}</option>
               ))}
             </select>
           </div>

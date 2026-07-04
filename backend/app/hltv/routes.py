@@ -8,7 +8,8 @@ from app.domain.enums import DateRange, DemoSource, DemoStatus, JobStatus, Visib
 from app.domain.models import DownloadJob, User
 from app.domain.schemas import DownloadDemosIn, DownloadJobOut
 from app.domain.schemas import TeamHit as TeamHitOut
-from app.hltv import client, jobs
+from app.domain.schemas import BackfillStatusOut
+from app.hltv import backfill, client, jobs
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -68,6 +69,8 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 body.date_range,
                 max_matches=body.max_matches or get_settings().hltv_max_matches,
                 on_total=lambda n: _update(matches_total=n),
+                # cancel/pause aborts before the next download
+                checkpoint=control.checkpoint,
         ):
             control.checkpoint()
             matches += 1
@@ -97,8 +100,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 source=DemoSource.HLTV,
                                 visibility=body.visibility,
                                 map_id=demo_map,
-                                # Parser resolves the in-demo clans; they are then
-                                # rewritten to canonical HLTV names below.
+                                # No name stored; clans map to ids below.
                                 team=None,
                                 event=archive.event,
                                 match_date=archive.match_date,
@@ -258,6 +260,8 @@ def cancel_download_job(
     if control is not None:
         # The worker will set CANCELLED
         control.cancel()
+        job.status = str(JobStatus.CANCELLING)
+        session.commit()
     else:
         # No live worker
         job.status = str(JobStatus.CANCELLED)
@@ -291,6 +295,25 @@ def retry_download_job(
     session.refresh(job)
     background_tasks.add_task(_run_download_job, job.id, job.owner_id, body)
     return _job_out(job)
+
+
+def _backfill_out(st) -> BackfillStatusOut:
+    return BackfillStatusOut(
+        running=st.running, total=st.total, done=st.done,
+        updated=st.updated, skipped=st.skipped, failed=st.failed,
+        started_at=st.started_at, finished_at=st.finished_at,
+    )
+
+
+@router.post("/backfill-teams", response_model=BackfillStatusOut)
+def backfill_teams(_admin: User = Depends(require_admin)) -> BackfillStatusOut:
+    """Re-fetch each demo's HLTV match page to fill team ids + tag rounds."""
+    return _backfill_out(backfill.start())
+
+
+@router.get("/backfill-teams/status", response_model=BackfillStatusOut)
+def backfill_teams_status(_admin: User = Depends(require_admin)) -> BackfillStatusOut:
+    return _backfill_out(backfill.status())
 
 
 @router.get("/downloads", response_model=list[DownloadJobOut])

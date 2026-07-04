@@ -54,7 +54,8 @@ def test_analytics_teams_lists_executing_team(client):
         "/analytics/teams", params={"map_id": "de_ancient"}, headers=auth(token)
     )
     assert resp.status_code == 200
-    assert "Spirit" in resp.json()
+    # id-less (uploaded) demos surface as {id: raw-clan, name: raw-clan}.
+    assert "Spirit" in [t["name"] for t in resp.json()]
 
 
 def test_site_distribution_respects_visibility(client):
