@@ -14,7 +14,7 @@ from app.ml.features import SITES, TOKEN_DIM, _attr, round_context, round_tokens
 MIN_ROUNDS = 20
 _WEIGHT_DECAY = 1e-4
 # Set pooling over the round's utility tokens: mean (baseline), sum (keeps cardinality) or attention (learned per-grenade weights)
-_POOLING = "mean"
+_POOLING = "attention"
 # How many landing points to draw inside each drawn box at inference. The model
 # is point-trained, so the drawn box means "lands somewhere in this area" and the
 # time window means "active across this span": we average the prediction over

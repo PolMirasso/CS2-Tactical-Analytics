@@ -15,7 +15,7 @@ ROUND_TIME_S = 115.0
 # Grenades thrown within this many seconds of freeze-end count as "opening" util.
 _OPENING_WINDOW_S = 15.0
 
-# per-utility token = [smoke, flash, molotov, he, x01, y01, t01, t01, z_lvl, map one-hot]
+# per-utility token = [smoke, flash, molotov, he, x01, y01, t01, z_lvl, map one-hot]
 TOKEN_DIM = len(_UTILS) + 4 + len(_MAP_ORDER)
 
 _Z_LVL_NEUTRAL = 0.5
