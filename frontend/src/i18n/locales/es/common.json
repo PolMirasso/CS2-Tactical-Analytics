@@ -109,7 +109,10 @@
     "copyCmd": "Copiar",
     "copied": "¡Copiado!",
     "weapon": "Arma",
-    "ammo": "Balas en cargador / cargadores de reserva"
+    "ammo": "Balas en cargador / cargadores de reserva",
+    "headshot": "Headshot",
+    "noscope": "Sin apuntar",
+    "jump": "Saltando"
   },
   "hltv": {
     "title": "Descarga de HLTV",

@@ -216,25 +216,31 @@ def _parse_with_awpy(
     except ImportError as exc:  # pragma: no cover - deps are declared
         raise ParseError(f"parsing dependencies unavailable: {exc}") from exc
 
+    base_props = [
+        "current_equip_value",
+        "team_clan_name",
+        "yaw",
+        "armor_value",
+        "balance",
+        "active_weapon_name",
+        "active_weapon_ammo",
+        "total_ammo_left",
+        "inventory",
+    ]
+
     try:
         demo = Demo(path=path)
-        demo.parse(
-            player_props=[
-                "current_equip_value",
-                "team_clan_name",
-                "yaw",
-                "armor_value",
-                "balance",
-                "active_weapon_name",
-                "active_weapon_ammo",
-                "total_ammo_left",
-                "inventory",
-            ]
-        )
+        demo.parse(player_props=base_props + ["m_iCompTeammateColor"])
     except (KeyboardInterrupt, SystemExit):
         raise
-    except BaseException as exc:
-        raise ParseError(f"awpy failed to parse demo: {exc}") from exc
+    except BaseException:
+        try:
+            demo = Demo(path=path)
+            demo.parse(player_props=base_props)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
+            raise ParseError(f"awpy failed to parse demo: {exc}") from exc
 
     header = getattr(demo, "header", None) or {}
     map_id = header.get("map_name") or map_hint

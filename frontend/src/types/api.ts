@@ -332,6 +332,7 @@ export interface ReplayPlayer {
   steamid: string
   name: string
   side: 't' | 'ct'
+  ci?: number // teammate-colour index
 }
 
 export interface ReplayFrame {
@@ -369,6 +370,8 @@ export interface ReplayKill {
   vs: string // victim side
   wp: string // weapon
   hs: boolean // headshot
+  air?: boolean // attacker jumping 
+  ns?: boolean // no-scope kill
 }
 
 export interface ReplayRound {

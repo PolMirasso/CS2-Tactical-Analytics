@@ -27,6 +27,7 @@ class PlayerSlot:
     steamid: str
     name: str
     side: str  # "t" / "ct"
+    color: int = -1  # in-game teammate-colour index
 
 
 @dataclass
@@ -67,7 +68,7 @@ class ReplayRound:
     fires: list[list[float]] = field(default_factory=list)
     # Bomb plant for the round: ``{t, x, y, site}`` (world-space), or ``None``.
     bomb: dict | None = None
-    # Kill events: ``{t, atk, as, vic, vs, wp, hs}`` for the kill feed.
+    # Kill events for the kill feed: {t, atk, as, vic, vs, wp, hs} plus optional air no-scope.
     kills: list[dict] = field(default_factory=list)
     winner: str | None = None  # "ct" | "t"
 
@@ -92,7 +93,9 @@ def _round_to_dict(r: ReplayRound) -> dict:
     return {
         "round_number": r.round_number,
         "duration_s": round(r.duration_s, 2),
-        "players": [{"steamid": p.steamid, "name": p.name, "side": p.side} for p in r.players],
+        "players": [
+            {"steamid": p.steamid, "name": p.name, "side": p.side, "ci": p.color} for p in r.players
+        ],
         "weapons": r.weapons,
         "fires": r.fires,
         "bomb": r.bomb,
@@ -155,6 +158,15 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
     return ReplayData(map_id=map_id, sample_hz=SAMPLE_HZ, rounds=rounds)
 
 
+def _color_idx(value) -> int:
+    """CS2 competitive teammate-colour index """
+    try:
+        i = int(value)
+    except (TypeError, ValueError):
+        return -1
+    return i if 0 <= i <= 4 else -1
+
+
 def _clean_weapon(name) -> str:
     """Normalise demoparser2's active-weapon name to a short display label."""
     if not name:
@@ -200,6 +212,7 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
     optional = (
         "yaw", "health", "armor", "balance",
         "active_weapon_name", "active_weapon_ammo", "total_ammo_left", "inventory",
+        "m_iCompTeammateColor",
     )
     cols += [c for c in optional if c in has]
     sub = rdf.filter(pl.col("tick").is_in(sampled)).select([c for c in cols if c in has])
@@ -214,7 +227,12 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
     for row in sub.iter_rows(named=True):
         sid = str(row["steamid"])
         if sid not in roster:
-            roster[sid] = PlayerSlot(sid, row.get("name") or "", (row.get("side") or "").lower())
+            roster[sid] = PlayerSlot(
+                sid,
+                row.get("name") or "",
+                (row.get("side") or "").lower(),
+                color=_color_idx(row.get("m_iCompTeammateColor")),
+            )
         x, y = row.get("X"), row.get("Y")
         if x is None or y is None:
             continue
@@ -408,6 +426,8 @@ def _round_kills(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> lis
     vx_col = next((c for c in ("victim_X", "victim_x", "user_X") if c in cols), None)
     vy_col = next((c for c in ("victim_Y", "victim_y", "user_Y") if c in cols), None)
     ast_col = next((c for c in ("assister_name", "assister") if c in cols), None)
+    air_col = next((c for c in ("attackerinair", "attacker_in_air", "attacker_airborne") if c in cols), None)
+    ns_col = next((c for c in ("noscope", "no_scope") if c in cols), None)
     out: list[dict] = []
     for row in kills.filter(pl.col("round_num") == rnum).sort("tick").iter_rows(named=True):
         t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
@@ -422,6 +442,10 @@ def _round_kills(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> lis
             "wp": w.replace("_", " "),
             "hs": bool(row.get("headshot")),
         }
+        if air_col and row.get(air_col):
+            ev["air"] = True
+        if ns_col and row.get(ns_col):
+            ev["ns"] = True
         if ast_col and row.get(ast_col):
             ev["ast"] = row.get(ast_col)
         if vx_col and row.get(vx_col) is not None and row.get(vy_col) is not None:
@@ -465,8 +489,8 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
         target = {"A": region_centroid.get("A"), "B": region_centroid.get("B")}.get(
             rd.target_site, (cx, cy)
         ) or (cx, cy)
-        players = [PlayerSlot(f"T{i}", f"T Player {i}", "t") for i in range(1, 6)]
-        players += [PlayerSlot(f"CT{i}", f"CT Player {i}", "ct") for i in range(1, 6)]
+        players = [PlayerSlot(f"T{i}", f"T Player {i}", "t", color=i - 1) for i in range(1, 6)]
+        players += [PlayerSlot(f"CT{i}", f"CT Player {i}", "ct", color=i - 1) for i in range(1, 6)]
 
         # Plausible loadout per side so the scoreboard panel isn't empty in
         # sample/dev mode (no real weapon/money data available).
@@ -540,19 +564,22 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
             enemies = [q for q in range(len(players)) if players[q].side != victim.side]
             atk = players[rng.choice(enemies)] if enemies else victim
             fz = frozen[pi]
-            kills.append(
-                {
-                    "t": round(dtod, 2),
-                    "atk": atk.name,
-                    "as": atk.side,
-                    "vic": victim.name,
-                    "vs": victim.side,
-                    "wp": "ak47" if atk.side == "t" else "m4a1",
-                    "hs": rng.random() < 0.4,
-                    "vx": fz[0] if fz else None,
-                    "vy": fz[1] if fz else None,
-                }
-            )
+            k = {
+                "t": round(dtod, 2),
+                "atk": atk.name,
+                "as": atk.side,
+                "vic": victim.name,
+                "vs": victim.side,
+                "wp": "ak47" if atk.side == "t" else "m4a1",
+                "hs": rng.random() < 0.4,
+                "vx": fz[0] if fz else None,
+                "vy": fz[1] if fz else None,
+            }
+            if rng.random() < 0.2:
+                k["air"] = True
+            if rng.random() < 0.15:
+                k["ns"] = True
+            kills.append(k)
         kills.sort(key=lambda k: k["t"])
         t_kills = sum(1 for k in kills if k["as"] == "t")
         winner = "t" if t_kills * 2 >= len(kills) else "ct"

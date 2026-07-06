@@ -109,7 +109,10 @@
     "weapon": "Weapon",
     "ammo": "Ammo in magazine / spare magazines",
     "copyCmd": "Copy",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "headshot": "Headshot",
+    "noscope": "No-scope",
+    "jump": "Jumping"
   },
   "hltv": {
     "title": "HLTV download",

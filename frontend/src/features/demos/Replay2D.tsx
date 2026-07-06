@@ -13,6 +13,11 @@ import { useReplayMeta, useReplayRound } from './hooks'
 
 const RADAR = 1024 // awpy radar images and our SVG viewBox are 1024×1024
 const SIDE_COLOR: Record<string, string> = { t: '#f3c244', ct: '#5b9cff' }
+const PLAYER_COLORS = ['#4ba6ff', '#4be04b', '#f2d64b', '#f0904b', '#c24bf0']
+const playerColor = (p: { ci?: number; side: string }): string =>
+  p.ci != null && p.ci >= 0 && p.ci < PLAYER_COLORS.length
+    ? PLAYER_COLORS[p.ci]
+    : SIDE_COLOR[p.side] ?? '#fff'
 const UTIL_COLOR: Record<UtilityType, string> = {
   smoke: '#9aa3b2',
   flash: '#f3c244',
@@ -606,7 +611,9 @@ function ReplayStage({
 
             {/* Players: live dot (with firing flash) or a death "X". */}
             {round.players.map((player, k) => {
-              const color = SIDE_COLOR[player.side] ?? '#fff'
+              // Dot uses the player colour
+              const color = playerColor(player)
+              const scolor = SIDE_COLOR[player.side] ?? '#fff'
               const live = lerpPlayer(a[k], b[k], f)
               if (live) {
                 const [px, py, yaw] = live
@@ -637,7 +644,7 @@ function ReplayStage({
                         <circle cx={cx + dirX * 42} cy={cy + dirY * 42} r={6} fill="#ffe066" />
                       </>
                     )}
-                    <line x1={cx} y1={cy} x2={cx + dirX * 24} y2={cy + dirY * 24} stroke={color} strokeWidth={3} />
+                    <line x1={cx} y1={cy} x2={cx + dirX * 24} y2={cy + dirY * 24} stroke={scolor} strokeWidth={3} />
                     <circle
                       cx={cx}
                       cy={cy}
@@ -687,8 +694,8 @@ function ReplayStage({
                 const s = 9
                 return (
                   <g key={player.steamid} opacity={0.85}>
-                    <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} stroke={color} strokeWidth={3} strokeLinecap="round" />
-                    <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} stroke={color} strokeWidth={3} strokeLinecap="round" />
+                    <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} stroke={scolor} strokeWidth={3} strokeLinecap="round" />
+                    <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} stroke={scolor} strokeWidth={3} strokeLinecap="round" />
                     <title>{player.name}</title>
                   </g>
                 )
@@ -803,7 +810,7 @@ function ReplayStage({
             </div>
           )}
 
-          {/* Kill feed (top-right): attacker — weapon [HS] → victim. */}
+          {/* Kill feed (top-right) */}
           {visibleKills.length > 0 && (
             <div
               style={{
@@ -834,8 +841,18 @@ function ReplayStage({
                 >
                   <span style={{ color: SIDE_COLOR[k.as] ?? '#fff', fontWeight: 600 }}>{k.atk}</span>
                   <span className="muted">{prettyWeapon(k.wp)}</span>
+                  {k.air && (
+                    <span title={t('replay.jump')} style={{ color: '#5fd0ff', fontWeight: 700 }}>
+                      JUMP
+                    </span>
+                  )}
+                  {k.ns && (
+                    <span title={t('replay.noscope')} style={{ color: '#ffb454', fontWeight: 700 }}>
+                      NS
+                    </span>
+                  )}
                   {k.hs && (
-                    <span title="headshot" style={{ color: '#ff5d5d', fontWeight: 700 }}>
+                    <span title={t('replay.headshot')} style={{ color: '#ff5d5d', fontWeight: 700 }}>
                       HS
                     </span>
                   )}
