@@ -151,6 +151,7 @@ def radar_file(map_id: str) -> Path | None:
 _CALIBRATION: dict[str, tuple[float, float, float]] = {
     "de_ancient": (-2953.0, 2164.0, 5.0),
     "de_anubis": (-2796.0, 3328.0, 5.22),
+    "de_cache": (-2000.0, 3250.0, 5.5),
     "de_dust2": (-2476.0, 3239.0, 4.4),
     "de_inferno": (-2087.0, 3870.0, 4.9),
     "de_mirage": (-3230.0, 1713.0, 5.0),
