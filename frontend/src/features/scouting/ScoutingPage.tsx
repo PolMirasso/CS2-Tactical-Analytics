@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeams } from '@/features/analytics/hooks'
 import { useMaps } from '@/features/maps/hooks'
@@ -185,6 +185,9 @@ export function ScoutingPage() {
             </button>
           )}
         </div>
+        {ms?.trained && ms.per_map && ms.per_map.length > 0 && (
+          <PerMapTable rows={ms.per_map} maps={maps} />
+        )}
         {ms?.trained && ms.reliability && ms.reliability.length > 0 && (
           <ReliabilityDiagram bins={ms.reliability} />
         )}
@@ -342,6 +345,39 @@ function Bar({ label, value, color, note }: { label: string; value: number; colo
       <div style={{ background: '#1f2937', borderRadius: 4, height: 14, marginTop: 2 }}>
         <div style={{ width: `${value * 100}%`, height: '100%', background: color, borderRadius: 4, minWidth: value > 0 ? 2 : 0 }} />
       </div>
+    </div>
+  )
+}
+
+// per-map held-out accuracy table
+function PerMapTable({ rows, maps }: { rows: PerMapMetric[]; maps?: MapOut[] }) {
+  const { t } = useTranslation()
+  const name = (id: string) => maps?.find((m) => m.id === id)?.name ?? id
+  const cell: CSSProperties = { padding: '2px 10px 2px 0', textAlign: 'right', whiteSpace: 'nowrap' }
+  const head: CSSProperties = { ...cell, borderBottom: '1px solid var(--border)', fontWeight: 600 }
+  return (
+    <div className="no-print" style={{ marginTop: 12, overflowX: 'auto' }}>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{t('scouting.byMap')}</div>
+      <table style={{ fontSize: 12, borderCollapse: 'collapse' }}>
+        <thead>
+          <tr className="muted">
+            <th style={{ ...head, textAlign: 'left' }}>{t('scouting.map')}</th>
+            <th style={head}>{t('scouting.plants')}</th>
+            <th style={head}>{t('scouting.siteAccShort')}</th>
+            <th style={head}>{t('scouting.baselineShort')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.map_id}>
+              <td style={{ ...cell, textAlign: 'left' }}>{name(r.map_id)}</td>
+              <td style={cell}>{r.n_plant}</td>
+              <td style={cell}>{r.site_accuracy != null ? pct(r.site_accuracy) : '—'}</td>
+              <td style={{ ...cell, color: 'var(--muted)' }}>{r.baseline_accuracy != null ? pct(r.baseline_accuracy) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

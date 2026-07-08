@@ -259,6 +259,15 @@ export interface ReliabilityBin {
   count: number
 }
 
+export interface PerMapMetric {
+  map_id: string
+  n_rounds: number
+  n_plant: number
+  accuracy: number | null
+  site_accuracy: number | null
+  baseline_accuracy: number | null
+}
+
 export interface ModelStatusOut {
   trained: boolean
   trained_at: string | null
@@ -272,6 +281,7 @@ export interface ModelStatusOut {
   ece: number | null
   ece_uncalibrated: number | null
   reliability?: ReliabilityBin[] | null
+  per_map?: PerMapMetric[] | null
   //gate mean site alpha pooling gate_T site_T
   params?: Record<string, string> | null
 }

@@ -135,6 +135,8 @@ class SitePredictor:
     ece: float | None = None
     ece_uncalibrated: float | None = None
     reliability: list[dict[str, float]] = field(default_factory=list)
+    # metrics per map
+    per_map: list[dict] = field(default_factory=list)  
     params: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -235,17 +237,41 @@ class SitePredictor:
         self.ece_uncalibrated = ece_before
 
         # Measured with the final temperatures (what model_proba serves): gate T can shift the plant/NoPlant boundary, so 3-class acc is post-calibration.
-        self.accuracy = float(np.mean([np.argmax(proba3(i)) == idx3[tgt[i]] for i in va]))
-        if vap:
-            self.site_accuracy = float(
-                np.mean([(0 if proba3(i)[0] >= proba3(i)[1] else 1) == idx3[tgt[i]] for i in vap])
-            )
-        # Fair baseline on the same held-out rows
+        p3 = {i: proba3(i) for i in va}
         tbl, gmode = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
-        base_ok = sum(
-            int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in va
-        )
-        self.baseline_accuracy = base_ok / len(va)
+
+        def _acc(rows: list[int]) -> float | None:
+            return float(np.mean([np.argmax(p3[i]) == idx3[tgt[i]] for i in rows])) if rows else None
+
+        def _site_acc(rows: list[int]) -> float | None:
+            return (
+                float(np.mean([(0 if p3[i][0] >= p3[i][1] else 1) == idx3[tgt[i]] for i in rows]))
+                if rows else None
+            )
+
+        def _base_acc(rows: list[int]) -> float | None:
+            ok = [int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in rows]
+            return float(np.mean(ok)) if ok else None
+
+        self.accuracy = _acc(va)
+        self.site_accuracy = _site_acc(vap)
+        self.baseline_accuracy = _base_acc(va)
+
+        # metrics split per map 
+        def _map(i: int) -> str:
+            return str(ctxs[i].get("map") or "?")
+
+        self.per_map = [
+            {
+                "map_id": m,
+                "n_rounds": sum(_map(i) == m for i in va),
+                "n_plant": sum(_map(i) == m for i in vap),
+                "accuracy": _acc([i for i in va if _map(i) == m]),
+                "site_accuracy": _site_acc([i for i in vap if _map(i) == m]),
+                "baseline_accuracy": _base_acc([i for i in va if _map(i) == m]),
+            }
+            for m in sorted({_map(i) for i in va})
+        ]
 
         self.gate_net = gate_net
         self.gate_vec = vec

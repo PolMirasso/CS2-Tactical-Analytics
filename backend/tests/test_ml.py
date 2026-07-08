@@ -10,8 +10,9 @@ from app.ml.model import SitePredictor, _reliability
 from tests.conftest import auth, register_and_login
 
 
-def _upload(client, token, **data):
-    files = {"file": ("m.dem", io.BytesIO(b"x"), "application/octet-stream")}
+def _upload(client, token, content=b"x", **data):
+    # distinct bytes ⇒ distinct sha256 ⇒ not deduped (sample rounds come from map/team)
+    files = {"file": ("m.dem", io.BytesIO(content), "application/octet-stream")}
     return client.post("/demos/upload", files=files, data=data, headers=auth(token))
 
 
@@ -186,6 +187,47 @@ def test_untrained_predictor_returns_none():
     )
 
 
+def _synth_rounds(rng, map_id, team, n):
+    """Trainable synthetic rounds: A/B separated by x, NoPlant with only late utility."""
+    samples, targets = [], []
+    for _ in range(n):
+        site = rng.choice(["A", "B", "NoPlant"], p=[0.35, 0.35, 0.30])
+        x = {"A": 200.0, "B": 800.0, "NoPlant": 500.0}[site]
+        t = 90.0 if site == "NoPlant" else 6.0
+        util = [{"util_type": "smoke", "x": x, "y": 500.0, "round_time_s": t, "side": "t"}]
+        samples.append({
+            "tokens": round_tokens(map_id, util),
+            "context": round_context(
+                map_id=map_id, team=team, opponent="OPP",
+                buy_type="full", equip_value=4000, utility=util,
+            ),
+        })
+        targets.append(site)
+    return samples, targets
+
+
+def test_train_reports_per_map_breakdown():
+    rng = np.random.default_rng(1)
+    samples, targets = [], []
+    for mp, team in [("de_mirage", "NaVi"), ("de_inferno", "G2")]:
+        s, tg = _synth_rounds(rng, mp, team, 120)
+        samples += s
+        targets += tg
+
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 2})
+    assert p.trained
+    assert p.per_map
+
+    assert {r["map_id"] for r in p.per_map} <= {"de_mirage", "de_inferno"}
+    for r in p.per_map:
+        assert r["n_plant"] <= r["n_rounds"]
+        assert 0.0 <= r["accuracy"] <= 1.0
+        assert 0.0 <= r["baseline_accuracy"] <= 1.0
+        assert r["site_accuracy"] is None or 0.0 <= r["site_accuracy"] <= 1.0
+    # the per-map rows partition the single held-out split (20%)
+    assert sum(r["n_rounds"] for r in p.per_map) == max(2, len(samples) // 5)
+
+
 # API
 
 def test_predict_contract(client):
@@ -237,12 +279,12 @@ def test_train_requires_admin(client):
 
 def test_train_then_predict_uses_model(client):
     admin = _admin(client)
-    # Distinct teams/maps so the MLP has several hundred labelled T rounds.
+    # distinct maps/teams (distinct bytes) ⇒ multi-map dataset
     for mp, team in [
         ("de_mirage", "NaVi"), ("de_inferno", "G2"),
         ("de_ancient", "Vitality"), ("de_nuke", "FaZe"),
     ]:
-        _upload(client, admin, map_id=mp, team=team, visibility="public")
+        _upload(client, admin, content=f"demo-{mp}".encode(), map_id=mp, team=team, visibility="public")
 
     trained = client.post("/scouting/train", headers=auth(admin))
     assert trained.status_code == 200, trained.text
@@ -253,6 +295,18 @@ def test_train_then_predict_uses_model(client):
 
     got = client.get("/scouting/model", headers=auth(admin)).json()
     assert got["trained"] is True
+
+    # Per-map breakdown flows through the ModelStatusOut response_model (both routes)
+    uploaded = {"de_mirage", "de_inferno", "de_ancient", "de_nuke"}
+    for payload in (status, got):
+        per_map = payload["per_map"]
+        assert isinstance(per_map, list)
+        assert len(per_map) >= 2  # several maps land in the held-out split
+        assert {r["map_id"] for r in per_map} <= uploaded
+        for r in per_map:
+            assert 0 <= r["n_plant"] <= r["n_rounds"]
+            assert 0.0 <= r["accuracy"] <= 1.0
+            assert r["site_accuracy"] is None or 0.0 <= r["site_accuracy"] <= 1.0
 
     resp = client.post(
         "/scouting/predict",

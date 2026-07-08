@@ -9,6 +9,7 @@ from app.db import get_session
 from app.domain.models import User
 from app.domain.schemas import (
     ModelStatusOut,
+    PerMapMetric,
     PredictIn,
     PredictOut,
     ReliabilityBin,
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/scouting", tags=["scouting"])
 
 def _status(p: SitePredictor) -> ModelStatusOut:
     bins = getattr(p, "reliability", None) or None
+    per_map = getattr(p, "per_map", None) or None
     return ModelStatusOut(
         trained=p.trained,
         trained_at=p.trained_at,
@@ -36,6 +38,7 @@ def _status(p: SitePredictor) -> ModelStatusOut:
         ece=getattr(p, "ece", None),
         ece_uncalibrated=getattr(p, "ece_uncalibrated", None),
         reliability=[ReliabilityBin(**b) for b in bins] if bins else None,
+        per_map=[PerMapMetric(**m) for m in per_map] if per_map else None,
         params=getattr(p, "params", None) or None,
     )
 

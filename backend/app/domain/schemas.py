@@ -306,6 +306,15 @@ class ReliabilityBin(BaseModel):
     count: int
 
 
+class PerMapMetric(BaseModel):
+    map_id: str
+    n_rounds: int
+    n_plant: int
+    accuracy: float | None = None
+    site_accuracy: float | None = None
+    baseline_accuracy: float | None = None
+
+
 class ModelStatusOut(BaseModel):
     trained: bool
     trained_at: datetime | None = None
@@ -319,6 +328,7 @@ class ModelStatusOut(BaseModel):
     ece: float | None = None
     ece_uncalibrated: float | None = None
     reliability: list[ReliabilityBin] | None = None
+    per_map: list[PerMapMetric] | None = None
     params: dict[str, str] | None = None
 
 
