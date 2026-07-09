@@ -7,8 +7,9 @@ from app.db import get_session
 from app.demos import reparse, service
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, User
-from app.analytics.maps import calibration, radar_file
+from app.analytics.maps import bomb_damage_meta, calibration, radar_file
 from app.domain.schemas import (
+    BombDamageMeta,
     DemoAnalysisOut,
     DemoListOut,
     DemoOut,
@@ -151,6 +152,7 @@ def demo_replay_meta(
         raise HTTPException(status_code=404, detail="No replay data for this demo")
     map_id = replay["map_id"]
     cal = calibration(map_id)
+    bomb = bomb_damage_meta(map_id)
     return ReplayMetaOut(
         demo_id=demo_id,
         map_id=map_id,
@@ -158,6 +160,7 @@ def demo_replay_meta(
         rounds=round_meta(replay),
         has_radar=radar_file(map_id) is not None,
         calibration=MapCalibration(**cal) if cal else None,
+        bomb_damage=BombDamageMeta(**bomb) if bomb else None,
     )
 
 

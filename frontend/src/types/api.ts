@@ -329,6 +329,20 @@ export interface ReplayRoundMeta {
   winner: string | null
 }
 
+export interface BombDamageSite {
+  label: string // "A" | "B"
+  center: [number, number, number] // world [x, y, z]
+}
+
+export interface BombDamageMeta {
+  // C4 shockwave-damage grid
+  w: number
+  h: number
+  scale: number
+  origin: [number, number] 
+  sites: BombDamageSite[]
+}
+
 export interface ReplayMetaOut {
   demo_id: number
   map_id: string
@@ -336,6 +350,7 @@ export interface ReplayMetaOut {
   rounds: ReplayRoundMeta[]
   has_radar: boolean
   calibration: MapCalibration | null
+  bomb_damage?: BombDamageMeta | null
 }
 
 export interface ReplayPlayer {

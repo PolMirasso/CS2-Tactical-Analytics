@@ -177,6 +177,53 @@ def lower_level_threshold(map_id: str) -> float | None:
     return lower[1] if lower is not None else None
 
 
+# SC4 damage grids 
+_BOMB_DAMAGE: dict[str, dict] = {
+    "de_mirage": {"w": 412, "h": 351, "scale": 10, "origin": [-2655.0, -2605.0],
+                  "sites": [{"label": "A", "center": [-440.0, -2150.0, -168.0]},
+                            {"label": "B", "center": [-2048.0, 256.0, -151.0]}]},
+    "de_dust2": {"w": 401, "h": 430, "scale": 10, "origin": [-2205.0, -1165.0],
+                 "sites": [{"label": "A", "center": [1112.0, 2480.0, 144.0]},
+                           {"label": "B", "center": [-1536.0, 2680.0, 48.0]}]},
+    "de_inferno": {"w": 440, "h": 429, "scale": 10, "origin": [-1725.0, -765.0],
+                   "sites": [{"label": "A", "center": [1976.0, 462.0, 180.0]},
+                             {"label": "B", "center": [352.0, 2768.0, 173.0]}]},
+    "de_cache": {"w": 514, "h": 385, "scale": 10, "origin": [-1825.0, -1525.0],
+                 "sites": [{"label": "A", "center": [-48.0, -1300.0, 1677.0]},
+                           {"label": "B", "center": [-220.0, 1754.0, 1704.0]}]},
+    "de_ancient": {"w": 370, "h": 431, "scale": 10, "origin": [-2295.0, -2525.0],
+                   "sites": [{"label": "A", "center": [-1392.0, 844.0, 68.0]},
+                             {"label": "B", "center": [887.0, 62.0, 144.0]}]},
+    "de_anubis": {"w": 379, "h": 499, "scale": 10, "origin": [-1975.0, -1805.0],
+                  "sites": [{"label": "A", "center": [1238.0, 1954.0, -181.0]},
+                            {"label": "B", "center": [-1040.0, 694.0, -2.0]}]},
+    "de_overpass": {"w": 398, "h": 518, "scale": 10, "origin": [-3955.0, -3495.0],
+                    "sites": [{"label": "A", "center": [-2136.0, 662.0, 506.0]},
+                              {"label": "B", "center": [-1104.0, 64.0, 108.0]}]},
+    "de_train": {"w": 398, "h": 359, "scale": 10, "origin": [-2175.0, -1795.0],
+                 "sites": [{"label": "A", "center": [-40.0, -1292.0, -308.0]},
+                           {"label": "B", "center": [392.0, -108.0, -174.0]}]},
+    "de_vertigo": {"w": 276, "h": 273, "scale": 10, "origin": [-2655.0, -1595.0],
+                   "sites": [{"label": "A", "center": [-278.0, -621.0, 11792.0]},
+                             {"label": "B", "center": [-2248.0, 798.0, 11758.0]}]},
+}
+
+_BOMB_DIR = Path(__file__).resolve().parent.parent / "assets" / "bomb"
+
+
+def bomb_damage_meta(map_id: str) -> dict | None:
+    """Grid + bomb-site centres for the C4 damage overlay, or None if unsupported."""
+    return _BOMB_DAMAGE.get(map_id)
+
+
+def bomb_overlay_file(map_id: str, site: str) -> Path | None:
+    """Grayscale+alpha arrival field for a map's A/B site, or None if missing."""
+    if map_id not in _BOMB_DAMAGE or site not in ("a", "b"):
+        return None
+    path = _BOMB_DIR / f"{map_id}_{site}.png"
+    return path if path.exists() else None
+
+
 def calibration(map_id: str) -> dict | None:
     known = _CALIBRATION.get(map_id)
     if known is not None:

@@ -177,6 +177,20 @@ class ReplayRoundMeta(BaseModel):
     winner: str | None = None
 
 
+class BombDamageSite(BaseModel):
+    label: str  # A or B
+    center: list[float]  # world [x, y, z]
+
+
+class BombDamageMeta(BaseModel):
+    # C4 shockwave-damage grid
+    w: int
+    h: int
+    scale: float
+    origin: list[float]  # world [x, y] of pixel-centre 
+    sites: list[BombDamageSite]
+
+
 class ReplayMetaOut(BaseModel):
     demo_id: int
     map_id: str
@@ -185,6 +199,7 @@ class ReplayMetaOut(BaseModel):
     # Radar background for the viewer (decoupled from the /maps zone catalogue).
     has_radar: bool = False
     calibration: MapCalibration | None = None
+    bomb_damage: BombDamageMeta | None = None
 
 
 # HLTV

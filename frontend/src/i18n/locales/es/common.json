@@ -112,7 +112,10 @@
     "ammo": "Balas en cargador / cargadores de reserva",
     "headshot": "Headshot",
     "noscope": "Sin apuntar",
-    "jump": "Saltando"
+    "jump": "Saltando",
+    "bombDamage": "Daño C4",
+    "bombLethal": "Letal",
+    "bombLight": "Leve"
   },
   "hltv": {
     "title": "Descarga de HLTV",

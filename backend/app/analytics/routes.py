@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from app.analytics import aggregate
-from app.analytics.maps import calibration, list_maps, radar_file
+from app.analytics.maps import bomb_overlay_file, calibration, list_maps, radar_file
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.domain.models import User
@@ -58,6 +58,14 @@ def get_radar(map_id: str) -> FileResponse:
     path = radar_file(map_id)
     if path is None:
         raise HTTPException(status_code=404, detail="No radar image for this map")
+    return FileResponse(path, media_type="image/png")
+
+
+@router.get("/{map_id}/bomb/{site}.png")
+def get_bomb_overlay(map_id: str, site: str) -> FileResponse:
+    path = bomb_overlay_file(map_id, site.lower())
+    if path is None:
+        raise HTTPException(status_code=404, detail="No bomb damage overlay for this map/site")
     return FileResponse(path, media_type="image/png")
 
 

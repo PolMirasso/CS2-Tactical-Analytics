@@ -112,7 +112,10 @@
     "copied": "Copied!",
     "headshot": "Headshot",
     "noscope": "No-scope",
-    "jump": "Jumping"
+    "jump": "Jumping",
+    "bombDamage": "C4 damage",
+    "bombLethal": "Lethal",
+    "bombLight": "Light"
   },
   "hltv": {
     "title": "HLTV download",

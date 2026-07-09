@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '@/lib/apiClient'
 import type {
+  BombDamageMeta,
   MapCalibration,
   ReplayFrame,
   ReplayPlayer,
@@ -27,6 +28,10 @@ const UTIL_COLOR: Record<UtilityType, string> = {
 const SPEEDS = [0.5, 1, 2, 4]
 const C4_TIME = 40
 const ROUND_TIME = 115
+
+const BOMB_DMG_EXP = 1.175
+const bombHpFromGray = (gray: number): number =>
+  Math.max(1, Math.round(Math.pow((1 - gray / 255) * 100, BOMB_DMG_EXP)))
 
 const fmtClock = (sec: number): string => {
   const s = Math.max(0, Math.ceil(sec))
@@ -118,6 +123,77 @@ function useProjection(
       pad + ((maxY - y) / span) * (RADAR - 2 * pad),
     ]
   }, [round, cal, hasRadar])
+}
+
+type BombField = {
+  w: number
+  h: number
+  gray: Uint8ClampedArray // low near plant
+  alpha: Uint8ClampedArray // 0 = unreachable (blocked by walls)
+  url: string
+}
+
+/**
+ * Load a map/site C4 arrival field and bake a red to yellow heat overlay from it
+ * Returns null while loading, on error, or when a tainted canvas blocks the read
+ */
+function useBombField(
+  mapId: string,
+  site: string | null,
+  meta: BombDamageMeta | null | undefined,
+): BombField | null {
+  const [field, setField] = useState<BombField | null>(null)
+  useEffect(() => {
+    if (!meta || !site) {
+      setField(null)
+      return
+    }
+    let cancelled = false
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.src = apiUrl(`/maps/${mapId}/bomb/${site}.png`)
+    img
+      .decode()
+      .then(() => {
+        if (cancelled) return
+        const { w, h } = meta
+        const cv = document.createElement('canvas')
+        cv.width = w
+        cv.height = h
+        const cx = cv.getContext('2d', { willReadFrequently: true })
+        if (!cx) return
+        cx.drawImage(img, 0, 0, w, h)
+        const src = cx.getImageData(0, 0, w, h).data
+        const gray = new Uint8ClampedArray(w * h)
+        const alpha = new Uint8ClampedArray(w * h)
+        const out = cx.createImageData(w, h)
+        const o = out.data
+        for (let i = 0; i < w * h; i++) {
+          const g = src[i * 4]
+          const a = src[i * 4 + 3]
+          gray[i] = g
+          alpha[i] = a
+          if (a === 0) {
+            o[i * 4 + 3] = 0
+            continue
+          }
+          const intensity = 1 - g / 255
+          o[i * 4] = 255
+          o[i * 4 + 1] = Math.round(210 * (1 - intensity))
+          o[i * 4 + 2] = 40
+          o[i * 4 + 3] = Math.round(255 * (0.26 + 0.5 * intensity))
+        }
+        cx.putImageData(out, 0, 0)
+        setField({ w, h, gray, alpha, url: cv.toDataURL('image/png') })
+      })
+      .catch(() => {
+        if (!cancelled) setField(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mapId, site, meta])
+  return field
 }
 
 function frameAt(frames: ReplayFrame[], time: number, sampleHz: number) {
@@ -302,6 +378,7 @@ function ReplayStage({
   calibration,
   hasRadar,
   sampleHz,
+  bombDamage,
   fullscreen,
   rounds,
   currentRound,
@@ -312,6 +389,7 @@ function ReplayStage({
   calibration: MapCalibration | null
   hasRadar: boolean
   sampleHz: number
+  bombDamage: BombDamageMeta | null | undefined
   fullscreen?: boolean
   rounds: ReplayRoundMeta[]
   currentRound: number | null
@@ -329,6 +407,21 @@ function ReplayStage({
   const toggleFollow = (k: number) => setFollowed((cur) => (cur === k ? null : k))
   const project = useProjection(round, calibration, hasRadar)
   const teams = useTeams(round)
+  // Pick the field by the site nearest the plant 
+  const bombSite = useMemo(() => {
+    if (!round.bomb || !bombDamage) return null
+    let best: string | null = null
+    let bestD = Infinity
+    for (const s of bombDamage.sites) {
+      const d = (s.center[0] - round.bomb.x) ** 2 + (s.center[1] - round.bomb.y) ** 2
+      if (d < bestD) {
+        bestD = d
+        best = s.label
+      }
+    }
+    return best ? best.toLowerCase() : null
+  }, [round.bomb, bombDamage])
+  const bombField = useBombField(mapId, bombSite, bombDamage)
   // Death spot per player (last alive world position + time), for the "X" marker.
   const deaths = useMemo(() => {
     const out: (null | { t: number; x: number; y: number; z: number })[] = round.players.map(() => null)
@@ -435,6 +528,27 @@ function ReplayStage({
     const [qx] = project(x + worldR, y, z)
     return Math.abs(qx - px)
   }
+  // Overlay from the plant on
+  const showBomb = c4Planted && !!bombField && !!bombDamage
+  const bombRect = (() => {
+    if (!showBomb) return null
+    const { origin, scale, w, h } = bombDamage!
+    const half = scale / 2
+    const [x0, y0] = project(origin[0] - half, origin[1] + (h - 1) * scale + half)
+    const [x1, y1] = project(origin[0] + (w - 1) * scale + half, origin[1] - half)
+    return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) }
+  })()
+  // HP a player would take from the blast at their
+  const bombDmgAt = (wx: number, wy: number): number => {
+    if (!showBomb) return 0
+    const { origin, scale, w, h } = bombDamage!
+    const px = Math.round((wx - origin[0]) / scale)
+    const py = h - 1 - Math.round((wy - origin[1]) / scale)
+    if (px < 0 || px >= w || py < 0 || py >= h) return 0
+    const idx = py * w + px
+    if (bombField!.alpha[idx] === 0) return 0
+    return bombHpFromGray(bombField!.gray[idx])
+  }
   // A player is "firing" if they shot within a short window before the playhead.
   const FIRE_WINDOW = 0.18
   const firing = (k: number): boolean => {
@@ -492,6 +606,19 @@ function ReplayStage({
             viewBox={`0 0 ${RADAR} ${RADAR}`}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
           >
+            {/* C4 damage field*/}
+            {bombRect && bombField && (
+              <image
+                href={bombField.url}
+                x={bombRect.x}
+                y={bombRect.y}
+                width={bombRect.w}
+                height={bombRect.h}
+                preserveAspectRatio="none"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+
             {/* Utility: in-flight grenade, then a timed effect that fades out.
                 No persistent line — it appears in real time and disappears. */}
             {round.utility.map((u, i) => {
@@ -624,8 +751,17 @@ function ReplayStage({
                 const dirY = -Math.sin(rad)
                 const isFiring = firing(k)
                 const followActive = followed !== null
+                // bomb halo
+                const bombDmg = bombDmgAt(px, py)
+                const bombLethal = bombDmg >= live[3]
                 return (
                   <g key={player.steamid} opacity={followActive && followed !== k ? 0.35 : 1}>
+                    {bombDmg > 0 && (
+                      <>
+                        <circle cx={cx} cy={cy} r={18} fill="none" stroke={bombLethal ? '#ff3b3b' : '#ff9d3b'} strokeWidth={3} opacity={0.95} />
+                        <circle cx={cx} cy={cy} r={18} fill={bombLethal ? '#ff3b3b' : '#ff9d3b'} opacity={0.12} />
+                      </>
+                    )}
                     {followed === k && (
                       <circle cx={cx} cy={cy} r={20} fill="none" stroke="#fff" strokeWidth={2.5} opacity={0.9} />
                     )}
@@ -740,6 +876,39 @@ function ReplayStage({
               )
             })()}
           </svg>
+
+          {/* C4 damage legend. */}
+          {showBomb && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 8,
+                right: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                padding: '7px 9px',
+                borderRadius: 6,
+                background: 'rgba(10,12,16,0.86)',
+                border: '1px solid var(--border)',
+                pointerEvents: 'none',
+                maxWidth: 172,
+              }}
+            >
+              <strong style={{ fontSize: 11 }}>{t('replay.bombDamage', 'Daño C4')}</strong>
+              <div
+                style={{
+                  height: 8,
+                  borderRadius: 3,
+                  background: 'linear-gradient(90deg, #ff3b3b, #ffd23b)',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }} className="muted">
+                <span>{t('replay.bombLethal', 'Letal')}</span>
+                <span>{t('replay.bombLight', 'Leve')}</span>
+              </div>
+            </div>
+          )}
 
           {(() => {
             const planted = round.bomb && time >= round.bomb.t
@@ -1062,6 +1231,7 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
           calibration={replayMeta.calibration}
           hasRadar={replayMeta.has_radar}
           sampleHz={replayMeta.sample_hz}
+          bombDamage={replayMeta.bomb_damage}
           fullscreen={fullscreen}
           rounds={replayMeta.rounds}
           currentRound={round}
