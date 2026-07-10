@@ -60,11 +60,12 @@ def _run(map_id: str | None) -> None:
                         # tag rounds with the demo's HLTV ids
                         hint = team_name(session, demo.team_hltv_id)
                         parse_and_store(session, demo, team_hint=hint)
-                        apply_canonical_teams(
-                            session, demo,
-                            team_hltv_id=demo.team_hltv_id,
-                            opponent_hltv_id=demo.opponent_hltv_id,
-                        )
+                        if demo.team_hltv_id:
+                            apply_canonical_teams(
+                                session, demo,
+                                team_hltv_id=demo.team_hltv_id,
+                                opponent_hltv_id=demo.opponent_hltv_id,
+                            )
                 with _lock:
                     _state.ok += 1
             except Exception:

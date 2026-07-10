@@ -9,3 +9,8 @@ dist-ssr
 # editor / OS
 .DS_Store
 *.log
+
+# build artifacts tsc must never leave in the tree
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

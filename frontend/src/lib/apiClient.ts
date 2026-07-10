@@ -40,9 +40,13 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true } = opts
   const headers: Record<string, string> = {}
 
+  let hadToken = false
   if (auth) {
     const token = getToken()
-    if (token) headers.Authorization = `Bearer ${token}`
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+      hadToken = true
+    }
   }
 
   let payload: BodyInit | undefined
@@ -61,9 +65,19 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   if (resp.status === 204) return undefined as T
 
   const text = await resp.text()
-  const data = text ? JSON.parse(text) : undefined
+  let data: unknown
+  try {
+    data = text ? JSON.parse(text) : undefined
+  } catch {
+    data = undefined
+  }
 
   if (!resp.ok) {
+    if (resp.status === 401 && hadToken) {
+      // Expired/revoked session: drop the token so the app restarts at login.
+      setToken(null)
+      window.location.assign('/login')
+    }
     const detail = (data as { detail?: unknown })?.detail
     const message = typeof detail === 'string' ? detail : resp.statusText
     throw new ApiError(resp.status, message)

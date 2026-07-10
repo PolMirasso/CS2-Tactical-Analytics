@@ -516,7 +516,7 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 dead = death_t[pi] is not None and t >= death_t[pi]
                 if dead and frozen[pi] is not None:
                     fx, fy = frozen[pi]
-                    pos.append([fx, fy, 0.0, 0.0])
+                    pos.append([fx, fy, 0.0, 0.0, 0.0])
                     st.append([0, 2500, 0, 0, 0, 0])
                     continue
                 if p.side == "t":
@@ -529,10 +529,10 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 y = round(sy + (dy - sy) * prog + oy, 1)
                 if dead:
                     frozen[pi] = [x, y]
-                    pos.append([x, y, 0.0, 0.0])
+                    pos.append([x, y, 0.0, 0.0, 0.0])
                     st.append([0, 2500, 0, 0, 0, 0])
                 else:
-                    pos.append([x, y, 0.0, 100.0])
+                    pos.append([x, y, 0.0, 100.0, 0.0])
                     # armor, money, weapon, clip 30 / reserve 90, smoke+flash.
                     mask = NADE_SMOKE | NADE_FLASH | (ITEM_C4 if pi == 0 else 0)
                     st.append([100, 2500, side_weapon[p.side], 30, 90, mask])

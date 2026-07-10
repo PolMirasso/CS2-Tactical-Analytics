@@ -790,7 +790,7 @@ function ReplayStage({
                       strokeWidth={2}
                       style={{ cursor: 'pointer' }}
                       onClick={() => {
-                        const cmd = `setpos ${px.toFixed(1)} ${py.toFixed(1)} ${live[4].toFixed(1)};setang 0 ${yaw.toFixed(1)} 0`
+                        const cmd = `setpos ${px.toFixed(1)} ${py.toFixed(1)} ${(live[4] ?? 0).toFixed(1)};setang 0 ${yaw.toFixed(1)} 0`
                         setPicked({ name: player.name, cmd })
                         setCopied(false)
                         toggleFollow(k)

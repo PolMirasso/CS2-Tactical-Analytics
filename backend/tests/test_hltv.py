@@ -114,3 +114,36 @@ def test_flaresolverr_serializes_to_one_by_default(monkeypatch):
 def test_flaresolverr_allows_configured_parallelism(monkeypatch):
     # A higher limit lets overlapping jobs solve in parallel.
     assert _run_concurrent_solves(monkeypatch, limit=3, threads=5) > 1
+
+
+def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):
+    from pathlib import Path
+
+    import pytest
+
+    class FakeResp:
+        content = b"not a rar archive"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeSession:
+        def get(self, url, timeout=None):
+            return FakeResp()
+
+    monkeypatch.setattr(client, "_impersonated_session", lambda: FakeSession())
+
+    made: list[str] = []
+    real_mkdtemp = client.tempfile.mkdtemp
+
+    def tracked_mkdtemp(*args, **kwargs):
+        d = real_mkdtemp(*args, **kwargs)
+        made.append(d)
+        return d
+
+    monkeypatch.setattr(client.tempfile, "mkdtemp", tracked_mkdtemp)
+
+    with pytest.raises(client.HLTVError):
+        client._download_and_extract("http://x/demo.rar", "123")
+
+    assert made and not Path(made[0]).exists()

@@ -393,6 +393,8 @@ def delete_demo(session: Session, user: User, demo: Demo) -> None:
     if demo.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete this demo")
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
+    session.execute(delete(Kill).where(Kill.demo_id == demo.id))
+    session.execute(delete(PlayerStat).where(PlayerStat.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
     replay_path(demo.id).unlink(missing_ok=True)
     # Remove the file only if no other demo row references the same stored blob.

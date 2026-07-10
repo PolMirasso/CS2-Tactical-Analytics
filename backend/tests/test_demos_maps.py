@@ -74,6 +74,49 @@ def test_delete_demo(client):
     assert client.get(f"/demos/{demo_id}", headers=auth(token)).status_code == 404
 
 
+def test_delete_demo_removes_kills_and_player_stats(client):
+    from sqlalchemy import func, select
+    from app.db import session_scope
+    from app.domain.models import Kill, PlayerStat, Round, UtilityEvent
+
+    token = register_and_login(client, "deepdelete@example.com")
+    up = _upload(client, token, map_id="de_mirage", team="NAVI", visibility="private")
+    demo_id = up.json()["demo"]["id"]
+
+    def counts() -> tuple[int, ...]:
+        with session_scope() as session:
+            return tuple(
+                session.scalar(
+                    select(func.count()).select_from(t).where(t.demo_id == demo_id)
+                )
+                for t in (Round, UtilityEvent, Kill, PlayerStat)
+            )
+
+    assert all(n > 0 for n in counts())
+    assert client.delete(f"/demos/{demo_id}", headers=auth(token)).status_code == 204
+    assert counts() == (0, 0, 0, 0)
+
+
+def test_reparse_all_keeps_uploaded_demo_teams(client):
+    from app.demos import reparse
+
+    token = register_and_login(client, "reparseteams@example.com")
+    up = _upload(
+        client, token, map_id="de_train", team="MOUZ", opponent="ENCE",
+        visibility="private",
+    )
+    demo_id = up.json()["demo"]["id"]
+
+    reparse._run("de_train")
+
+    body = client.get(f"/demos/{demo_id}", headers=auth(token)).json()
+    assert body["status"] == "parsed"
+    assert (body["team"], body["opponent"]) == ("MOUZ", "ENCE")
+
+    # Drop the de_train rounds so later tests keep their expected map set.
+    assert client.delete(f"/demos/{demo_id}", headers=auth(token)).status_code == 204
+
+
 def test_replay_meta_lists_rounds(client):
     token = register_and_login(client, "replaymeta@example.com")
     up = _upload(client, token, map_id="de_mirage", team="Vitality", visibility="private")
@@ -104,9 +147,9 @@ def test_replay_round_returns_frames_and_lines(client):
     assert rd["round_number"] == 1
     assert len(rd["players"]) == 10
     assert len(rd["frames"]) > 0
-    # Each frame carries one [x, y, yaw, hp] per player, aligned to the roster.
+    # Each frame carries one [x, y, yaw, hp, z] per player, aligned to the roster.
     assert len(rd["frames"][0]["pos"]) == len(rd["players"])
-    assert len(rd["frames"][0]["pos"][0]) == 4
+    assert len(rd["frames"][0]["pos"][0]) == 5
     # Utility carries a throw→land line.
     if rd["utility"]:
         u = rd["utility"][0]

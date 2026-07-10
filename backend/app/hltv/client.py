@@ -316,30 +316,34 @@ def _download_and_extract(
         raise HLTVError(f"demo download failed: {exc}") from exc
 
     work = Path(tempfile.mkdtemp(prefix=f"hltv-{match_id}-"))
-    archive = work / "demo.rar"
-    archive.write_bytes(resp.content)
-
     try:
-        with rarfile.RarFile(archive) as rf:
-            members = rf.namelist()
-    except Exception as exc:
-        raise HLTVError(f"failed to read GOTV archive: {exc}") from exc
+        archive = work / "demo.rar"
+        archive.write_bytes(resp.content)
 
-    wanted = _select_dem_members(members, map_id)
-
-    out: list[Path] = []
-    for member in wanted:
         try:
-            subprocess.run(
-                ["bsdtar", "-x", "-f", str(archive), "-C", str(work), member],
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
-            raise HLTVError(f"failed to extract GOTV archive: {stderr}") from exc
-        out.append(work / member)
-    return work, out
+            with rarfile.RarFile(archive) as rf:
+                members = rf.namelist()
+        except Exception as exc:
+            raise HLTVError(f"failed to read GOTV archive: {exc}") from exc
+
+        wanted = _select_dem_members(members, map_id)
+
+        out: list[Path] = []
+        for member in wanted:
+            try:
+                subprocess.run(
+                    ["bsdtar", "-x", "-f", str(archive), "-C", str(work), member],
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
+                raise HLTVError(f"failed to extract GOTV archive: {stderr}") from exc
+            out.append(work / member)
+        return work, out
+    except Exception:
+        shutil.rmtree(work, ignore_errors=True)
+        raise
 
 
 def cleanup_archive(archive: DemoArchive) -> None:
