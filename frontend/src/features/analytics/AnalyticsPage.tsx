@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SITE_COLOR } from '@/lib/colors'
 import type { BuyType, SiteDistributionParams } from '@/types/api'
 import { useMaps } from '@/features/maps/hooks'
 import { useSiteDistribution, useTeams } from './hooks'
@@ -7,10 +8,6 @@ import { useSiteDistribution, useTeams } from './hooks'
 const BUY_TYPES: BuyType[] = [
   'pistol', 'full_eco', 'eco', 'ak_hero', 'm4_hero', 'awp_hero', 'force', 'full',
 ]
-
-const SITE_COLOR: Record<string, string> = {
-  A: '#f59e0b', B: '#3b82f6', Mid: '#10b981', NoPlant: '#6b7280',
-}
 
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`
 

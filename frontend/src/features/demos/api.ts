@@ -1,4 +1,4 @@
-import { api } from '@/lib/apiClient'
+import { api, qs } from '@/lib/apiClient'
 import type {
   DemoAnalysisOut,
   DemoListOut,
@@ -10,18 +10,8 @@ import type {
   UploadResult,
 } from '@/types/api'
 
-function qs(params: Record<string, string | number | undefined>): string {
-  const sp = new URLSearchParams()
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== '') sp.set(k, String(v))
-  }
-  const s = sp.toString()
-  return s ? `?${s}` : ''
-}
-
 export const demosApi = {
-  list: (params: DemoListParams = {}) =>
-    api.get<DemoListOut>(`/demos${qs(params as Record<string, string | number | undefined>)}`),
+  list: (params: DemoListParams = {}) => api.get<DemoListOut>(`/demos${qs(params)}`),
   get: (id: number) => api.get<DemoOut>(`/demos/${id}`),
   analysis: (id: number) => api.get<DemoAnalysisOut>(`/demos/${id}/analysis`),
   replayMeta: (id: number) => api.get<ReplayMetaOut>(`/demos/${id}/replay`),
@@ -30,7 +20,7 @@ export const demosApi = {
   upload: (form: FormData) => api.postForm<UploadResult>('/demos/upload', form),
   reparse: (id: number) => api.post<UploadResult>(`/demos/${id}/parse`),
   reparseAll: (mapId?: string) =>
-    api.post<ReparseStatus>(`/demos/reparse-all${mapId ? `?map_id=${encodeURIComponent(mapId)}` : ''}`),
+    api.post<ReparseStatus>(`/demos/reparse-all${qs({ map_id: mapId })}`),
   reparseAllStatus: () => api.get<ReparseStatus>('/demos/reparse-all/status'),
   remove: (id: number) => api.del<void>(`/demos/${id}`),
 }

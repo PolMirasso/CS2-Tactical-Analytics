@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+
 from tests.conftest import auth, register_and_login
 
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
+
 from app.domain.enums import UtilityType
 from app.parsing.parser import _grenade_type, _resolve_matchup
-
 
 # Across a full match both clans appear on T and CT (sides swap at the half),
 # so the combined vote tally always contains both names.
@@ -71,3 +71,12 @@ def test_grenade_type_ignores_decoy_and_unknown():
     assert _grenade_type("CDecoyProjectile") is None
     assert _grenade_type(None) is None
     assert _grenade_type("not_a_grenade") is None
+
+
+def test_is_pistol_round_regulation_halves_only():
+    from app.parsing.parser import is_pistol_round
+
+    assert is_pistol_round(1)
+    assert is_pistol_round(13)
+    # Overtime rounds start with money, never as pistol rounds.
+    assert not any(is_pistol_round(n) for n in (2, 12, 24, 25, 28, 31))

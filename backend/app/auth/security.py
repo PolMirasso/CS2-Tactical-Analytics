@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import bcrypt
 import jwt
+
 from app.config import get_settings
-from datetime import UTC, datetime, timedelta
 
 
 def _encode(password: str) -> bytes:

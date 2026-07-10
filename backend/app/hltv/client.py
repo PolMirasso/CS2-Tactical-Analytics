@@ -6,12 +6,13 @@ import subprocess
 import tempfile
 import threading
 import time
-from app.config import get_settings
-from app.domain.enums import DateRange
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
+
+from app.config import get_settings
+from app.domain.enums import DateRange
 
 
 class HLTVError(RuntimeError):
@@ -165,7 +166,7 @@ def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
     d = re.search(r'data-unix="(\d+)"', html)
     if d:
         try:
-            match_date = datetime.fromtimestamp(int(d.group(1)) / 1000, tz=timezone.utc).date()
+            match_date = datetime.fromtimestamp(int(d.group(1)) / 1000, tz=UTC).date()
         except (ValueError, OverflowError, OSError):
             pass
     return event, match_date
@@ -216,7 +217,7 @@ _RESULT_ROW = re.compile(
 )
 
 
-def find_match_results(team_id: str, map_id: str | None, date_range: DateRange) -> list[str]:
+def find_match_results(team_id: str, date_range: DateRange) -> list[str]:
     # Return result-match URLs for team_id within date_range
     settings = get_settings()
     since = date_range.start_date(date.today())
@@ -232,7 +233,7 @@ def find_match_results(team_id: str, map_id: str | None, date_range: DateRange) 
     out: list[str] = []
     for ts, path in _RESULT_ROW.findall(html):
         try:
-            match_day = datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).date()
+            match_day = datetime.fromtimestamp(int(ts) / 1000, tz=UTC).date()
         except (ValueError, OverflowError, OSError):
             continue
         if match_day < since:
@@ -247,13 +248,13 @@ def iter_team_demo_archives(
         date_range: DateRange,
         *,
         max_matches: int = 100,
-        on_total: "Callable[[int], None] | None" = None,
-        checkpoint: "Callable[[], None] | None" = None,
+        on_total: Callable[[int], None] | None = None,
+        checkpoint: Callable[[], None] | None = None,
 ) -> Iterator[DemoArchive]:
     # Yield GOTV demo archives one match at a time, as each is downloaded
 
     settings = get_settings()
-    match_urls = find_match_results(team_id, map_id, date_range)[:max_matches]
+    match_urls = find_match_results(team_id, date_range)[:max_matches]
     if on_total is not None:
         on_total(len(match_urls))
 
@@ -292,14 +293,6 @@ def iter_team_demo_archives(
             )
         elif work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
-
-
-def download_team_demos(
-        team_id: str, map_id: str | None, date_range: DateRange, *, max_matches: int = 100
-) -> list[DemoArchive]:
-    return list(
-        iter_team_demo_archives(team_id, map_id, date_range, max_matches=max_matches)
-    )
 
 
 def _download_and_extract(

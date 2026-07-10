@@ -14,8 +14,9 @@ the per-map calibration (``pos_x``/``pos_y``/``scale``) served by the maps API.
 from __future__ import annotations
 
 import math
-from app.analytics.maps import GameMap, get_map, list_maps
 from dataclasses import dataclass, field
+
+from app.analytics.maps import GameMap, get_map, list_maps
 
 # Frames per second kept in the artifact. 8 Hz is smooth enough for a 2D radar
 # replay and keeps a ~100 s round around a few hundred frames.
@@ -340,7 +341,8 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
         zs = g.get("zs") or [0.0] * len(xs)
         if not xs:
             continue
-        raw = [(float(x), float(y), float(z or 0.0)) for x, y, z in zip(xs, ys, zs)]
+        # tolerate ragged xs/ys/zs from odd demos: truncate, don't fail the parse
+        raw = [(float(x), float(y), float(z or 0.0)) for x, y, z in zip(xs, ys, zs, strict=False)]
         path = _simplify_path(raw)
         t = max(0.0, (float(g.get("throw_tick", freeze_end)) - freeze_end) / tickrate)
         out.append(
@@ -512,7 +514,7 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
             prog = min(1.0, fi / max(1, n_frames - 1))
             pos = []
             st = []
-            for pi, (p, (ox, oy)) in enumerate(zip(players, offsets)):
+            for pi, (p, (ox, oy)) in enumerate(zip(players, offsets, strict=True)):
                 dead = death_t[pi] is not None and t >= death_t[pi]
                 if dead and frozen[pi] is not None:
                     fx, fy = frozen[pi]

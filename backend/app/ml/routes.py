@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.analytics import aggregate
-from app.auth.deps import get_current_user
+from app.auth.deps import get_current_user, require_admin
 from app.db import get_session
 from app.domain.models import User
 from app.domain.schemas import (
@@ -57,11 +57,9 @@ def model_status() -> ModelStatusOut:
 
 @router.post("/train", response_model=ModelStatusOut)
 def train(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> ModelStatusOut:
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Only admins can train the model")
     return _status(service.train_model(session, user))
 
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '@/lib/apiClient'
+import { UTIL_COLOR } from '@/lib/colors'
+import { ROUND_TIME_S } from '@/features/scouting/clock'
 import type {
   BombDamageMeta,
   MapCalibration,
@@ -19,15 +21,8 @@ const playerColor = (p: { ci?: number; side: string }): string =>
   p.ci != null && p.ci >= 0 && p.ci < PLAYER_COLORS.length
     ? PLAYER_COLORS[p.ci]
     : SIDE_COLOR[p.side] ?? '#fff'
-const UTIL_COLOR: Record<UtilityType, string> = {
-  smoke: '#9aa3b2',
-  flash: '#f3c244',
-  molotov: '#ff7a45',
-  he: '#ff5d5d',
-}
 const SPEEDS = [0.5, 1, 2, 4]
 const C4_TIME = 40
-const ROUND_TIME = 115
 
 const BOMB_DMG_EXP = 1.175
 const bombHpFromGray = (gray: number): number =>
@@ -912,7 +907,7 @@ function ReplayStage({
 
           {(() => {
             const planted = round.bomb && time >= round.bomb.t
-            const remaining = planted ? C4_TIME - (time - round.bomb!.t) : ROUND_TIME - time
+            const remaining = planted ? C4_TIME - (time - round.bomb!.t) : ROUND_TIME_S - time
             const danger = !!planted
             return (
               <div

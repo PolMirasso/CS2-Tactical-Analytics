@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
-import pytest
 import tempfile
 from collections.abc import Iterator
+
+import pytest
 
 # Configure the app before any app import triggers get_settings() caching.
 _TMP = tempfile.mkdtemp(prefix="cs2-test-")

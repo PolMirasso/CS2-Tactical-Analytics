@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
 from app.auth.deps import get_current_user
 from app.db import get_session
+from app.domain.enums import InviteStatus
 from app.domain.models import Group, Invitation, User
 from app.domain.schemas import GroupCreateIn, GroupOut, InvitationOut, InviteIn
 from app.groups import service
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["groups"])
 
@@ -93,4 +95,6 @@ def respond_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
     if inv.invitee_email.lower() != user.email.lower():
         raise HTTPException(status_code=403, detail="This invitation is not addressed to you")
+    if inv.status != str(InviteStatus.PENDING):
+        raise HTTPException(status_code=409, detail="Invitation already answered")
     service.respond_invitation(session, inv, user, accept)

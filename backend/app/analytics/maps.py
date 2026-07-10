@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import math
-from app.domain.enums import Region
 from dataclasses import dataclass
 from pathlib import Path
+
+from app.domain.enums import Region
 
 
 @dataclass(frozen=True)

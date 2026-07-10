@@ -4,19 +4,24 @@ import gzip
 import hashlib
 import json
 import shutil
+import threading
+from collections import OrderedDict
 from datetime import date
+from pathlib import Path
+from typing import BinaryIO
+from uuid import uuid4
+
+from fastapi import HTTPException
+from sqlalchemy import delete, func, or_, select
+from sqlalchemy.orm import Session
+
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, HltvTeam, Kill, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
 from app.parsing.parser import ParseError
-from app.parsing.runner import run_parse
 from app.parsing.replay import replay_to_dict
-from fastapi import HTTPException
-from pathlib import Path
-from sqlalchemy import delete, func, or_, select
-from sqlalchemy.orm import Session
-from typing import BinaryIO
+from app.parsing.runner import run_parse
 
 _CHUNK = 1 << 20  # 1 MiB
 
@@ -36,13 +41,33 @@ def _write_replay(demo_id: int, replay) -> None:
         json.dump(replay_to_dict(replay), fh, separators=(",", ":"))
 
 
+# Small LRU so per-round replay requests don't re-gunzip the whole artifact.
+# Keyed by (demo_id, mtime, size) so a re-parse naturally invalidates.
+_replay_cache: OrderedDict[tuple[int, int, int], dict] = OrderedDict()
+_replay_cache_lock = threading.Lock()
+_REPLAY_CACHE_MAX = 4
+
+
 def load_replay(demo_id: int) -> dict | None:
     """Read the gzip-JSON replay artifact, or ``None`` if it was never built."""
     path = replay_path(demo_id)
-    if not path.exists():
+    try:
+        st = path.stat()
+    except FileNotFoundError:
         return None
+    key = (demo_id, st.st_mtime_ns, st.st_size)
+    with _replay_cache_lock:
+        cached = _replay_cache.get(key)
+        if cached is not None:
+            _replay_cache.move_to_end(key)
+            return cached
     with gzip.open(path, "rt", encoding="utf-8") as fh:
-        return json.load(fh)
+        data = json.load(fh)
+    with _replay_cache_lock:
+        _replay_cache[key] = data
+        while len(_replay_cache) > _REPLAY_CACHE_MAX:
+            _replay_cache.popitem(last=False)
+    return data
 
 
 def _hash_and_save(src: BinaryIO, dest: Path) -> tuple[str, int]:
@@ -79,7 +104,7 @@ def store_upload(
     already stored, so the caller can skip a redundant re-parse.
     """
     settings = get_settings()
-    tmp = settings.demos_dir / f".incoming-{owner.id}-{filename}"
+    tmp = settings.demos_dir / f".incoming-{owner.id}-{uuid4().hex}-{filename}"
     sha, size = _hash_and_save(fileobj, tmp)
 
     existing = session.scalar(

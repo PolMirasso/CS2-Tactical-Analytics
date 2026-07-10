@@ -1,12 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import type { RoundOut, Site, UtilityType } from '@/types/api'
-
-const UTIL_COLOR: Record<UtilityType, string> = {
-  smoke: '#9aa3b2',
-  flash: '#f3c244',
-  molotov: '#ff7a45',
-  he: '#ff5d5d',
-}
+import { UTIL_COLOR } from '@/lib/colors'
+import type { RoundOut, Site } from '@/types/api'
 
 const SITES: Site[] = ['A', 'B', 'Mid', 'NoPlant']
 

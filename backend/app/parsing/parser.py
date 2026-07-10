@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass, field
+from pathlib import Path
+
 from app.analytics.maps import classify_point, get_map, list_maps, to_radar_pixel
 from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
 from app.parsing.replay import ReplayData, build_replay, build_sample_replay
-from dataclasses import dataclass, field
-from pathlib import Path
 
 # T-side team equipment value thresholds (sum of the 5 players)
 _FULL_ECO_MAX = 4_000
@@ -16,7 +17,6 @@ _FORCE_MAX = 18_000
 # Match structure: MR12 regulation (24 rounds, half at 12), MR3 overtime halves.
 _REGULATION_ROUNDS = 24
 _REGULATION_HALF = 12
-_OVERTIME_HALF = 3
 
 # Hero weapon → buy type, ordered by precedence (AWP outranks rifles).
 _HERO_BUYS: tuple[tuple[str, tuple[str, ...], BuyType], ...] = (
@@ -27,10 +27,10 @@ _HERO_BUYS: tuple[tuple[str, tuple[str, ...], BuyType], ...] = (
 
 
 def is_pistol_round(round_number: int) -> bool:
-    """First round of each half, in regulation (1, 13) and overtime halves."""
-    if round_number <= _REGULATION_ROUNDS:
-        return round_number % _REGULATION_HALF == 1
-    return (round_number - _REGULATION_ROUNDS - 1) % _OVERTIME_HALF == 0
+    """First round of each regulation half (1, 13); overtime starts with money."""
+    if round_number > _REGULATION_ROUNDS:
+        return False
+    return round_number % _REGULATION_HALF == 1
 
 # demoparser2 grenade_type strings
 _GRENADE_MAP = {
@@ -118,7 +118,7 @@ class ParsedDemo:
     player_stats: list[PlayerStatData] = field(default_factory=list)
     # 2D-replay frames (player positions + grenade lines); built lazily so the
     # analytics path stays cheap when the viewer artifact is not needed.
-    replay: "ReplayData | None" = None
+    replay: ReplayData | None = None
 
 
 def classify_buy(

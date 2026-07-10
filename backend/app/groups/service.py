@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from app.domain.enums import InviteStatus
-from app.domain.models import Group, GroupMembership, Invitation, User
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.domain.enums import InviteStatus
+from app.domain.models import Group, GroupMembership, Invitation, User
 
 
 def create_group(session: Session, owner: User, name: str) -> Group:

@@ -12,6 +12,18 @@ export function apiUrl(path: string): string {
   return `${BASE_URL}${path}`
 }
 
+/** `?a=1&b=x` from a params object; skips undefined/'' values, repeats arrays. */
+export function qs(params: object): string {
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') continue
+    if (Array.isArray(v)) for (const item of v) sp.append(k, String(item))
+    else sp.set(k, String(v))
+  }
+  const s = sp.toString()
+  return s ? `?${s}` : ''
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }

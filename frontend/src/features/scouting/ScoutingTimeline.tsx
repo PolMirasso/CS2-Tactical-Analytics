@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UtilityType } from '@/types/api'
-import { UTIL_COLOR, UTIL_GLYPH, type Token } from './ScoutingRadar'
+import { UTIL_COLOR } from '@/lib/colors'
+import { UTIL_GLYPH, type Token } from './ScoutingRadar'
 import { fmtClock, ROUND_TIME_S } from './clock'
 
 const clamp = (v: number) => Math.max(0, Math.min(ROUND_TIME_S, v))

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import date
 
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+
+from app.analytics.maps import bomb_damage_meta, calibration, radar_file
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.demos import reparse, service
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, User
-from app.analytics.maps import bomb_damage_meta, calibration, radar_file
 from app.domain.schemas import (
     BombDamageMeta,
     DemoAnalysisOut,
@@ -15,15 +18,13 @@ from app.domain.schemas import (
     DemoOut,
     MapCalibration,
     PlayerStatOut,
-    ReplayMetaOut,
     ReparseStatusOut,
+    ReplayMetaOut,
     RoundOut,
     UploadResult,
     UtilityEventOut,
 )
 from app.parsing.replay import round_meta
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/demos", tags=["demos"])
 
@@ -192,7 +193,7 @@ def reparse_demo(
     if demo.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can re-parse this demo")
     n_rounds, n_util = service.parse_and_store(session, demo)
-    return UploadResult(demo=_to_out(demo), rounds=n_rounds, utility_events=n_util)
+    return UploadResult(demo=_demo_out(session, demo), rounds=n_rounds, utility_events=n_util)
 
 
 def _reparse_status_out(st) -> ReparseStatusOut:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+
 from tests.conftest import auth, register_and_login
 
 
@@ -76,6 +77,7 @@ def test_delete_demo(client):
 
 def test_delete_demo_removes_kills_and_player_stats(client):
     from sqlalchemy import func, select
+
     from app.db import session_scope
     from app.domain.models import Kill, PlayerStat, Round, UtilityEvent
 
@@ -227,6 +229,7 @@ def test_analysis_includes_players_and_winner(client):
 def test_apply_canonical_teams_tags_ids_and_drops_names(client):
     # Each clan is mapped to its HLTV id on the demo and its rounds; no names stored.
     from sqlalchemy import select
+
     from app.db import session_scope
     from app.demos import service
     from app.domain.enums import DemoSource

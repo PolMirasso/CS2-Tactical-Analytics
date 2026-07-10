@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+
 from tests.conftest import auth, register_and_login
 
 
@@ -26,6 +27,21 @@ def test_me_requires_token(client):
     assert client.get("/auth/me").status_code == 401
 
 
+def test_email_is_case_insensitive(client):
+    first = client.post(
+        "/auth/register", json={"email": "Case@Example.com", "password": "secret123"}
+    )
+    assert first.status_code == 201
+    dup = client.post(
+        "/auth/register", json={"email": "case@example.com", "password": "secret123"}
+    )
+    assert dup.status_code == 409
+    login = client.post(
+        "/auth/login", data={"username": "CASE@EXAMPLE.COM", "password": "secret123"}
+    )
+    assert login.status_code == 200
+
+
 def test_group_invite_flow_and_demo_visibility(client):
     owner = register_and_login(client, "owner@example.com")
     peer = register_and_login(client, "peer@example.com")
@@ -47,6 +63,12 @@ def test_group_invite_flow_and_demo_visibility(client):
         f"/invitations/{inv_id}/respond", params={"accept": True}, headers=auth(peer)
     )
     assert accept.status_code == 204
+
+    # An already-answered invitation cannot be answered again.
+    again = client.post(
+        f"/invitations/{inv_id}/respond", params={"accept": False}, headers=auth(peer)
+    )
+    assert again.status_code == 409
 
     groups = client.get("/groups", headers=auth(owner)).json()
     assert groups[0]["member_count"] == 2

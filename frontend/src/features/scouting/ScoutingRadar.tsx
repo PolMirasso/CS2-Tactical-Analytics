@@ -1,24 +1,18 @@
 import { useMemo, useRef, useState } from 'react'
 import { apiUrl } from '@/lib/apiClient'
+import { REGION_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { fmtClock } from './clock'
 import type { UtilityType, ZoneOut, ZoneUtilStat } from '@/types/api'
 
 const VIEW = 1024
 const MIN_BOX = 46
 
-export const UTIL_COLOR: Record<UtilityType, string> = {
-  smoke: '#9aa3b2',
-  flash: '#f3c244',
-  molotov: '#ff7a45',
-  he: '#ff5d5d',
-}
 export const UTIL_GLYPH: Record<UtilityType, string> = {
   smoke: 'S',
   flash: 'F',
   molotov: 'M',
   he: 'H',
 }
-const REGION_COLOR: Record<string, string> = { A: '#4f8cff', B: '#ff5d5d', Mid: '#f3c244' }
 
 export interface Token {
   id: string

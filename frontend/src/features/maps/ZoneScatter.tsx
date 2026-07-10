@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { apiUrl } from '@/lib/apiClient'
+import { REGION_COLOR } from '@/lib/colors'
 import type { ZoneOut } from '@/types/api'
 
 interface Props {
@@ -10,11 +11,6 @@ interface Props {
 
 // Callout polygons live in the radar's 1024x1024 pixel space.
 const VIEW = 1024
-const REGION_COLOR: Record<string, string> = {
-  A: '#4f8cff',
-  B: '#ff5d5d',
-  Mid: '#f3c244',
-}
 
 export function ZoneScatter({ zones, mapId, size = 460 }: Props) {
   const [hovered, setHovered] = useState<string | null>(null)

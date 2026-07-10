@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from app.config import get_settings
 from collections.abc import Iterator
 from contextlib import contextmanager
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+from app.config import get_settings
 
 _engine = None
 _SessionLocal: sessionmaker | None = None
@@ -59,16 +61,9 @@ def _add_missing_columns() -> None:
 
 
 def get_session() -> Iterator[Session]:
-    #FastAPI dependency: yields a session, commits on success
-    session = _ensure()()
-    try:
+    # FastAPI dependency: yields a session, commits on success
+    with session_scope() as session:
         yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 @contextmanager

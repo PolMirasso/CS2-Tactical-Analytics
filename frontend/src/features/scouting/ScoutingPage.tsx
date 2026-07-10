@@ -4,7 +4,8 @@ import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, U
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeams } from '@/features/analytics/hooks'
 import { useMaps } from '@/features/maps/hooks'
-import { ScoutingRadar, UTIL_COLOR, type DrawnRect, type Token } from './ScoutingRadar'
+import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
+import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
 import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
@@ -12,9 +13,6 @@ import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hook
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
 const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
-const SITE_COLOR: Record<string, string> = {
-  A: '#f59e0b', B: '#3b82f6', Mid: '#10b981', NoPlant: '#6b7280',
-}
 const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
 }
