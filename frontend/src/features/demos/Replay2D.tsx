@@ -574,6 +574,20 @@ function ReplayStage({
           justifyContent: 'center',
         }}
       >
+        {/* CT column to the left of the map. */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            flex: '0 1 240px',
+            minWidth: 200,
+            maxWidth: 260,
+          }}
+        >
+          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
+        </div>
+
         <div
           style={{
             position: 'relative',
@@ -974,61 +988,9 @@ function ReplayStage({
             </div>
           )}
 
-          {/* Kill feed (top-right) */}
-          {visibleKills.length > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                alignItems: 'flex-end',
-                pointerEvents: 'none',
-              }}
-            >
-              {visibleKills.map((k, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: 'rgba(10,12,16,0.82)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 4,
-                    padding: '3px 8px',
-                    fontSize: 13,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span style={{ color: SIDE_COLOR[k.as] ?? '#fff', fontWeight: 600 }}>{k.atk}</span>
-                  <span className="muted">{prettyWeapon(k.wp)}</span>
-                  {k.air && (
-                    <span title={t('replay.jump')} style={{ color: '#5fd0ff', fontWeight: 700 }}>
-                      JUMP
-                    </span>
-                  )}
-                  {k.ns && (
-                    <span title={t('replay.noscope')} style={{ color: '#ffb454', fontWeight: 700 }}>
-                      NS
-                    </span>
-                  )}
-                  {k.hs && (
-                    <span title={t('replay.headshot')} style={{ color: '#ff5d5d', fontWeight: 700 }}>
-                      HS
-                    </span>
-                  )}
-                  <span style={{ color: '#7a8190' }}>→</span>
-                  <span style={{ color: SIDE_COLOR[k.vs] ?? '#fff', fontWeight: 600 }}>{k.vic}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Both teams stacked in a narrow column to the right of the map. */}
+        {/* T column to the right of the map. */}
         <div
           style={{
             display: 'flex',
@@ -1039,8 +1001,48 @@ function ReplayStage({
             maxWidth: 260,
           }}
         >
-          <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
           <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
+        </div>
+
+        {/* Kill feed column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 1 240px', minWidth: 200, maxWidth: 260 }}>
+          {visibleKills.map((k, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                columnGap: 6,
+                rowGap: 2,
+                background: 'rgba(10,12,16,0.82)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '3px 8px',
+                fontSize: 13,
+              }}
+            >
+              <span style={{ color: SIDE_COLOR[k.as] ?? '#fff', fontWeight: 600, overflowWrap: 'anywhere' }}>{k.atk}</span>
+              <span className="muted">{prettyWeapon(k.wp)}</span>
+              {k.air && (
+                <span title={t('replay.jump')} style={{ color: '#5fd0ff', fontWeight: 700 }}>
+                  JUMP
+                </span>
+              )}
+              {k.ns && (
+                <span title={t('replay.noscope')} style={{ color: '#ffb454', fontWeight: 700 }}>
+                  NS
+                </span>
+              )}
+              {k.hs && (
+                <span title={t('replay.headshot')} style={{ color: '#ff5d5d', fontWeight: 700 }}>
+                  HS
+                </span>
+              )}
+              <span style={{ color: '#7a8190' }}>→</span>
+              <span style={{ color: SIDE_COLOR[k.vs] ?? '#fff', fontWeight: 600, overflowWrap: 'anywhere' }}>{k.vic}</span>
+            </div>
+          ))}
         </div>
       </div>
 
