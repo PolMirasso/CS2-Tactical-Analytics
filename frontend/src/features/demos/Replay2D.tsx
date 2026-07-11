@@ -5,6 +5,7 @@ import { UTIL_COLOR } from '@/lib/colors'
 import { ROUND_TIME_S } from '@/features/scouting/clock'
 import type {
   BombDamageMeta,
+  BombDamageSite,
   MapCalibration,
   ReplayFrame,
   ReplayPlayer,
@@ -23,10 +24,6 @@ const playerColor = (p: { ci?: number; side: string }): string =>
     : SIDE_COLOR[p.side] ?? '#fff'
 const SPEEDS = [0.5, 1, 2, 4]
 const C4_TIME = 40
-
-const BOMB_DMG_EXP = 1.175
-const bombHpFromGray = (gray: number): number =>
-  Math.max(1, Math.round(Math.pow((1 - gray / 255) * 100, BOMB_DMG_EXP)))
 
 const fmtClock = (sec: number): string => {
   const s = Math.max(0, Math.ceil(sec))
@@ -120,22 +117,28 @@ function useProjection(
   }, [round, cal, hasRadar])
 }
 
-type BombField = {
-  w: number
-  h: number
+type BombPart = {
   gray: Uint8ClampedArray // low near plant
   alpha: Uint8ClampedArray // 0 = unreachable (blocked by walls)
   url: string
 }
 
+type BombField = {
+  w: number
+  h: number
+  upper: BombPart
+  lower: BombPart | null // two-level maps
+}
+
 /**
  * Load a map/site C4 arrival field and bake a red to yellow heat overlay from it
- * Returns null while loading, on error, or when a tainted canvas blocks the read
  */
 function useBombField(
   mapId: string,
   site: string | null,
   meta: BombDamageMeta | null | undefined,
+  lut: number[] | null,
+  cal: MapCalibration | null,
 ): BombField | null {
   const [field, setField] = useState<BombField | null>(null)
   useEffect(() => {
@@ -144,50 +147,118 @@ function useBombField(
       return
     }
     let cancelled = false
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = apiUrl(`/maps/${mapId}/bomb/${site}.png`)
-    img
-      .decode()
-      .then(() => {
-        if (cancelled) return
-        const { w, h } = meta
+
+    const loadImage = async (url: string): Promise<HTMLImageElement> => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.src = url
+      await img.decode()
+      return img
+    }
+
+    type RawField = { gray: Uint8ClampedArray; alpha: Uint8ClampedArray; cx: CanvasRenderingContext2D }
+    const decodeField = async (name: string): Promise<RawField> => {
+      const img = await loadImage(apiUrl(`/maps/${mapId}/bomb/${name}.png`))
+      const { w, h } = meta
+      const cv = document.createElement('canvas')
+      cv.width = w
+      cv.height = h
+      const cx = cv.getContext('2d', { willReadFrequently: true })
+      if (!cx) throw new Error('no 2d context')
+      cx.drawImage(img, 0, 0, w, h)
+      const src = cx.getImageData(0, 0, w, h).data
+      const gray = new Uint8ClampedArray(w * h)
+      const alpha = new Uint8ClampedArray(w * h)
+      for (let i = 0; i < w * h; i++) {
+        gray[i] = src[i * 4]
+        alpha[i] = src[i * 4 + 3]
+      }
+      return { gray, alpha, cx }
+    }
+
+    const run = async () => {
+      const { w, h, origin, scale } = meta
+
+      let radarAlpha: Uint8ClampedArray | null = null
+      try {
+        const img = await loadImage(apiUrl(`/maps/${mapId}/radar.png`))
         const cv = document.createElement('canvas')
-        cv.width = w
-        cv.height = h
+        cv.width = RADAR
+        cv.height = RADAR
         const cx = cv.getContext('2d', { willReadFrequently: true })
-        if (!cx) return
-        cx.drawImage(img, 0, 0, w, h)
-        const src = cx.getImageData(0, 0, w, h).data
-        const gray = new Uint8ClampedArray(w * h)
-        const alpha = new Uint8ClampedArray(w * h)
-        const out = cx.createImageData(w, h)
+        if (cx) {
+          cx.drawImage(img, 0, 0, RADAR, RADAR)
+          const d = cx.getImageData(0, 0, RADAR, RADAR).data
+          radarAlpha = new Uint8ClampedArray(RADAR * RADAR)
+          for (let i = 0; i < RADAR * RADAR; i++) radarAlpha[i] = d[i * 4 + 3]
+        }
+      } catch {
+        // No radar to mask against: draw the fields unmasked.
+      }
+
+      const upperRaw = await decodeField(site)
+      const lowerRaw = meta.has_lower ? await decodeField(`${site}_lower`) : null
+
+      const cellPx = (i: number, c: { pos_x: number; pos_y: number; scale: number }): [number, number] => {
+        const wx = origin[0] + (i % w) * scale
+        const wy = origin[1] + (h - 1 - Math.floor(i / w)) * scale
+        return [Math.round((wx - c.pos_x) / c.scale), Math.round((c.pos_y - wy) / c.scale)]
+      }
+
+      // Radar-px box of the lower level's cells = where the inset is drawn.
+      let inset: [number, number, number, number] | null = null
+      if (lowerRaw && cal?.lower) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+        for (let i = 0; i < w * h; i++) {
+          if (lowerRaw.alpha[i] === 0) continue
+          const [px, py] = cellPx(i, cal.lower)
+          if (px < x0) x0 = px
+          if (px > x1) x1 = px
+          if (py < y0) y0 = py
+          if (py > y1) y1 = py
+        }
+        if (x0 < x1) inset = [x0 - 4, y0 - 4, x1 + 4, y1 + 4]
+      }
+      const inInset = (px: number, py: number): boolean =>
+        !!inset && px >= inset[0] && px <= inset[2] && py >= inset[1] && py <= inset[3]
+
+      const colorize = (raw: RawField, c: { pos_x: number; pos_y: number; scale: number } | null, wantInset: boolean): BombPart => {
+        const out = raw.cx.createImageData(w, h)
         const o = out.data
         for (let i = 0; i < w * h; i++) {
-          const g = src[i * 4]
-          const a = src[i * 4 + 3]
-          gray[i] = g
-          alpha[i] = a
-          if (a === 0) {
+          const g = raw.gray[i]
+          let visible = raw.alpha[i] > 0
+          if (visible && c && radarAlpha) {
+            const [px, py] = cellPx(i, c)
+            visible = px >= 0 && px < RADAR && py >= 0 && py < RADAR && radarAlpha[py * RADAR + px] > 8
+            if (visible && inset) visible = inInset(px, py) === wantInset
+          }
+          if (!visible) {
             o[i * 4 + 3] = 0
             continue
           }
-          const intensity = 1 - g / 255
+          const intensity = lut ? (lut[g] ?? 0) / 255 : 1 - g / 255
           o[i * 4] = 255
           o[i * 4 + 1] = Math.round(210 * (1 - intensity))
           o[i * 4 + 2] = 40
           o[i * 4 + 3] = Math.round(255 * (0.26 + 0.5 * intensity))
         }
-        cx.putImageData(out, 0, 0)
-        setField({ w, h, gray, alpha, url: cv.toDataURL('image/png') })
-      })
-      .catch(() => {
-        if (!cancelled) setField(null)
-      })
+        raw.cx.putImageData(out, 0, 0)
+        return { gray: raw.gray, alpha: raw.alpha, url: raw.cx.canvas.toDataURL('image/png') }
+      }
+
+      const upper = colorize(upperRaw, cal, false)
+      const lower = lowerRaw && cal?.lower ? colorize(lowerRaw, cal.lower, true) : null
+      if (!cancelled) setField({ w, h, upper, lower })
+    }
+
+    run().catch(() => {
+      if (!cancelled) setField(null)
+    })
     return () => {
       cancelled = true
     }
-  }, [mapId, site, meta])
+  }, [mapId, site, meta, lut, cal])
   return field
 }
 
@@ -402,21 +473,23 @@ function ReplayStage({
   const toggleFollow = (k: number) => setFollowed((cur) => (cur === k ? null : k))
   const project = useProjection(round, calibration, hasRadar)
   const teams = useTeams(round)
-  // Pick the field by the site nearest the plant 
-  const bombSite = useMemo(() => {
+  // Pick the field by the site nearest the plant
+  const bombSiteMeta = useMemo(() => {
     if (!round.bomb || !bombDamage) return null
-    let best: string | null = null
+    let best: BombDamageSite | null = null
     let bestD = Infinity
     for (const s of bombDamage.sites) {
       const d = (s.center[0] - round.bomb.x) ** 2 + (s.center[1] - round.bomb.y) ** 2
       if (d < bestD) {
         bestD = d
-        best = s.label
+        best = s
       }
     }
-    return best ? best.toLowerCase() : null
+    return best
   }, [round.bomb, bombDamage])
-  const bombField = useBombField(mapId, bombSite, bombDamage)
+  const bombSite = bombSiteMeta ? bombSiteMeta.label.toLowerCase() : null
+  const bombLut = bombSiteMeta?.dmg ?? null
+  const bombField = useBombField(mapId, bombSite, bombDamage, bombLut, calibration)
   // Death spot per player (last alive world position + time), for the "X" marker.
   const deaths = useMemo(() => {
     const out: (null | { t: number; x: number; y: number; z: number })[] = round.players.map(() => null)
@@ -525,24 +598,31 @@ function ReplayStage({
   }
   // Overlay from the plant on
   const showBomb = c4Planted && !!bombField && !!bombDamage
-  const bombRect = (() => {
-    if (!showBomb) return null
+  const lowerZMax = calibration?.lower_level_max_units
+  // The field is baked from the site's canonical plant spot
+  const bombGridRect = (z?: number) => {
     const { origin, scale, w, h } = bombDamage!
     const half = scale / 2
-    const [x0, y0] = project(origin[0] - half, origin[1] + (h - 1) * scale + half)
-    const [x1, y1] = project(origin[0] + (w - 1) * scale + half, origin[1] - half)
+    const [x0, y0] = project(origin[0] - half, origin[1] + (h - 1) * scale + half, z)
+    const [x1, y1] = project(origin[0] + (w - 1) * scale + half, origin[1] - half, z)
     return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) }
-  })()
-  // HP a player would take from the blast at their
-  const bombDmgAt = (wx: number, wy: number): number => {
+  }
+  const bombRect = showBomb ? bombGridRect() : null
+  // Lower-level field, projected with the lower-inset calibration.
+  const bombRectLower =
+    showBomb && bombField!.lower && lowerZMax != null ? bombGridRect(lowerZMax - 1) : null
+  // HP a player would take from the blast at their position
+  const bombDmgAt = (wx: number, wy: number, wz: number): number => {
     if (!showBomb) return 0
     const { origin, scale, w, h } = bombDamage!
     const px = Math.round((wx - origin[0]) / scale)
     const py = h - 1 - Math.round((wy - origin[1]) / scale)
     if (px < 0 || px >= w || py < 0 || py >= h) return 0
     const idx = py * w + px
-    if (bombField!.alpha[idx] === 0) return 0
-    return bombHpFromGray(bombField!.gray[idx])
+    const part =
+      bombField!.lower && lowerZMax != null && wz < lowerZMax ? bombField!.lower : bombField!.upper
+    if (part.alpha[idx] === 0) return 0
+    return bombLut?.[part.gray[idx]] ?? 0
   }
   // A player is "firing" if they shot within a short window before the playhead.
   const FIRE_WINDOW = 0.18
@@ -618,11 +698,22 @@ function ReplayStage({
             {/* C4 damage field*/}
             {bombRect && bombField && (
               <image
-                href={bombField.url}
+                href={bombField.upper.url}
                 x={bombRect.x}
                 y={bombRect.y}
                 width={bombRect.w}
                 height={bombRect.h}
+                preserveAspectRatio="none"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+            {bombRectLower && bombField?.lower && (
+              <image
+                href={bombField.lower.url}
+                x={bombRectLower.x}
+                y={bombRectLower.y}
+                width={bombRectLower.w}
+                height={bombRectLower.h}
                 preserveAspectRatio="none"
                 style={{ pointerEvents: 'none' }}
               />
@@ -761,7 +852,7 @@ function ReplayStage({
                 const isFiring = firing(k)
                 const followActive = followed !== null
                 // bomb halo
-                const bombDmg = bombDmgAt(px, py)
+                const bombDmg = bombDmgAt(px, py, live[4])
                 const bombLethal = bombDmg >= live[3]
                 return (
                   <g key={player.steamid} opacity={followActive && followed !== k ? 0.35 : 1}>
@@ -864,7 +955,9 @@ function ReplayStage({
             {/* Planted bomb (shown from the plant time onward). */}
             {round.bomb && time >= round.bomb.t && (() => {
               const b = round.bomb!
-              const [bx, by] = project(b.x, b.y, b.z ?? undefined)
+              // Guard `?? center[2]`: artifacts parsed before bomb.z existed would
+              // otherwise project a lower-level plant with the upper calibration.
+              const [bx, by] = project(b.x, b.y, b.z ?? bombSiteMeta?.center[2])
               return (
                 <g>
                   <circle cx={bx} cy={by} r={16} fill="none" stroke="#ff5d5d" strokeWidth={2} opacity={0.6} />
@@ -912,7 +1005,7 @@ function ReplayStage({
                   background: 'linear-gradient(90deg, #ff3b3b, #ffd23b)',
                 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }} className="muted">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 10 }} className="muted">
                 <span>{t('replay.bombLethal', 'Letal')}</span>
                 <span>{t('replay.bombLight', 'Leve')}</span>
               </div>

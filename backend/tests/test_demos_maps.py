@@ -191,6 +191,27 @@ def test_maps_radar_and_calibration(client):
         assert img.status_code == 404
 
 
+def test_bomb_damage_meta_luts():
+    from app.analytics.maps import _BOMB_DAMAGE, bomb_damage_meta, bomb_overlay_file
+
+    for map_id in _BOMB_DAMAGE:
+        meta = bomb_damage_meta(map_id)
+        for site in meta["sites"]:
+            dmg = site["dmg"]
+            assert len(dmg) == 256
+            assert dmg[0] == 255 and dmg[255] == 0
+            assert all(a >= b for a, b in zip(dmg, dmg[1:], strict=False))
+            key = site["label"].lower()
+            assert bomb_overlay_file(map_id, key) is not None
+            lower = bomb_overlay_file(map_id, f"{key}_lower")
+            assert (lower is not None) == meta["has_lower"]
+    # Spot-check mirage A against the source model (skinsniper, 2026-07-11).
+    mirage_a = bomb_damage_meta("de_mirage")["sites"][0]["dmg"]
+    assert (mirage_a[128], mirage_a[192]) == (108, 54)
+    # nuke is two-level: split overlays and the has_lower flag.
+    assert bomb_damage_meta("de_nuke")["has_lower"] is True
+
+
 def test_maps_endpoint(client):
     token = register_and_login(client, "maps@example.com")
     maps = client.get("/maps", headers=auth(token)).json()

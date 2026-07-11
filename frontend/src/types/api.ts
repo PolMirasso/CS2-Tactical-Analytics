@@ -332,6 +332,7 @@ export interface ReplayRoundMeta {
 export interface BombDamageSite {
   label: string // "A" | "B"
   center: [number, number, number] // world [x, y, z]
+  dmg: number[] // 256-entry PNG-gray -> HP lookup table
 }
 
 export interface BombDamageMeta {
@@ -339,7 +340,9 @@ export interface BombDamageMeta {
   w: number
   h: number
   scale: number
-  origin: [number, number] 
+  origin: [number, number]
+  // Two-level maps
+  has_lower?: boolean
   sites: BombDamageSite[]
 }
 

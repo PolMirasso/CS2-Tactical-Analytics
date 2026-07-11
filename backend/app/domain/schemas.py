@@ -175,6 +175,7 @@ class ReplayRoundMeta(BaseModel):
 class BombDamageSite(BaseModel):
     label: str  # A or B
     center: list[float]  # world [x, y, z]
+    dmg: list[int]  # 256-entry PNG-gray -> HP lookup table
 
 
 class BombDamageMeta(BaseModel):
@@ -182,7 +183,8 @@ class BombDamageMeta(BaseModel):
     w: int
     h: int
     scale: float
-    origin: list[float]  # world [x, y] of pixel-centre 
+    origin: list[float]  # world [x, y] of pixel-centre
+    has_lower: bool = False
     sites: list[BombDamageSite]
 
 
