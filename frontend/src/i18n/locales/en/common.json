@@ -115,7 +115,8 @@
     "jump": "Jumping",
     "bombDamage": "C4 damage",
     "bombLethal": "Lethal",
-    "bombLight": "Light"
+    "bombLight": "Light",
+    "bombSafe": "No damage"
   },
   "hltv": {
     "title": "HLTV download",

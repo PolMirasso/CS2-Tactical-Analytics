@@ -221,6 +221,7 @@ _BOMB_DAMAGE: dict[str, dict] = {
                            {"label": "B", "center": [-40.0, -1292.0, -308.0],
                             "scalar": 1730, "quant": 43.482, "arrival_max": 11088}]},
     "de_vertigo": {"w": 276, "h": 273, "scale": 10, "origin": [-2625.0, -1610.0],
+                   "has_lower": True,
                    "sites": [{"label": "A", "center": [-2248.0, 798.0, 11758.0],
                               "scalar": 2590, "quant": 39.949, "arrival_max": 10187},
                              {"label": "B", "center": [-278.0, -621.0, 11792.0],

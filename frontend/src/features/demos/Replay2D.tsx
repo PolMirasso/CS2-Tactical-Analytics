@@ -24,6 +24,11 @@ const playerColor = (p: { ci?: number; side: string }): string =>
     : SIDE_COLOR[p.side] ?? '#fff'
 const SPEEDS = [0.5, 1, 2, 4]
 const C4_TIME = 40
+// Cover the blast can't get through
+const BOMB_SAFE = [46, 196, 222, 140]
+const BOMB_SAFE_CSS = `rgba(${BOMB_SAFE[0]},${BOMB_SAFE[1]},${BOMB_SAFE[2]},${BOMB_SAFE[3] / 255})`
+// Cells of cover within this many of the blast fade toward the heat instead of butting against it
+const BOMB_FADE_CELLS = 3
 
 const fmtClock = (sec: number): string => {
   const s = Math.max(0, Math.ceil(sec))
@@ -222,26 +227,72 @@ function useBombField(
       const inInset = (px: number, py: number): boolean =>
         !!inset && px >= inset[0] && px <= inset[2] && py >= inset[1] && py <= inset[3]
 
+      const heat = (g: number): number[] => {
+        const intensity = lut ? (lut[g] ?? 0) / 255 : 1 - g / 255
+        return [255, Math.round(210 * (1 - intensity)), 40, 255 * (0.26 + 0.5 * intensity)]
+      }
+
       const colorize = (raw: RawField, c: { pos_x: number; pos_y: number; scale: number } | null, wantInset: boolean): BombPart => {
         const out = raw.cx.createImageData(w, h)
         const o = out.data
-        for (let i = 0; i < w * h; i++) {
-          const g = raw.gray[i]
-          let visible = raw.alpha[i] > 0
-          if (visible && c && radarAlpha) {
+        const n = w * h
+
+        const visible = new Uint8Array(n)
+        for (let i = 0; i < n; i++) {
+          let v = raw.alpha[i] > 0
+          if (c && radarAlpha) {
             const [px, py] = cellPx(i, c)
-            visible = px >= 0 && px < RADAR && py >= 0 && py < RADAR && radarAlpha[py * RADAR + px] > 8
-            if (visible && inset) visible = inInset(px, py) === wantInset
+            v = px >= 0 && px < RADAR && py >= 0 && py < RADAR && radarAlpha[py * RADAR + px] > 8
+            if (v && inset) v = inInset(px, py) === wantInset
           }
-          if (!visible) {
+          visible[i] = v ? 1 : 0
+        }
+
+        // Walls, props and the silo take no damage at all
+        const dist = new Int16Array(n).fill(-1)
+        const src = new Uint8Array(n)
+        const queue = new Int32Array(n)
+        let tail = 0
+        for (let i = 0; i < n; i++) {
+          if (visible[i] && raw.alpha[i] > 0) {
+            dist[i] = 0
+            queue[tail++] = i
+          }
+        }
+        for (let head = 0; head < tail; head++) {
+          const i = queue[head]
+          const d = dist[i]
+          if (d >= BOMB_FADE_CELLS) continue
+          const x = i % w
+          const push = (j: number) => {
+            if (dist[j] >= 0 || !visible[j] || raw.alpha[j] > 0) return
+            dist[j] = d + 1
+            src[j] = d === 0 ? raw.gray[i] : src[i]
+            queue[tail++] = j
+          }
+          if (x > 0) push(i - 1)
+          if (x < w - 1) push(i + 1)
+          if (i >= w) push(i - w)
+          if (i < n - w) push(i + w)
+        }
+
+        for (let i = 0; i < n; i++) {
+          if (!visible[i]) {
             o[i * 4 + 3] = 0
             continue
           }
-          const intensity = lut ? (lut[g] ?? 0) / 255 : 1 - g / 255
-          o[i * 4] = 255
-          o[i * 4 + 1] = Math.round(210 * (1 - intensity))
-          o[i * 4 + 2] = 40
-          o[i * 4 + 3] = Math.round(255 * (0.26 + 0.5 * intensity))
+          if (raw.alpha[i] > 0) {
+            const rgba = heat(raw.gray[i])
+            for (let k = 0; k < 4; k++) o[i * 4 + k] = Math.round(rgba[k])
+            continue
+          }
+          const d = dist[i]
+          // Half-way to the heat at the very edge of the cover, pure cover past the band
+          const mix = d > 0 ? 0.5 * Math.max(0, 1 - (d - 1) / BOMB_FADE_CELLS) : 0
+          const near = d > 0 ? heat(src[i]) : BOMB_SAFE
+          for (let k = 0; k < 4; k++) {
+            o[i * 4 + k] = Math.round(BOMB_SAFE[k] + (near[k] - BOMB_SAFE[k]) * mix)
+          }
         }
         raw.cx.putImageData(out, 0, 0)
         return { gray: raw.gray, alpha: raw.alpha, url: raw.cx.canvas.toDataURL('image/png') }
@@ -1002,12 +1053,13 @@ function ReplayStage({
                 style={{
                   height: 8,
                   borderRadius: 3,
-                  background: 'linear-gradient(90deg, #ff3b3b, #ffd23b)',
+                  background: `linear-gradient(90deg, #ff3b3b 0%, #ffd23b 62%, ${BOMB_SAFE_CSS} 100%)`,
                 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 10 }} className="muted">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10 }} className="muted">
                 <span>{t('replay.bombLethal', 'Letal')}</span>
                 <span>{t('replay.bombLight', 'Leve')}</span>
+                <span>{t('replay.bombSafe', 'Sin daño')}</span>
               </div>
             </div>
           )}
