@@ -9,6 +9,8 @@ from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
 from app.parsing.replay import ReplayData, build_replay, build_sample_replay
 
+TICKRATE = 64
+
 # T-side team equipment value thresholds (sum of the 5 players)
 _FULL_ECO_MAX = 4_000
 _ECO_MAX = 9_000
@@ -229,13 +231,13 @@ def _parse_with_awpy(
     ]
 
     try:
-        demo = Demo(path=path)
+        demo = Demo(path=path, tickrate=TICKRATE)
         demo.parse(player_props=base_props + ["m_iCompTeammateColor"])
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException:
         try:
-            demo = Demo(path=path)
+            demo = Demo(path=path, tickrate=TICKRATE)
             demo.parse(player_props=base_props)
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -252,7 +254,7 @@ def _parse_with_awpy(
     if rounds_df is None or ticks_df is None or rounds_df.is_empty():
         raise ParseError("demo produced no rounds")
 
-    tickrate = float(getattr(demo, "tickrate", 128) or 128)
+    tickrate = float(getattr(demo, "tickrate", TICKRATE) or TICKRATE)
     planted_sites = _planted_sites(demo, rounds_df, map_id)
     rounds: list[RoundData] = []
     # Both clans appear on T and CT across a match (sides swap at the half), so

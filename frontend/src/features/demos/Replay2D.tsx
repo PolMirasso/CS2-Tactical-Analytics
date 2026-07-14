@@ -641,14 +641,20 @@ function ReplayStage({
   const c4 = c4Track[i0] ?? { holder: -1, x: null, y: null, z: 0 }
   const c4Planted = !!(round.bomb && time >= round.bomb.t)
   const c4Holder = c4Planted ? -1 : c4.holder
+  // null = defused, or the round ended before the blast.
+  const c4ExplT = round.bomb
+    ? round.bomb.expl === undefined
+      ? round.bomb.t + C4_TIME
+      : round.bomb.expl
+    : null
   // World radius → pixel radius under the active projection.
   const projectR = (x: number, y: number, worldR: number, z?: number): number => {
     const [px] = project(x, y, z)
     const [qx] = project(x + worldR, y, z)
     return Math.abs(qx - px)
   }
-  // Overlay from the plant on
-  const showBomb = c4Planted && !!bombField && !!bombDamage
+  // Overlay from the detonation on
+  const showBomb = c4ExplT != null && time >= c4ExplT && !!bombField && !!bombDamage
   const lowerZMax = calibration?.lower_level_max_units
   // The field is baked from the site's canonical plant spot
   const bombGridRect = (z?: number) => {

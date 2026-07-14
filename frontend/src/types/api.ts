@@ -388,6 +388,8 @@ export interface ReplayBomb {
   y: number
   z?: number | null
   site: string | null
+  // Detonation (seconds since freeze end)
+  expl?: number | null
 }
 
 export interface ReplayKill {

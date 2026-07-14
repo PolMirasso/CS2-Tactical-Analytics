@@ -21,6 +21,7 @@ from app.analytics.maps import GameMap, get_map, list_maps
 # Frames per second kept in the artifact. 8 Hz is smooth enough for a 2D radar
 # replay and keeps a ~100 s round around a few hundred frames.
 SAMPLE_HZ = 8.0
+POST_ROUND_S = 5.0
 
 
 @dataclass
@@ -67,7 +68,7 @@ class ReplayRound:
     # Shot events as ``[player_idx, t]`` (t seconds since freeze end); drives the
     # muzzle-flash "firing" indicator in the viewer.
     fires: list[list[float]] = field(default_factory=list)
-    # Bomb plant for the round: ``{t, x, y, site}`` (world-space), or ``None``.
+    # Bomb plant for the round: ``{t, x, y, z, site, expl}`` (world-space), or ``None``.
     bomb: dict | None = None
     # Kill events for the kill feed: {t, atk, as, vic, vs, wp, hs} plus optional air no-scope.
     kills: list[dict] = field(default_factory=list)
@@ -145,7 +146,13 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
     for r in rounds_df.iter_rows(named=True):
         rnum = int(r["round_num"])
         freeze_end = float(r.get("freeze_end") or r.get("start") or 0)
-        rdf = ticks_df.filter((pl.col("round_num") == rnum) & (pl.col("tick") >= freeze_end))
+        end = float(r.get("end") or 0)
+        last_tick = end + POST_ROUND_S * tickrate if end else float("inf")
+        rdf = ticks_df.filter(
+            (pl.col("round_num") == rnum)
+            & (pl.col("tick") >= freeze_end)
+            & (pl.col("tick") <= last_tick)
+        )
         if rdf.is_empty():
             continue
         replay_round = _build_round(pl, rdf, rnum, freeze_end, tickrate, step)
@@ -386,7 +393,7 @@ def _round_fires(pl, demo, rnum: int, freeze_end: float, tickrate: float, player
 
 
 def _round_bomb(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> dict | None:
-    """The round's bomb plant as ``{t, x, y, site}`` (world-space), if any."""
+    """The round's bomb plant as ``{t, x, y, z, site, expl}`` (world-space)"""
     try:
         bomb = demo.bomb  # awpy cached property over the bomb_* events
     except Exception:
@@ -394,25 +401,31 @@ def _round_bomb(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> dict
     if bomb is None or bomb.is_empty() or "round_num" not in bomb.columns or "event" not in bomb.columns:
         return None
     try:
-        sub = bomb.filter((pl.col("round_num") == rnum) & (pl.col("event") == "plant")).sort("tick")
+        sub = bomb.filter(
+            (pl.col("round_num") == rnum) & pl.col("event").is_in(["plant", "detonate"])
+        ).sort("tick")
     except Exception:
         return None
-    if sub.is_empty():
+    rows = sub.to_dicts()
+    plant = next((r for r in rows if r.get("event") == "plant"), None)
+    if plant is None:
         return None
-    row = sub.to_dicts()[0]
     # Bomb position columns are upper-case X/Y (from the ticks frame).
-    x, y = row.get("X"), row.get("Y")
+    x, y = plant.get("X"), plant.get("Y")
     if x is None or y is None:
         return None
-    z = row.get("Z")
-    t = max(0.0, (float(row["tick"]) - freeze_end) / tickrate)
-    site = (row.get("bombsite") or "").replace("Bombsite", "") or None  # "BombsiteB" -> "B"
+    z = plant.get("Z")
+    t = max(0.0, (float(plant["tick"]) - freeze_end) / tickrate)
+    site = (plant.get("bombsite") or "").replace("Bombsite", "") or None  # "BombsiteB" -> "B"
+    boom = next((r for r in rows if r.get("event") == "detonate"), None)
+    expl = max(t, (float(boom["tick"]) - freeze_end) / tickrate) if boom else None
     return {
         "t": round(t, 2),
         "x": round(float(x), 1),
         "y": round(float(y), 1),
         "z": round(float(z)) if z is not None else None,
         "site": site,
+        "expl": round(expl, 2) if expl is not None else None,
     }
 
 
@@ -586,7 +599,8 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
         t_kills = sum(1 for k in kills if k["as"] == "t")
         winner = "t" if t_kills * 2 >= len(kills) else "ct"
         # Plant the bomb at the target on roughly half the rounds, so the viewer's
-        # bomb indicator shows up in sample/dev mode.
+        # bomb indicator shows up in sample/dev mode. T wins detonate (the real 40 s fuse
+        # would overrun the sample's short round), CT wins get defused.
         bomb = None
         if rng.random() < 0.5:
             bomb = {
@@ -594,6 +608,7 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                 "x": round(target[0], 1),
                 "y": round(target[1], 1),
                 "site": rd.target_site or "A",
+                "expl": round(duration - 3.0, 2) if winner == "t" else None,
             }
         rounds.append(
             ReplayRound(
