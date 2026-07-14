@@ -1237,7 +1237,7 @@ function ReplayStage({
         })}
       </div>
 
-      {/* Round timeline: drag/click to seek; markers for utility and kills. */}
+      {/* Round timeline: drag/click to seek; markers for utility, kills and the plant. */}
       <div
         ref={barRef}
         onPointerDown={(e) => {
@@ -1303,6 +1303,21 @@ function ReplayStage({
             }}
           />
         ))}
+        {round.bomb && (
+          <span
+            title={`${t('replay.bombPlant')} · ${round.bomb.t.toFixed(1)}s`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `${(round.bomb.t / duration) * 100}%`,
+              width: 2,
+              marginLeft: -1,
+              background: '#d6452b',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
         <div
           style={{
             position: 'absolute',

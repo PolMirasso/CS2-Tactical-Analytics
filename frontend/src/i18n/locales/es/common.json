@@ -116,7 +116,8 @@
     "bombDamage": "Daño C4",
     "bombLethal": "Letal",
     "bombLight": "Leve",
-    "bombSafe": "Sin daño"
+    "bombSafe": "Sin daño",
+    "bombPlant": "Plantada"
   },
   "hltv": {
     "title": "Descarga de HLTV",
