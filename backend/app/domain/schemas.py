@@ -253,6 +253,25 @@ class SiteDistributionOut(BaseModel):
     sites: list[SiteStat]
 
 
+class RosterEntry(BaseModel):
+    demo_id: int
+    match_date: date | None = None
+    opponent: str | None = None
+    players: list[str]
+    added: list[str] = []  
+    removed: list[str] = []
+    complete: bool = True 
+
+
+class TeamRostersOut(BaseModel):
+    map_id: str
+    team: str | None = None
+    has_changes: bool = False
+    n_demos: int = 0
+    core: list[str] = []
+    entries: list[RosterEntry] = []
+
+
 # scouting / site prediction (ML)
 class UtilityInput(BaseModel):
     util_type: str  # smoke / flash / molotov / he

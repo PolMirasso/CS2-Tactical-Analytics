@@ -18,3 +18,12 @@ export function useSiteDistribution(params: SiteDistributionParams | undefined) 
     enabled: !!params?.map_id,
   })
 }
+
+export function useTeamRoster(mapId: string | undefined, team: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'roster', mapId, team],
+    queryFn: () => analyticsApi.roster(mapId!, team!),
+    enabled: !!mapId && !!team,
+    staleTime: 60_000,
+  })
+}

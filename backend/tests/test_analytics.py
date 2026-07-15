@@ -59,6 +59,82 @@ def test_analytics_teams_lists_executing_team(client):
     assert "Spirit" in [t["name"] for t in resp.json()]
 
 
+def test_roster_endpoint_stable_lineup(client):
+    token = register_and_login(client, "roster1@example.com")
+    _upload(client, token, map_id="de_mirage", team="Falcons", visibility="private")
+    resp = client.get(
+        "/analytics/roster",
+        params={"map_id": "de_mirage", "team": "Falcons"},
+        headers=auth(token),
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # A single demo cannot change line-up, so no warning must fire.
+    assert body["has_changes"] is False
+    assert body["n_demos"] >= 1
+
+
+def test_team_rosters_flags_lineup_change():
+    """The swap is dated by hltv_match_id (not demo_id) so in/out isn't reversed.
+
+    Mirrors the real HLTV shape: a batch shares the same download match_date and
+    is ingested newest-first (so demo_id runs opposite to chronology). Only the
+    monotonic hltv_match_id recovers the true order.
+    """
+    from datetime import date
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.analytics import aggregate
+    from app.db import Base
+    from app.domain.models import Demo, PlayerStat, Round, User
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    admin = User(email="ru@x.io", hashed_password="x", role="admin")
+    session.add(admin)
+    session.flush()
+
+    same_day = date(2026, 7, 15)
+
+    def make(did, match_id, roster):
+        session.add(
+            Demo(id=did, owner_id=admin.id, map_id="de_mirage", visibility="public",
+                 team_hltv_id="100", match_date=same_day, hltv_match_id=match_id)
+        )
+        session.add(
+            Round(demo_id=did, round_number=1, map_id="de_mirage", team="TeamA",
+                  team_hltv_id="100", buy_type="full", equip_value=4000,
+                  target_site="A", winner="t")
+        )
+        for name in roster:
+            session.add(PlayerStat(demo_id=did, name=name, team="TeamA"))
+        session.flush()
+
+    old = ["p1", "p2", "p3", "p4", "old"]
+    new = ["p1", "p2", "p3", "p4", "new"]
+    # demo_id runs opposite to chronology; hltv_match_id is the true order.
+    make(38, "2395698", new)  # newest match -> current roster
+    make(39, "2395210", old)
+    make(40, "2395201", old)
+    make(41, "2395133", old)  # oldest match -> former roster
+    make(42, "2395999", ["p1", "p2", "p3", "new"])  # newest but incomplete: no flag
+
+    out = aggregate.team_rosters(session, admin, map_id="de_mirage", team="100")
+    assert out.has_changes is True
+    assert out.core == ["p1", "p2", "p3", "p4"]
+    # Chronological, oldest first, driven by hltv_match_id.
+    assert [e.demo_id for e in out.entries] == [41, 40, 39, 38, 42]
+    swap = next(e for e in out.entries if e.added or e.removed)
+    assert swap.demo_id == 38  # the change lands on the most recent full demo
+    assert swap.added == ["new"] and swap.removed == ["old"]
+    gap = next(e for e in out.entries if e.demo_id == 42)
+    assert gap.complete is False
+    assert gap.added == [] and gap.removed == []
+
+
 def test_site_distribution_respects_visibility(client):
     owner = register_and_login(client, "agowner@example.com")
     _upload(client, owner, map_id="de_nuke", team="FaZe", visibility="private")

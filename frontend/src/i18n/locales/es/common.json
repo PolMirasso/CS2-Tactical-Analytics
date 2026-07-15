@@ -82,7 +82,16 @@
     "summary": "Resumen",
     "rounds": "Rondas",
     "buy": "Compra",
-    "buyTypes": { "pistol": "Pistola", "full_eco": "Eco total", "eco": "Eco", "ak_hero": "AK Hero", "m4_hero": "M4 Hero", "awp_hero": "AWP Hero", "force": "Forzada", "full": "Completa" },
+    "buyTypes": {
+      "pistol": "Pistola",
+      "full_eco": "Eco total",
+      "eco": "Eco",
+      "ak_hero": "AK Hero",
+      "m4_hero": "M4 Hero",
+      "awp_hero": "AWP Hero",
+      "force": "Forzada",
+      "full": "Completa"
+    },
     "site": "Site",
     "utility": "Utility",
     "noUtility": "Sin utility",
@@ -179,7 +188,15 @@
     "siteDistribution": "Distribución de sites de plant",
     "summary": "{{rounds}} rondas en {{demos}} demos · win rate global {{winRate}}",
     "winRate": "Win rate",
-    "noData": "Ninguna ronda coincide con estos filtros."
+    "noData": "Ninguna ronda coincide con estos filtros.",
+    "roster": {
+      "title": "Cambio de plantilla detectado",
+      "body_one": "Este equipo cambió de jugadores una vez en las demos analizadas: las tendencias agregadas de abajo mezclan formaciones distintas.",
+      "body_other": "Este equipo cambió de jugadores {{count}} veces en las demos analizadas: las tendencias agregadas de abajo mezclan formaciones distintas.",
+      "core": "Base (en todas las demos)",
+      "details": "Ver cambios",
+      "hide": "Ocultar cambios"
+    }
   },
   "scouting": {
     "title": "Scouting del rival",
@@ -224,6 +241,11 @@
     "observed": "acierto",
     "reportTitle": "Informe de scouting",
     "exportPdf": "Exportar a PDF",
-    "utilTypes": { "smoke": "Humo", "flash": "Flash", "molotov": "Molotov", "he": "HE" }
+    "utilTypes": {
+      "smoke": "Humo",
+      "flash": "Flash",
+      "molotov": "Molotov",
+      "he": "HE"
+    }
   }
 }

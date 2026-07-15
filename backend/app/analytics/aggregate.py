@@ -5,8 +5,15 @@ from datetime import date
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.domain.models import Demo, Round, User, UtilityEvent
-from app.domain.schemas import SiteDistributionOut, SiteStat, TeamRef, ZoneUtilStat
+from app.domain.models import Demo, PlayerStat, Round, User, UtilityEvent
+from app.domain.schemas import (
+    RosterEntry,
+    SiteDistributionOut,
+    SiteStat,
+    TeamRef,
+    TeamRostersOut,
+    ZoneUtilStat,
+)
 
 _UTIL_TYPES = ("smoke", "flash", "molotov", "he")
 
@@ -113,6 +120,118 @@ def site_distribution(
         total_demos=total_demos,
         overall_win_rate=total_wins / total_rounds if total_rounds else 0.0,
         sites=sites,
+    )
+
+
+_ROSTER_SIZE = 5
+
+
+def team_rosters(
+        session: Session,
+        user: User,
+        *,
+        map_id: str,
+        team: str | None = None,
+) -> TeamRostersOut:
+    """Roster the analysed team fielded per demo, flagging line-up changes"""
+    if not team:
+        return TeamRostersOut(map_id=map_id, team=team)
+
+    conds = _base_conditions(session, user, map_id)
+    conds.append(_team_filter(team))
+
+    rows = session.execute(
+        select(
+            Round.demo_id,
+            Demo.match_date,
+            Demo.hltv_match_id,
+            Round.team,
+            Round.opponent_hltv_id,
+            Round.opponent,
+        )
+        .join(Demo, Demo.id == Round.demo_id)
+        .where(*conds)
+        .distinct()
+    ).all()
+
+    meta: dict[int, dict] = {}
+    for demo_id, mdate, match_id, clan, opp_id, opp_clan in rows:
+        meta.setdefault(
+            demo_id,
+            {"date": mdate, "match_id": match_id, "clan": clan,
+             "opp_id": opp_id, "opp_clan": opp_clan},
+        )
+    if not meta:
+        return TeamRostersOut(map_id=map_id, team=team)
+
+    roster_by_demo: dict[int, set[str]] = {}
+    prows = session.execute(
+        select(PlayerStat.demo_id, PlayerStat.name, PlayerStat.team)
+        .where(PlayerStat.demo_id.in_(list(meta)))
+    ).all()
+    for demo_id, name, pteam in prows:
+        if name and pteam is not None and pteam == meta[demo_id]["clan"]:
+            roster_by_demo.setdefault(demo_id, set()).add(name)
+
+    from app.demos.service import resolve_team_names
+
+    opp_names = resolve_team_names(session, {m["opp_id"] for m in meta.values()})
+
+    def _match_id_int(v: str | None) -> int:
+        return int(v) if v and v.isdigit() else -1
+
+    # Oldest first. HLTV can stamp a whole download batch with the same date, so
+    # the monotonic hltv_match_id breaks ties; demo_id is a last resort — HLTV is
+    # ingested newest-first, so it runs opposite to chronology.
+    ordered = sorted(
+        meta,
+        key=lambda d: (
+            meta[d]["date"] is None,
+            meta[d]["date"] or date.min,
+            _match_id_int(meta[d]["match_id"]),
+            d,
+        ),
+    )
+
+    entries: list[RosterEntry] = []
+    has_changes = False
+    prev_full: set[str] | None = None
+    full_rosters: list[set[str]] = []
+    for demo_id in ordered:
+        roster = roster_by_demo.get(demo_id, set())
+        complete = len(roster) == _ROSTER_SIZE
+        added: list[str] = []
+        removed: list[str] = []
+        # Only compare full line-ups
+        if complete and prev_full is not None:
+            added = sorted(roster - prev_full)
+            removed = sorted(prev_full - roster)
+            if added or removed:
+                has_changes = True
+        m = meta[demo_id]
+        entries.append(
+            RosterEntry(
+                demo_id=demo_id,
+                match_date=m["date"],
+                opponent=opp_names.get(m["opp_id"]) or m["opp_clan"],
+                players=sorted(roster),
+                added=added,
+                removed=removed,
+                complete=complete,
+            )
+        )
+        if complete:
+            prev_full = roster
+            full_rosters.append(roster)
+
+    core = sorted(set.intersection(*full_rosters)) if full_rosters else []
+    return TeamRostersOut(
+        map_id=map_id,
+        team=team,
+        has_changes=has_changes,
+        n_demos=len(entries),
+        core=core,
+        entries=entries,
     )
 
 

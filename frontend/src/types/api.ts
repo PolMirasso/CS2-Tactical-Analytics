@@ -194,6 +194,25 @@ export interface SiteDistributionParams {
   date_to?: string
 }
 
+export interface RosterEntry {
+  demo_id: number
+  match_date: string | null
+  opponent: string | null
+  players: string[]
+  added: string[]
+  removed: string[]
+  complete: boolean
+}
+
+export interface TeamRostersOut {
+  map_id: string
+  team: string | null
+  has_changes: boolean
+  n_demos: number
+  core: string[]
+  entries: RosterEntry[]
+}
+
 // scouting / site prediction (ML)
 export interface UtilityInput {
   util_type: UtilityType

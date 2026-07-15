@@ -11,7 +11,14 @@ from app.analytics.maps import bomb_overlay_file, calibration, list_maps, radar_
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.domain.models import User
-from app.domain.schemas import MapCalibration, MapOut, SiteDistributionOut, TeamRef, ZoneOut
+from app.domain.schemas import (
+    MapCalibration,
+    MapOut,
+    SiteDistributionOut,
+    TeamRef,
+    TeamRostersOut,
+    ZoneOut,
+)
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 analytics_router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -77,6 +84,16 @@ def get_teams(
         session: Session = Depends(get_session),
 ) -> list[TeamRef]:
     return aggregate.teams_for_map(session, user, map_id)
+
+
+@analytics_router.get("/roster", response_model=TeamRostersOut)
+def get_roster(
+        map_id: str,
+        team: str | None = None,
+        user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> TeamRostersOut:
+    return aggregate.team_rosters(session, user, map_id=map_id, team=team)
 
 
 @analytics_router.get("/site-distribution", response_model=SiteDistributionOut)

@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { SITE_COLOR } from '@/lib/colors'
 import type { BuyType, SiteDistributionParams } from '@/types/api'
 import { useMaps } from '@/features/maps/hooks'
-import { useSiteDistribution, useTeams } from './hooks'
+import { useSiteDistribution, useTeamRoster, useTeams } from './hooks'
+import { RosterChangeWarning } from './RosterChangeWarning'
 
 const BUY_TYPES: BuyType[] = [
   'pistol', 'full_eco', 'eco', 'ak_hero', 'm4_hero', 'awp_hero', 'force', 'full',
@@ -33,6 +34,7 @@ export function AnalyticsPage() {
     [mapId, team, buyTypes],
   )
   const { data, isLoading, isError } = useSiteDistribution(params)
+  const { data: roster } = useTeamRoster(mapId || undefined, team || undefined)
 
   const toggleBuy = (b: BuyType) =>
     setBuyTypes((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
@@ -73,6 +75,8 @@ export function AnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {team && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
       {isLoading && <p className="muted">{t('common.loading')}</p>}
       {isError && <p className="error">{t('common.error')}</p>}

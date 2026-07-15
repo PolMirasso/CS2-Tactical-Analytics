@@ -82,7 +82,16 @@
     "summary": "Summary",
     "rounds": "Rounds",
     "buy": "Buy",
-    "buyTypes": { "pistol": "Pistol", "full_eco": "Full Eco", "eco": "Eco", "ak_hero": "AK Hero", "m4_hero": "M4 Hero", "awp_hero": "AWP Hero", "force": "Force", "full": "Full" },
+    "buyTypes": {
+      "pistol": "Pistol",
+      "full_eco": "Full Eco",
+      "eco": "Eco",
+      "ak_hero": "AK Hero",
+      "m4_hero": "M4 Hero",
+      "awp_hero": "AWP Hero",
+      "force": "Force",
+      "full": "Full"
+    },
     "site": "Site",
     "utility": "Utility",
     "noUtility": "No utility",
@@ -179,7 +188,15 @@
     "siteDistribution": "Plant-site distribution",
     "summary": "{{rounds}} rounds across {{demos}} demos · overall win rate {{winRate}}",
     "winRate": "Win rate",
-    "noData": "No rounds match these filters."
+    "noData": "No rounds match these filters.",
+    "roster": {
+      "title": "Roster change detected",
+      "body_one": "This team swapped players once in the analysed demos — the aggregated tendencies below mix different line-ups.",
+      "body_other": "This team swapped players {{count}} times in the analysed demos — the aggregated tendencies below mix different line-ups.",
+      "core": "Core (in every demo)",
+      "details": "Show changes",
+      "hide": "Hide changes"
+    }
   },
   "scouting": {
     "title": "Opponent scouting",
@@ -224,6 +241,11 @@
     "observed": "accuracy",
     "reportTitle": "Scouting report",
     "exportPdf": "Export to PDF",
-    "utilTypes": { "smoke": "Smoke", "flash": "Flash", "molotov": "Molotov", "he": "HE" }
+    "utilTypes": {
+      "smoke": "Smoke",
+      "flash": "Flash",
+      "molotov": "Molotov",
+      "he": "HE"
+    }
   }
 }

@@ -2,7 +2,8 @@ import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTeams } from '@/features/analytics/hooks'
+import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
+import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
 import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
@@ -49,6 +50,7 @@ export function ScoutingPage() {
   )
   const zones: ZoneOut[] = map?.zones ?? []
 
+  const { data: roster } = useTeamRoster(mapId || undefined, team || undefined)
   const tendencies = useTendencies(mapId || undefined, team || undefined)
   const modelStatus = useModelStatus()
   const predict = usePredict()
@@ -109,6 +111,8 @@ export function ScoutingPage() {
     <div>
       <h1>{t('scouting.title')}</h1>
       <p className="muted">{t('scouting.subtitle')}</p>
+
+      {team && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
       <div className="print-only" style={{ marginBottom: 12 }}>
         <h2 style={{ marginBottom: 4 }}>

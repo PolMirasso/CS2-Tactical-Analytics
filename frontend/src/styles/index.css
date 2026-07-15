@@ -293,6 +293,33 @@ th {
   font-size: 0.9rem;
   margin: 8px 0;
 }
+.warn-banner {
+  border: 1px solid var(--warn);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: rgba(243, 194, 68, 0.08);
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+.warn-banner .warn-title {
+  color: var(--warn);
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.warn-banner ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.warn-banner li {
+  margin: 2px 0;
+}
+.warn-banner .in {
+  color: var(--ok);
+}
+.warn-banner .out {
+  color: var(--danger);
+}
 .auth-shell {
   max-width: 360px;
   margin: 12vh auto 0;
