@@ -19,13 +19,13 @@ const money = (n: number) => `$${n.toLocaleString('en-US')}`
 
 function UtilityChips({ round }: { round: RoundOut }) {
   const { t } = useTranslation()
-  if (round.utility.length === 0) return <span className="muted">{t('demos.noUtility')}</span>
+  if (round.utility.length === 0) return <span className="text-muted">{t('demos.noUtility')}</span>
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    <div className="flex flex-wrap gap-1.5">
       {round.utility.map((u) => (
         <span
           key={u.id}
-          className="badge"
+          className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs"
           title={`${u.util_type} / ${u.zone ?? u.region ?? '-'} / ${u.round_time_s.toFixed(1)}s / ${u.team ?? ''}`}
           style={{ borderColor: UTIL_COLOR[u.util_type], color: UTIL_COLOR[u.util_type] }}
         >
@@ -46,33 +46,33 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
 
   if (rounds.length === 0) {
     return (
-      <div className="card">
-        <p className="muted">{t('demos.noRounds')}</p>
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+        <p className="text-muted">{t('demos.noRounds')}</p>
       </div>
     )
   }
 
   return (
     <>
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('demos.summary')}</h2>
-        <p className="muted">
+        <p className="text-muted">
           {t('demos.siteDistribution')}:{' '}
           {siteCounts.map(([s, n]) => (
-            <span key={s} className="badge" style={{ marginRight: 6 }}>
+            <span key={s} className="mr-1.5 inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">
               {s}: {n}
             </span>
           ))}
         </p>
-        <p className="muted">
+        <p className="text-muted">
           {t('demos.totalUtility')}: <strong>{totalUtility}</strong>
-          <span style={{ marginLeft: 16 }}>
+          <span className="ml-4">
             {t('demos.rounds')}: <strong>{rounds.length}</strong>
           </span>
         </p>
       </div>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('demos.rounds')}</h2>
         <table>
           <thead>
@@ -91,32 +91,30 @@ export function RoundsTable({ rounds }: { rounds: RoundOut[] }) {
                 <td>
                   {r.winner ? (
                     <span
-                      className="badge"
+                      className={`inline-block rounded-full border bg-surface-2 px-2 py-0.5 text-xs ${
+                        r.winner === 't' ? 'border-[#7bd88f] text-[#7bd88f]' : 'border-danger text-danger'
+                      }`}
                       title={r.win_reason ?? ''}
-                      style={{
-                        borderColor: r.winner === 't' ? '#7bd88f' : '#ff5d5d',
-                        color: r.winner === 't' ? '#7bd88f' : '#ff5d5d',
-                      }}
                     >
                       {r.winner === 't' ? t('demos.won', 'Ganada') : t('demos.lost', 'Perdida')}
                     </span>
                   ) : (
-                    <span className="muted">-</span>
+                    <span className="text-muted">-</span>
                   )}
                 </td>
                 <td>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span className="inline-flex items-center gap-2">
                     <span
-                      className="badge"
+                      className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs"
                       style={{ borderColor: BUY_COLOR[r.buy_type], color: BUY_COLOR[r.buy_type] }}
                     >
                       {t(`demos.buyTypes.${r.buy_type}`, r.buy_type)}
                     </span>
-                    <span className="muted">{money(r.equip_value)}</span>
+                    <span className="text-muted">{money(r.equip_value)}</span>
                   </span>
                 </td>
                 <td>
-                  <span className="badge">{r.target_site}</span>
+                  <span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">{r.target_site}</span>
                 </td>
                 <td>
                   <UtilityChips round={r} />

@@ -12,16 +12,16 @@ export function MapsPage() {
   const reserve = data?.filter((m) => RESERVE_MAPS.includes(m.id)) ?? []
 
   const renderMap = (map: NonNullable<typeof data>[number]) => (
-    <div className="card" key={map.id}>
+    <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid" key={map.id}>
       <h2>
         {map.name}{' '}
-        <span className="muted">
+        <span className="text-muted">
           ({map.zones.length} {t('maps.zones')})
         </span>
       </h2>
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-6">
         <ZoneScatter zones={map.zones} mapId={map.id} />
-        <table style={{ flex: 1, minWidth: 240 }}>
+        <table className="min-w-[240px] flex-1">
           <thead>
             <tr>
               <th>{t('maps.title')}</th>
@@ -33,7 +33,7 @@ export function MapsPage() {
               <tr key={z.id}>
                 <td>{z.name}</td>
                 <td>
-                  <span className="badge">{z.region}</span>
+                  <span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">{z.region}</span>
                 </td>
               </tr>
             ))}
@@ -46,8 +46,8 @@ export function MapsPage() {
   return (
     <div>
       <h1>{t('maps.title')}</h1>
-      {isLoading && <p className="muted">{t('common.loading')}</p>}
-      {isError && <p className="error">{t('common.error')}</p>}
+      {isLoading && <p className="text-muted">{t('common.loading')}</p>}
+      {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
       {active.length > 0 && (
         <>
           <h2>{t('maps.activeDuty')}</h2>

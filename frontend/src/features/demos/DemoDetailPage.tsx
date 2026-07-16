@@ -16,8 +16,8 @@ export function DemoDetailPage() {
   const reparse = useReparseDemo()
   const remove = useDeleteDemo()
 
-  if (isLoading) return <p className="muted">{t('common.loading')}</p>
-  if (isError || !demo) return <p className="error">{t('common.error')}</p>
+  if (isLoading) return <p className="text-muted">{t('common.loading')}</p>
+  if (isError || !demo) return <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>
 
   async function onDelete() {
     if (!confirm(t('demos.deleteConfirm'))) return
@@ -43,35 +43,35 @@ export function DemoDetailPage() {
         <StatusBadge status={reparse.isPending ? 'reparsing' : demo.status} />
       </h1>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <table>
           <tbody>
             {rows.map(([k, v]) => (
               <tr key={k}>
-                <th style={{ width: 160 }}>{k}</th>
+                <th className="w-40">{k}</th>
                 <td>{v}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {demo.error && <p className="error">{demo.error}</p>}
+        {demo.error && <p className="my-2 text-[0.9rem] text-danger">{demo.error}</p>}
       </div>
 
-      <div className="card">
-        <div className="row" style={{ maxWidth: 360 }}>
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+        <div className="flex max-w-[360px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <button
-            className="ghost"
+            className="border border-border bg-transparent text-text"
             onClick={() => reparse.mutate(demoId)}
             disabled={reparse.isPending}
           >
             {t('demos.reparse')}
           </button>
-          <button className="danger" onClick={onDelete} disabled={remove.isPending}>
+          <button className="bg-danger" onClick={onDelete} disabled={remove.isPending}>
             {t('common.delete')}
           </button>
         </div>
         {reparse.data && (
-          <p className="muted" style={{ marginTop: 12 }}>
+          <p className="text-muted mt-3">
             {t('demos.uploaded', {
               rounds: reparse.data.rounds,
               utility: reparse.data.utility_events,
@@ -81,14 +81,14 @@ export function DemoDetailPage() {
       </div>
 
       {demo.status === 'parsed' && (
-        <div className="card">
-          <Link to={`/demos/${demoId}/replay`} className="button">
+        <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+          <Link to={`/demos/${demoId}/replay`} className="inline-block cursor-pointer rounded-md bg-accent px-3.5 py-2 text-accent-text hover:brightness-[1.08]">
             {t('replay.open')}
           </Link>
         </div>
       )}
 
-      {analysis.isLoading && <p className="muted">{t('common.loading')}</p>}
+      {analysis.isLoading && <p className="text-muted">{t('common.loading')}</p>}
       {analysis.data && (
         <>
           <PlayerScoreboard players={analysis.data.players} />

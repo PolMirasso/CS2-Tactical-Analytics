@@ -79,9 +79,13 @@ export function HltvPage() {
     <div>
       <h1>{t('hltv.title')}</h1>
 
-      {!isAdmin && <p className="error">{t('hltv.adminOnly')}</p>}
+      {!isAdmin && <p className="my-2 text-[0.9rem] text-danger">{t('hltv.adminOnly')}</p>}
 
-      <div className="card" style={{ opacity: isAdmin ? 1 : 0.5 }}>
+      <div
+        className={`mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid ${
+          isAdmin ? '' : 'opacity-50'
+        }`}
+      >
         <TeamSearch onSelect={setTeam} />
 
         {team && (
@@ -89,7 +93,7 @@ export function HltvPage() {
             <p>
               {t('hltv.selectTeam')}: <strong>{team.name}</strong> (#{team.id})
             </p>
-            <div className="row" style={{ maxWidth: 520 }}>
+            <div className="flex max-w-[520px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
               <div>
                 <label htmlFor="map">{t('hltv.map')}</label>
                 <select id="map" value={mapId} onChange={(e) => setMapId(e.target.value)}>
@@ -138,8 +142,8 @@ export function HltvPage() {
                 />
               </div>
             </div>
-            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{t('hltv.maxMatchesHint')}</p>
-            {error && <p className="error">{error}</p>}
+            <p className="mt-1 text-[13px] text-muted">{t('hltv.maxMatchesHint')}</p>
+            {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
             <button onClick={onStart} disabled={!isAdmin || start.isPending}>
               {t('hltv.startDownload')}
             </button>
@@ -147,15 +151,15 @@ export function HltvPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('hltv.jobs')}</h2>
         {!jobs || jobs.length === 0 ? (
-          <p className="muted">{t('hltv.noJobs')}</p>
+          <p className="text-muted">{t('hltv.noJobs')}</p>
         ) : (
           <table>
             <thead>
               <tr>
-                <th style={{ width: 24 }}></th>
+                <th className="w-6"></th>
                 <th>{t('demos.team')}</th>
                 <th>{t('demos.status')}</th>
                 <th>{t('hltv.matches')}</th>
@@ -171,19 +175,19 @@ export function HltvPage() {
                   <Fragment key={job.id}>
                     <tr
                       onClick={() => toggleJob(job.id)}
-                      style={{ cursor: 'pointer' }}
+                      className="cursor-pointer"
                     >
-                      <td className="muted" style={{ textAlign: 'center' }}>
+                      <td className="text-muted text-center">
                         {open ? '▾' : '▸'}
                       </td>
                       <td>{job.team_name ?? job.team_id}</td>
                       <td>
                         <StatusBadge status={job.status} />
-                        {job.error && <div className="error">{job.error}</div>}
+                        {job.error && <div className="my-2 text-[0.9rem] text-danger">{job.error}</div>}
                         {job.status === 'completed' &&
                           job.matches_total === 0 &&
                           job.demos_ingested === 0 && (
-                            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                            <div className="mt-1 text-xs text-muted">
                               {t(
                                 'hltv.noMatches',
                                 'Sin partidos en este periodo (el equipo puede estar inactivo o haber cambiado de nombre).',
@@ -199,14 +203,14 @@ export function HltvPage() {
                           ? `${job.demos_ingested}/${job.demos_total}`
                           : job.demos_ingested}
                       </td>
-                      <td className="muted">{formatDate(job.created_at)}</td>
+                      <td className="text-muted">{formatDate(job.created_at)}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <JobActions job={job} disabled={!isAdmin} />
                       </td>
                     </tr>
                     {open && (
                       <tr>
-                        <td colSpan={7} style={{ background: 'rgba(255,255,255,0.02)' }}>
+                        <td colSpan={7} className="bg-white/2">
                           <JobDetails job={job} />
                         </td>
                       </tr>
@@ -239,12 +243,11 @@ function JobActions({ job, disabled }: { job: DownloadJobOut; disabled: boolean 
 
   if (buttons.length === 0) return null
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div className="flex gap-1.5">
       {buttons.map(({ label, a }) => (
         <button
           key={a}
-          className="secondary"
-          style={{ padding: '2px 8px', fontSize: 12 }}
+          className="px-2 py-0.5 text-xs"
           disabled={busy}
           onClick={() => run(a)}
         >
@@ -257,33 +260,13 @@ function JobActions({ job, disabled }: { job: DownloadJobOut; disabled: boolean 
 
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div
-      style={{
-        position: 'relative',
-        height: 18,
-        borderRadius: 9,
-        background: 'rgba(255,255,255,0.08)',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="relative h-[18px] overflow-hidden rounded-[9px] bg-white/8">
       <div
-        style={{
-          width: `${pct}%`,
-          height: '100%',
-          background: 'var(--accent, #4f8cff)',
-          transition: 'width 0.3s ease',
-        }}
+        className="h-full bg-accent transition-[width] duration-300 ease-[ease]"
+        style={{ width: `${pct}%` }}
       />
       <span
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 12,
-          fontWeight: 600,
-        }}
+        className="absolute inset-0 flex items-center justify-center text-xs font-semibold"
       >
         {pct}%
       </span>
@@ -303,30 +286,24 @@ function JobDetails({ job }: { job: DownloadJobOut }) {
     [t('hltv.updated'), formatDate(job.updated_at)],
   ]
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px' }}>
+    <div className="flex flex-col gap-2.5 px-1 py-2">
       <div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+        <div className="text-muted mb-1 text-xs">
           {t('hltv.progress')}
         </div>
         <ProgressBar pct={jobProgress(job)} />
       </div>
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr',
-          columnGap: 16,
-          rowGap: 4,
-          fontSize: 13,
-        }}
+        className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]"
       >
         {rows.map(([label, value]) => (
           <Fragment key={label}>
-            <span className="muted">{label}</span>
+            <span className="text-muted">{label}</span>
             <span>{value}</span>
           </Fragment>
         ))}
       </div>
-      {job.error && <p className="error" style={{ margin: 0 }}>{job.error}</p>}
+      {job.error && <p className="m-0 text-[0.9rem] text-danger">{job.error}</p>}
     </div>
   )
 }

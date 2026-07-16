@@ -1,367 +1,93 @@
-:root {
-  --bg: #0f1115;
-  --surface: #181b22;
-  --surface-2: #20242d;
-  --border: #2b313c;
-  --text: #e6e8ec;
-  --muted: #9aa3b2;
-  --accent: #4f8cff;
-  --accent-text: #ffffff;
-  --danger: #ff5d5d;
-  --ok: #46d27e;
-  --warn: #f3c244;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color-scheme: dark;
+@import 'tailwindcss';
+
+/* Design tokens. Plain @theme (not @theme inline) on purpose: utilities compile
+   to var(--color-*), so the print block below re-themes the whole app by
+   overriding these six vars. Inlining would freeze the dark values. */
+@theme {
+  --color-bg: #0f1115;
+  --color-surface: #181b22;
+  --color-surface-2: #20242d;
+  --color-border: #2b313c;
+  --color-text: #e6e8ec;
+  --color-muted: #9aa3b2;
+  --color-accent: #4f8cff;
+  --color-accent-text: #ffffff;
+  --color-danger: #ff5d5d;
+  --color-ok: #46d27e;
+  --color-warn: #f3c244;
+
+  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply m-0 bg-bg font-sans text-text;
+  }
+
+  a {
+    @apply text-accent no-underline hover:underline;
+  }
+
+  /* Preflight zeroes these; the pre-Tailwind design leaned on the browser
+     defaults (h1/h2 sizing was explicit, paragraph spacing was not). */
+  p {
+    @apply my-4;
+  }
+
+  h1 {
+    @apply mb-4 text-[1.4rem];
+  }
+
+  h2 {
+    @apply mb-3 text-[1.1rem];
+  }
+
+  /* h3 was never styled either, so it rode on the UA defaults Preflight drops. */
+  h3 {
+    @apply my-[1em] text-[1.17em] font-bold;
+  }
+
+  label {
+    @apply mb-1 block text-[0.85rem] text-muted;
+  }
+
+  input,
+  select {
+    @apply mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text;
+  }
+
+  button {
+    @apply cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text;
+    @apply hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  table {
+    @apply w-full border-collapse text-[0.9rem];
+  }
+
+  th,
+  td {
+    @apply border-b border-border px-2.5 py-2 text-left;
+  }
+
+  th {
+    @apply font-semibold text-muted;
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
-
-.app {
-  display: flex;
-  min-height: 100vh;
-}
-
-.main {
-  flex: 1;
-  min-width: 0;
-  padding: 20px 24px 56px;
-}
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-  height: 100vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 220px;
-  flex-shrink: 0;
-  padding: 12px 10px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  transition: width 0.15s ease;
-}
-.sidebar.collapsed {
-  width: 60px;
-}
-
-.sidebar-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 34px;
-  margin-bottom: 8px;
-}
-.sidebar.collapsed .sidebar-top {
-  justify-content: center;
-}
-.sidebar .brand {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.sidebar-toggle {
-  padding: 2px 9px;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.sidebar-nav a {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 9px 11px;
-  border-radius: 8px;
-  color: var(--text);
-  white-space: nowrap;
-}
-.sidebar-nav a:hover {
-  background: var(--surface-2);
-}
-.sidebar-nav a.active {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-.sidebar.collapsed .sidebar-nav a {
-  justify-content: center;
-  padding: 9px;
-}
-.nav-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.sidebar-bottom {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.sidebar.collapsed .sidebar-bottom {
-  align-items: center;
-}
-.sidebar-user {
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.centered {
-  display: grid;
-  place-items: center;
-  min-height: 60vh;
-  color: var(--muted);
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
-
-h1 {
-  font-size: 1.4rem;
-  margin: 0 0 16px;
-}
-h2 {
-  font-size: 1.1rem;
-  margin: 0 0 12px;
-}
-
-label {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-
-input,
-select,
-button {
-  font: inherit;
-}
-
-input,
-select {
-  width: 100%;
-  padding: 8px 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  margin-bottom: 12px;
-}
-
-button {
-  padding: 8px 14px;
-  background: var(--accent);
-  color: var(--accent-text);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-button:hover {
-  filter: brightness(1.08);
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.button {
-  display: inline-block;
-  padding: 8px 14px;
-  background: var(--accent);
-  color: var(--accent-text);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.button:hover {
-  filter: brightness(1.08);
-}
-
-.replay-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.replay-page-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.back-link {
-  display: inline-block;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-}
-.back-link:hover {
-  background: var(--surface-2);
-}
-button.ghost {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-button.danger {
-  background: var(--danger);
-}
-
-.row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.row > * {
-  flex: 1;
-  min-width: 140px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-th,
-td {
-  text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-}
-th {
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-}
-.badge.ok {
-  color: var(--ok);
-  border-color: var(--ok);
-}
-.badge.failed {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-.badge.running,
-.badge.pending {
-  color: var(--warn);
-  border-color: var(--warn);
-}
-
-.muted {
-  color: var(--muted);
-}
-.error {
-  color: var(--danger);
-  font-size: 0.9rem;
-  margin: 8px 0;
-}
-.warn-banner {
-  border: 1px solid var(--warn);
-  border-left-width: 4px;
-  border-radius: 8px;
-  background: rgba(243, 194, 68, 0.08);
-  padding: 12px 14px;
-  margin-bottom: 20px;
-  font-size: 0.9rem;
-}
-.warn-banner .warn-title {
-  color: var(--warn);
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-.warn-banner ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-.warn-banner li {
-  margin: 2px 0;
-}
-.warn-banner .in {
-  color: var(--ok);
-}
-.warn-banner .out {
-  color: var(--danger);
-}
-.auth-shell {
-  max-width: 360px;
-  margin: 12vh auto 0;
-}
-.lang-switch {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 4px 8px;
-  width: auto;
-  margin: 0;
-}
-
-/* Print / PDF export (scouting report): hide chrome, re-theme to light. */
-.print-only {
-  display: none;
-}
+/* Print / PDF export (scouting report): re-theme to light. What gets hidden or
+   shown is handled at the call sites with Tailwind's `print:` variant. */
 @media print {
   :root {
-    --bg: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #f1f1f4;
-    --border: #cccccc;
-    --text: #111418;
-    --muted: #555b66;
-  }
-  .sidebar,
-  .no-print {
-    display: none !important;
-  }
-  .app {
-    display: block;
-  }
-  .main {
-    padding: 0;
-  }
-  .print-only {
-    display: block;
-  }
-  .card {
-    break-inside: avoid;
-    margin-bottom: 12px;
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-2: #f1f1f4;
+    --color-border: #cccccc;
+    --color-text: #111418;
+    --color-muted: #555b66;
   }
 }

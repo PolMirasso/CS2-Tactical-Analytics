@@ -9,30 +9,30 @@ export function RosterChangeWarning({ roster }: { roster: TeamRostersOut }) {
   const changes = roster.entries.filter((e) => e.added.length || e.removed.length)
 
   return (
-    <div className="warn-banner">
-      <p className="warn-title">⚠ {t('analytics.roster.title')}</p>
+    <div className="mb-5 rounded-lg border border-l-4 border-warn bg-warn/8 px-3.5 py-3 text-[0.9rem]">
+      <p className="mt-0 mb-1.5 font-semibold text-warn">⚠ {t('analytics.roster.title')}</p>
       <div>{t('analytics.roster.body', { count: changes.length })}</div>
       {roster.core.length > 0 && (
-        <div className="muted" style={{ marginTop: 6 }}>
+        <div className="mt-1.5 text-muted">
           {t('analytics.roster.core')}: {roster.core.join(', ')}
         </div>
       )}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        style={{ width: 'auto', marginTop: 8, padding: '2px 8px', fontSize: '0.8rem' }}
+        className="mt-2 w-auto px-2 py-0.5 text-[0.8rem]"
       >
         {open ? t('analytics.roster.hide') : t('analytics.roster.details')}
       </button>
       {open && (
-        <ul>
+        <ul className="mt-2 mb-0 list-disc pl-[18px]">
           {changes.map((e) => (
-            <li key={e.demo_id}>
-              {e.match_date && <span className="muted">{e.match_date} · </span>}
-              {e.opponent && <span className="muted">vs {e.opponent} · </span>}
-              {e.added.length > 0 && <span className="in">+ {e.added.join(', ')}</span>}
+            <li key={e.demo_id} className="my-0.5">
+              {e.match_date && <span className="text-muted">{e.match_date} · </span>}
+              {e.opponent && <span className="text-muted">vs {e.opponent} · </span>}
+              {e.added.length > 0 && <span className="text-ok">+ {e.added.join(', ')}</span>}
               {e.added.length > 0 && e.removed.length > 0 && ' '}
-              {e.removed.length > 0 && <span className="out">− {e.removed.join(', ')}</span>}
+              {e.removed.length > 0 && <span className="text-danger">− {e.removed.join(', ')}</span>}
             </li>
           ))}
         </ul>

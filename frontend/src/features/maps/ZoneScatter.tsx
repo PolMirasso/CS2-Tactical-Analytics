@@ -21,26 +21,18 @@ export function ZoneScatter({ zones, mapId, size = 460 }: Props) {
 
   return (
     <div
-      style={{
-        position: 'relative',
-        width: size,
-        height: size,
-        flexShrink: 0,
-        background: '#11141a',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        overflow: 'hidden',
-      }}
+      className="relative shrink-0 overflow-hidden rounded-lg border border-border bg-[#11141a]"
+      style={{ width: size, height: size }}
     >
       <img
         src={apiUrl(`/maps/${mapId}/radar.png`)}
         alt={mapId}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+        className="absolute inset-0 h-full w-full object-contain"
       />
       <svg
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         preserveAspectRatio="none"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        className="absolute inset-0 h-full w-full"
       >
         {ordered.map((z) => {
           const active = hovered === z.id
@@ -55,7 +47,7 @@ export function ZoneScatter({ zones, mapId, size = 460 }: Props) {
               stroke={color}
               strokeWidth={active ? 3 : 1.5}
               strokeLinejoin="round"
-              style={{ cursor: 'pointer' }}
+              className="cursor-pointer"
               onMouseEnter={() => setHovered(z.id)}
               onMouseLeave={() => setHovered((h) => (h === z.id ? null : h))}
             >
@@ -81,7 +73,7 @@ export function ZoneScatter({ zones, mapId, size = 460 }: Props) {
               stroke="#11141a"
               strokeWidth={active ? 3.5 : 2.5}
               paintOrder="stroke"
-              style={{ pointerEvents: 'none' }}
+              className="pointer-events-none"
             >
               {z.name}
             </text>

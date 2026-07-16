@@ -356,21 +356,14 @@ function TeamPanel({
   const { t } = useTranslation()
   const color = SIDE_COLOR[side] ?? '#fff'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: '100%' }}>
+    <div className="flex w-full flex-col gap-[5px]">
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          fontWeight: 700,
-          fontSize: 13,
-          color,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-        }}
+        className="flex items-center gap-1.5 text-[13px] font-bold tracking-[0.5px] uppercase"
+        style={{ color }}
       >
         <span
-          style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: color }}
+          className="inline-block h-2.5 w-2.5 rounded-[2px]"
+          style={{ background: color }}
         />
         {side === 'ct' ? 'CT' : 'T'}
       </div>
@@ -390,44 +383,22 @@ function TeamPanel({
             key={e.player.steamid}
             onClick={() => onFollow(e.idx)}
             title={t('replay.follow', 'Seguir jugador')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              padding: '6px 8px',
-              borderRadius: 6,
-              border: `1px solid ${isFollowed ? color : 'var(--border)'}`,
-              background: isFollowed ? 'rgba(255,255,255,0.06)' : '#11141a',
-              opacity: dead ? 0.45 : 1,
-              cursor: 'pointer',
-            }}
+            className={`flex cursor-pointer flex-col gap-[3px] rounded-md border px-2 py-1.5 ${
+              isFollowed ? 'bg-white/6' : 'border-border bg-[#11141a]'
+            } ${dead ? 'opacity-45' : ''}`}
+            style={{ borderColor: isFollowed ? color : undefined }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="flex items-center gap-2">
               <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
-                  background: color,
-                  color: '#11141a',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  flexShrink: 0,
-                }}
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[13px] font-bold text-[#11141a]"
+                style={{ background: color }}
               >
                 {e.number}
               </span>
               <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  textDecoration: dead ? 'line-through' : undefined,
-                }}
+                className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+                  dead ? 'line-through' : ''
+                }`}
                 title={e.player.name}
               >
                 {e.player.name}
@@ -435,49 +406,36 @@ function TeamPanel({
               {c4Holder === e.idx && (
                 <span
                   title={t('replay.hasC4', 'Lleva el C4')}
-                  style={{
-                    flexShrink: 0,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: '#fff',
-                    background: '#d6452b',
-                    borderRadius: 3,
-                    padding: '1px 4px',
-                  }}
+                  className="shrink-0 rounded-[3px] bg-[#d6452b] px-1 py-px text-[10px] font-bold text-white"
                 >
                   C4
                 </span>
               )}
-              <span className="muted" title={t('replay.money')} style={{ fontSize: 13 }}>
+              <span className="text-[13px] text-muted" title={t('replay.money')}>
                 ${st[1]}
               </span>
             </div>
-            <div className="muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 6 }}>
-              <span title={t('replay.weapon')} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="flex justify-between gap-1.5 text-xs text-muted">
+              <span title={t('replay.weapon')} className="overflow-hidden text-ellipsis whitespace-nowrap">
                 {weapon}
               </span>
               {!dead && (clip > 0 || reserve > 0) && (
-                <span title={t('replay.ammo')} style={{ flexShrink: 0 }}>
+                <span title={t('replay.ammo')} className="shrink-0">
                   {clip}/{reserve}
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <span className="muted" title={t('replay.hp')}>{hp}♥</span>
-              <span className="muted" title={t('replay.armor')}>{st[0]}🛡</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-muted" title={t('replay.hp')}>{hp}♥</span>
+              <span className="text-muted" title={t('replay.armor')}>{st[0]}🛡</span>
               {/* Utility currently carried. */}
-              <span style={{ display: 'flex', gap: 3, marginLeft: 'auto' }}>
+              <span className="ml-auto flex gap-[3px]">
                 {held.map((n) => (
                   <span
                     key={n.bit}
                     title={n.label}
-                    style={{
-                      display: 'inline-block',
-                      width: 9,
-                      height: 9,
-                      borderRadius: 2,
-                      background: n.color,
-                    }}
+                    className="inline-block h-[9px] w-[9px] rounded-[2px]"
+                    style={{ background: n.color }}
                   />
                 ))}
               </span>
@@ -703,54 +661,32 @@ function ReplayStage({
   return (
     <div>
       <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-        }}
+        className="flex flex-wrap items-start justify-center gap-3"
       >
         {/* CT column to the left of the map. */}
         <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            flex: '0 1 240px',
-            minWidth: 200,
-            maxWidth: 260,
-          }}
+          className="flex max-w-[260px] min-w-[200px] flex-[0_1_240px] flex-col gap-3"
         >
           <TeamPanel side="ct" entries={teams.ct} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
         </div>
 
         <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            // Cap by available viewport height (not max-height, which would make
-            // the box rectangular and misalign the radar img vs the SVG overlay).
-            maxWidth: fullscreen ? 'min(1100px, calc(100vh - 250px))' : 1000,
-            minWidth: 320,
-            flex: '1 1 520px',
-            aspectRatio: '1 / 1',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            overflow: 'hidden',
-            background: '#11141a',
-          }}
+          // Cap by available viewport height (not max-height, which would make
+          // the box rectangular and misalign the radar img vs the SVG overlay).
+          className={`relative aspect-square w-full min-w-[320px] flex-[1_1_520px] overflow-hidden rounded-lg border border-border bg-[#11141a] ${
+            fullscreen ? 'max-w-[min(1100px,calc(100vh-250px))]' : 'max-w-[1000px]'
+          }`}
         >
           {hasRadar && (
             <img
               src={apiUrl(`/maps/${mapId}/radar.png`)}
               alt={mapId}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.85 }}
+              className="absolute inset-0 h-full w-full object-contain opacity-85"
             />
           )}
           <svg
             viewBox={`0 0 ${RADAR} ${RADAR}`}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+            className="absolute inset-0 h-full w-full"
           >
             {/* C4 damage field*/}
             {bombRect && bombField && (
@@ -761,7 +697,7 @@ function ReplayStage({
                 width={bombRect.w}
                 height={bombRect.h}
                 preserveAspectRatio="none"
-                style={{ pointerEvents: 'none' }}
+                className="pointer-events-none"
               />
             )}
             {bombRectLower && bombField?.lower && (
@@ -772,7 +708,7 @@ function ReplayStage({
                 width={bombRectLower.w}
                 height={bombRectLower.h}
                 preserveAspectRatio="none"
-                style={{ pointerEvents: 'none' }}
+                className="pointer-events-none"
               />
             )}
 
@@ -945,7 +881,7 @@ function ReplayStage({
                       fill={color}
                       stroke="#11141a"
                       strokeWidth={2}
-                      style={{ cursor: 'pointer' }}
+                      className="cursor-pointer"
                       onClick={() => {
                         const cmd = `setpos ${px.toFixed(1)} ${py.toFixed(1)} ${(live[4] ?? 0).toFixed(1)};setang 0 ${yaw.toFixed(1)} 0`
                         setPicked({ name: player.name, cmd })
@@ -956,7 +892,7 @@ function ReplayStage({
                       <title>{player.name}</title>
                     </circle>
                     {c4Holder === k && (
-                      <g style={{ pointerEvents: 'none' }}>
+                      <g className="pointer-events-none">
                         <rect x={cx + 9} y={cy - 20} width={20} height={14} rx={3} fill="#d6452b" stroke="#fff" strokeWidth={1.5} />
                         <text x={cx + 19} y={cy - 13} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#fff">
                           C4
@@ -974,7 +910,7 @@ function ReplayStage({
                       stroke="#11141a"
                       strokeWidth={3}
                       paintOrder="stroke"
-                      style={{ pointerEvents: 'none' }}
+                      className="pointer-events-none"
                     >
                       {player.name}
                     </text>
@@ -1000,7 +936,7 @@ function ReplayStage({
             {!c4Planted && c4Holder < 0 && c4.x != null && c4.y != null && (() => {
               const [bx, by] = project(c4.x!, c4.y!, c4.z ?? undefined)
               return (
-                <g style={{ pointerEvents: 'none' }}>
+                <g className="pointer-events-none">
                   <rect x={bx - 11} y={by - 8} width={22} height={16} rx={3} fill="#8a3520" stroke="#ffb37a" strokeWidth={1.5} opacity={0.9} />
                   <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#ffd9bf">
                     C4
@@ -1027,7 +963,7 @@ function ReplayStage({
                     fontSize={11}
                     fontWeight={700}
                     fill="#fff"
-                    style={{ pointerEvents: 'none' }}
+                    className="pointer-events-none"
                   >
                     C4
                   </text>
@@ -1039,30 +975,14 @@ function ReplayStage({
           {/* C4 damage legend. */}
           {showBomb && (
             <div
-              style={{
-                position: 'absolute',
-                bottom: 8,
-                right: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                padding: '7px 9px',
-                borderRadius: 6,
-                background: 'rgba(10,12,16,0.86)',
-                border: '1px solid var(--border)',
-                pointerEvents: 'none',
-                maxWidth: 172,
-              }}
+              className="pointer-events-none absolute right-2 bottom-2 flex max-w-[172px] flex-col gap-1 rounded-md border border-border bg-[rgba(10,12,16,0.86)] px-[9px] py-[7px]"
             >
-              <strong style={{ fontSize: 11 }}>{t('replay.bombDamage', 'Daño C4')}</strong>
+              <strong className="text-[11px]">{t('replay.bombDamage', 'Daño C4')}</strong>
               <div
-                style={{
-                  height: 8,
-                  borderRadius: 3,
-                  background: `linear-gradient(90deg, #ff3b3b 0%, #ffd23b 62%, ${BOMB_SAFE_CSS} 100%)`,
-                }}
+                className="h-2 rounded-[3px]"
+                style={{ background: `linear-gradient(90deg, #ff3b3b 0%, #ffd23b 62%, ${BOMB_SAFE_CSS} 100%)` }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10 }} className="muted">
+              <div className="flex justify-between gap-2 text-[10px] text-muted">
                 <span>{t('replay.bombLethal', 'Letal')}</span>
                 <span>{t('replay.bombLight', 'Leve')}</span>
                 <span>{t('replay.bombSafe', 'Sin daño')}</span>
@@ -1076,28 +996,12 @@ function ReplayStage({
             const danger = !!planted
             return (
               <div
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '2px 16px',
-                  borderRadius: 4,
-                  background: 'rgba(13,16,22,0.9)',
-                  border: `1px solid ${danger ? 'rgba(255,93,93,0.55)' : 'var(--border)'}`,
-                  color: danger ? '#ff5d5d' : '#e6e9ef',
-                  fontSize: 22,
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  fontVariantNumeric: 'tabular-nums',
-                  pointerEvents: 'none',
-                }}
+                className={`pointer-events-none absolute top-2.5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded border bg-[rgba(13,16,22,0.9)] px-4 py-0.5 text-[22px] font-bold tracking-[1px] tabular-nums ${
+                  danger ? 'border-[rgba(255,93,93,0.55)] text-danger' : 'border-border text-[#e6e9ef]'
+                }`}
               >
                 {danger && (
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: '#ff5d5d' }} />
+                  <span className="h-[9px] w-[9px] rounded-[2px] bg-danger" />
                 )}
                 {fmtClock(remaining)}
               </div>
@@ -1106,29 +1010,17 @@ function ReplayStage({
 
           {picked && (
             <div
-              style={{
-                position: 'absolute',
-                bottom: 8,
-                left: 8,
-                maxWidth: '75%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 5,
-                padding: '8px 10px',
-                borderRadius: 6,
-                background: 'rgba(10,12,16,0.92)',
-                border: '1px solid var(--border)',
-              }}
+              className="absolute bottom-2 left-2 flex max-w-[75%] flex-col gap-[5px] rounded-md border border-border bg-[rgba(10,12,16,0.92)] px-2.5 py-2"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <strong style={{ fontSize: 12 }}>{picked.name}</strong>
-                <button className="ghost" style={{ padding: '0 6px' }} onClick={() => setPicked(null)}>
+              <div className="flex items-center justify-between gap-2">
+                <strong className="text-xs">{picked.name}</strong>
+                <button className="border border-border bg-transparent text-text px-1.5 py-0" onClick={() => setPicked(null)}>
                   ✕
                 </button>
               </div>
-              <code style={{ fontSize: 11, wordBreak: 'break-all' }}>{picked.cmd}</code>
+              <code className="text-[11px] break-all">{picked.cmd}</code>
               <button
-                style={{ padding: '3px 8px', alignSelf: 'flex-start' }}
+                className="self-start px-2 py-[3px]"
                 onClick={async () => {
                   await navigator.clipboard.writeText(picked.cmd)
                   setCopied(true)
@@ -1143,64 +1035,46 @@ function ReplayStage({
 
         {/* T column to the right of the map. */}
         <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            flex: '0 1 240px',
-            minWidth: 200,
-            maxWidth: 260,
-          }}
+          className="flex max-w-[260px] min-w-[200px] flex-[0_1_240px] flex-col gap-3"
         >
           <TeamPanel side="t" entries={teams.t} statFrame={statFrame} weapons={round.weapons} followed={followed} onFollow={toggleFollow} c4Holder={c4Holder} />
         </div>
 
         {/* Kill feed column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 1 240px', minWidth: 200, maxWidth: 260 }}>
+        <div className="flex max-w-[260px] min-w-[200px] flex-[0_1_240px] flex-col gap-1">
           {visibleKills.map((k, i) => (
             <div
               key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                columnGap: 6,
-                rowGap: 2,
-                background: 'rgba(10,12,16,0.82)',
-                border: '1px solid var(--border)',
-                borderRadius: 4,
-                padding: '3px 8px',
-                fontSize: 13,
-              }}
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border border-border bg-[rgba(10,12,16,0.82)] px-2 py-[3px] text-[13px]"
             >
-              <span style={{ color: SIDE_COLOR[k.as] ?? '#fff', fontWeight: 600, overflowWrap: 'anywhere' }}>{k.atk}</span>
-              <span className="muted">{prettyWeapon(k.wp)}</span>
+              <span className="font-semibold [overflow-wrap:anywhere]" style={{ color: SIDE_COLOR[k.as] ?? '#fff' }}>{k.atk}</span>
+              <span className="text-muted">{prettyWeapon(k.wp)}</span>
               {k.air && (
-                <span title={t('replay.jump')} style={{ color: '#5fd0ff', fontWeight: 700 }}>
+                <span title={t('replay.jump')} className="font-bold text-[#5fd0ff]">
                   JUMP
                 </span>
               )}
               {k.ns && (
-                <span title={t('replay.noscope')} style={{ color: '#ffb454', fontWeight: 700 }}>
+                <span title={t('replay.noscope')} className="font-bold text-[#ffb454]">
                   NS
                 </span>
               )}
               {k.hs && (
-                <span title={t('replay.headshot')} style={{ color: '#ff5d5d', fontWeight: 700 }}>
+                <span title={t('replay.headshot')} className="font-bold text-danger">
                   HS
                 </span>
               )}
-              <span style={{ color: '#7a8190' }}>→</span>
-              <span style={{ color: SIDE_COLOR[k.vs] ?? '#fff', fontWeight: 600, overflowWrap: 'anywhere' }}>{k.vic}</span>
+              <span className="text-[#7a8190]">→</span>
+              <span className="font-semibold [overflow-wrap:anywhere]" style={{ color: SIDE_COLOR[k.vs] ?? '#fff' }}>{k.vic}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {!hasRadar && <p className="muted" style={{ marginTop: 8 }}>{t('replay.noRadar')}</p>}
+      {!hasRadar && <p className="mt-2 text-muted">{t('replay.noRadar')}</p>}
 
       {/* Round strip: winner colour on top, clickable round number below. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 14 }}>
+      <div className="mt-3.5 flex flex-wrap gap-[3px]">
         {rounds.map((r) => {
           const active = r.round_number === currentRound
           const wc = r.winner === 'ct' ? SIDE_COLOR.ct : r.winner === 't' ? SIDE_COLOR.t : 'transparent'
@@ -1209,26 +1083,15 @@ function ReplayStage({
               key={r.round_number}
               onClick={() => onRound(r.round_number)}
               title={`${t('replay.round')} ${r.round_number}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: 0,
-                minWidth: 30,
-                overflow: 'hidden',
-                borderRadius: 5,
-                cursor: 'pointer',
-                border: `1px solid ${active ? 'var(--text)' : 'var(--border)'}`,
-                background: active ? 'var(--surface-2)' : '#11141a',
-              }}
+              className={`flex min-w-[30px] cursor-pointer flex-col overflow-hidden rounded-[5px] border p-0 ${
+                active ? 'border-text bg-surface-2' : 'border-border bg-[#11141a]'
+              }`}
             >
-              <span style={{ height: 4, background: wc }} />
+              <span className="h-1" style={{ background: wc }} />
               <span
-                style={{
-                  padding: '4px 7px',
-                  fontSize: 12,
-                  fontWeight: active ? 700 : 400,
-                  color: active ? 'var(--text)' : 'var(--muted)',
-                }}
+                className={`px-[7px] py-1 text-xs ${
+                  active ? 'font-bold text-text' : 'font-normal text-muted'
+                }`}
               >
                 {r.round_number}
               </span>
@@ -1247,108 +1110,56 @@ function ReplayStage({
         onPointerMove={(e) => {
           if (e.buttons & 1) seekFromClientX(e.clientX)
         }}
-        style={{
-          position: 'relative',
-          height: 30,
-          marginTop: 10,
-          background: '#11141a',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          cursor: 'pointer',
-          touchAction: 'none',
-        }}
+        className="relative mt-2.5 h-[30px] touch-none cursor-pointer rounded-md border border-border bg-[#11141a]"
       >
         <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: `${(time / duration) * 100}%`,
-            background: 'rgba(79,140,255,0.18)',
-          }}
+          className="absolute top-0 bottom-0 left-0 bg-[rgba(79,140,255,0.18)]"
+          style={{ width: `${(time / duration) * 100}%` }}
         />
         {round.utility.map((u, i) => (
           <span
             key={`m${i}`}
             title={`${u.type} · ${u.t.toFixed(1)}s`}
-            style={{
-              position: 'absolute',
-              top: 5,
-              left: `${(u.t / duration) * 100}%`,
-              transform: 'translateX(-50%)',
-              width: 9,
-              height: 9,
-              borderRadius: '50%',
-              background: UTIL_COLOR[u.type] ?? '#fff',
-              pointerEvents: 'none',
-            }}
+            className="pointer-events-none absolute top-[5px] h-[9px] w-[9px] -translate-x-1/2 rounded-full"
+            style={{ left: `${(u.t / duration) * 100}%`, background: UTIL_COLOR[u.type] ?? '#fff' }}
           />
         ))}
         {(round.kills ?? []).map((k, i) => (
           <span
             key={`k${i}`}
             title={`${k.atk} → ${k.vic}`}
-            style={{
-              position: 'absolute',
-              bottom: 4,
-              left: `${(k.t / duration) * 100}%`,
-              transform: 'translateX(-50%)',
-              width: 0,
-              height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: `7px solid ${SIDE_COLOR[k.as] ?? '#fff'}`,
-              pointerEvents: 'none',
-            }}
+            className="pointer-events-none absolute bottom-1 h-0 w-0 -translate-x-1/2 border-x-4 border-t-[7px] border-x-transparent"
+            style={{ left: `${(k.t / duration) * 100}%`, borderTopColor: SIDE_COLOR[k.as] ?? '#fff' }}
           />
         ))}
         {round.bomb && (
           <span
             title={`${t('replay.bombPlant')} · ${round.bomb.t.toFixed(1)}s`}
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: `${(round.bomb.t / duration) * 100}%`,
-              width: 2,
-              marginLeft: -1,
-              background: '#d6452b',
-              pointerEvents: 'none',
-            }}
+            className="pointer-events-none absolute top-0 bottom-0 -ml-px w-0.5 bg-[#d6452b]"
+            style={{ left: `${(round.bomb.t / duration) * 100}%` }}
           />
         )}
         <div
-          style={{
-            position: 'absolute',
-            top: -2,
-            bottom: -2,
-            left: `${(time / duration) * 100}%`,
-            width: 2,
-            background: 'var(--text)',
-            pointerEvents: 'none',
-          }}
+          className="pointer-events-none absolute -top-0.5 -bottom-0.5 w-0.5 bg-text"
+          style={{ left: `${(time / duration) * 100}%` }}
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
-        <button className="ghost" onClick={togglePlay} style={{ minWidth: 110 }}>
+      <div className="mt-2.5 flex flex-wrap items-center gap-3">
+        <button className="min-w-[110px] border border-border bg-transparent text-text" onClick={togglePlay}>
           {playing ? t('replay.pause') : t('replay.play')}
         </button>
-        <span className="muted" style={{ minWidth: 96 }}>
+        <span className="min-w-[96px] text-muted">
           {time.toFixed(1)}s / {duration.toFixed(1)}s
         </span>
-        <span className="muted" style={{ marginLeft: 8 }}>{t('replay.speed')}:</span>
+        <span className="ml-2 text-muted">{t('replay.speed')}:</span>
         {SPEEDS.map((s) => (
           <button
             key={s}
-            className="badge"
+            className={`inline-block cursor-pointer rounded-full border bg-surface-2 px-2 py-0.5 text-xs ${
+              speed === s ? 'border-text text-text' : 'border-border'
+            }`}
             onClick={() => setSpeed(s)}
-            style={{
-              cursor: 'pointer',
-              borderColor: speed === s ? 'var(--text)' : 'var(--border)',
-              color: speed === s ? 'var(--text)' : undefined,
-            }}
           >
             {s}×
           </button>
@@ -1371,12 +1182,12 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
 
   const roundQ = useReplayRound(demoId, round)
 
-  if (meta.isLoading) return <p className="muted">{t('common.loading')}</p>
+  if (meta.isLoading) return <p className="text-muted">{t('common.loading')}</p>
   if (meta.isError || !meta.data) {
     return (
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('replay.title')}</h2>
-        <p className="muted">{t('replay.noReplay')}</p>
+        <p className="text-muted">{t('replay.noReplay')}</p>
       </div>
     )
   }
@@ -1384,7 +1195,7 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
   const replayMeta = meta.data
 
   return (
-    <div className="card">
+    <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
       <h2>{t('replay.title')}</h2>
       {roundQ.data ? (
         <ReplayStage
@@ -1401,7 +1212,7 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
           onRound={setRound}
         />
       ) : (
-        <p className="muted">{t('common.loading')}</p>
+        <p className="text-muted">{t('common.loading')}</p>
       )}
     </div>
   )

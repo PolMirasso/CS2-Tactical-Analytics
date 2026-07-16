@@ -35,27 +35,55 @@ export function Sidebar() {
   }
 
   return (
-    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      <div className="sidebar-top">
-        {!collapsed && <span className="brand">{t('app.title')}</span>}
-        <button className="ghost sidebar-toggle" onClick={toggle} aria-label="Toggle menu">
+    <aside
+      className={`sticky top-0 flex h-screen shrink-0 flex-col gap-1.5 self-start overflow-y-auto border-r border-border bg-surface px-2.5 py-3 transition-[width] duration-150 ease-[ease] print:hidden ${
+        collapsed ? 'w-[60px]' : 'w-[220px]'
+      }`}
+    >
+      <div
+        className={`mb-2 flex min-h-[34px] items-center gap-2 ${
+          collapsed ? 'justify-center' : 'justify-between'
+        }`}
+      >
+        {!collapsed && <span className="overflow-hidden font-bold whitespace-nowrap">{t('app.title')}</span>}
+        <button
+          className="border border-border bg-transparent px-[9px] py-0.5 text-[18px] leading-none text-text"
+          onClick={toggle}
+          aria-label="Toggle menu"
+        >
           {collapsed ? '›' : '‹'}
         </button>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="flex flex-col gap-1">
         {NAV.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.end} title={t(item.key)}>
-            <span className="nav-icon">{item.icon}</span>
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            title={t(item.key)}
+            className={({ isActive }) =>
+              `flex items-center gap-[11px] rounded-lg whitespace-nowrap ${
+                collapsed ? 'justify-center p-[9px]' : 'px-[11px] py-[9px]'
+              } ${isActive ? 'bg-accent text-accent-text' : 'text-text hover:bg-surface-2'}`
+            }
+          >
+            <span className="inline-flex shrink-0">{item.icon}</span>
             {!collapsed && <span>{t(item.key)}</span>}
           </NavLink>
         ))}
       </nav>
 
-      <div className="sidebar-bottom">
+      <div className={`mt-auto flex flex-col gap-2 ${collapsed ? 'items-center' : ''}`}>
         {!collapsed && <LanguageSwitcher />}
-        {user && !collapsed && <span className="muted sidebar-user">{user.email}</span>}
-        <button className="ghost" onClick={logout} title={t('nav.logout')}>
+        {user && !collapsed && (
+          <span className="overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">{user.email}</span>
+        )}
+        <button
+          className="border border-border bg-transparent text-text"
+          onClick={logout}
+          title={t('nav.logout')}
+        >
           {collapsed ? '⎋' : t('nav.logout')}
         </button>
       </div>

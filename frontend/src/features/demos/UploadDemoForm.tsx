@@ -42,7 +42,7 @@ export function UploadDemoForm() {
   }
 
   return (
-    <div className="card">
+    <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
       <h2>{t('demos.uploadTitle')}</h2>
       <form onSubmit={onSubmit}>
         <label htmlFor="file">{t('demos.file')}</label>
@@ -53,8 +53,8 @@ export function UploadDemoForm() {
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           required
         />
-        <p className="muted">{t('demos.mapAutoDetected')}</p>
-        <div className="row">
+        <p className="text-muted">{t('demos.mapAutoDetected')}</p>
+        <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
             <label htmlFor="matchDate">{t('demos.matchDate')}</label>
             <input
@@ -82,8 +82,8 @@ export function UploadDemoForm() {
             </select>
           </div>
         </div>
-        {error && <p className="error">{error}</p>}
-        {note && <p className="muted">{note}</p>}
+        {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
+        {note && <p className="text-muted">{note}</p>}
         <button type="submit" disabled={upload.isPending || !file}>
           {t('common.submit')}
         </button>

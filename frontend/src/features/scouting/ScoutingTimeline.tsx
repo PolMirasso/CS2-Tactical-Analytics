@@ -120,20 +120,13 @@ export function ScoutingTimeline({
         onPointerDown={(e) => onDown(e, { ...base, edge, from, to })}
         onPointerMove={onMove}
         onPointerUp={onUp}
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          [edge === 'from' ? 'left' : 'right']: 0,
-          width: 12,
-          cursor: 'ew-resize',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          touchAction: 'none',
-        }}
+        className="absolute top-0 bottom-0 flex w-3 touch-none cursor-ew-resize items-center justify-center"
+        style={{ [edge === 'from' ? 'left' : 'right']: 0 }}
       >
-        <span style={{ width: 3, height: '60%', borderRadius: 2, background: gripColor, boxShadow: `3px 0 0 -1px ${gripColor}` }} />
+        <span
+          className="h-[60%] w-[3px] rounded-[2px]"
+          style={{ background: gripColor, boxShadow: `3px 0 0 -1px ${gripColor}` }}
+        />
       </div>
     )
     return (
@@ -143,35 +136,24 @@ export function ScoutingTimeline({
         onPointerDown={(e) => onDown(e, { ...base, edge: 'move', from, to })}
         onPointerMove={onMove}
         onPointerUp={onUp}
+        className={`absolute box-border flex min-w-[30px] touch-none cursor-grab items-center justify-center gap-1 overflow-hidden rounded-[5px] px-3 text-[11px] font-bold whitespace-nowrap select-none ${
+          dashed ? 'border-[1.5px] border-dashed bg-white/4' : 'border border-black/35 text-[#11141a]'
+        }`}
         style={{
-          position: 'absolute',
           top,
           height: LANE_H - 6,
           left: `${left}%`,
           width: `${width}%`,
-          minWidth: 30,
-          boxSizing: 'border-box',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          padding: '0 12px',
-          borderRadius: 5,
-          background: dashed ? 'rgba(255,255,255,0.04)' : color,
-          border: dashed ? `1.5px dashed ${color}` : `1px solid rgba(0,0,0,0.35)`,
-          color: dashed ? color : '#11141a',
-          fontSize: 11,
-          fontWeight: 700,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          cursor: 'grab',
-          touchAction: 'none',
-          userSelect: 'none',
+          // Colour is per-utility, so it stays inline: background doubles as the
+          // border/text colour when the segment is dashed.
+          background: dashed ? undefined : color,
+          borderColor: dashed ? color : undefined,
+          color: dashed ? color : undefined,
         }}
       >
-        <span style={{ pointerEvents: 'none' }}>
+        <span className="pointer-events-none">
           {glyph}
-          {width > 9 && <span style={{ marginLeft: 4, fontWeight: 500, opacity: 0.85 }}>{`${fmtClock(from)}–${fmtClock(to)}`}</span>}
+          {width > 9 && <span className="ml-1 font-medium opacity-85">{`${fmtClock(from)}–${fmtClock(to)}`}</span>}
         </span>
         {Handle('from')}
         {Handle('to')}
@@ -180,32 +162,20 @@ export function ScoutingTimeline({
   }
 
   return (
-    <div style={{ userSelect: drag ? 'none' : undefined }}>
+    <div className={drag ? 'select-none' : undefined}>
       <div
         ref={barRef}
-        style={{
-          position: 'relative',
-          background: '#11141a',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          padding: '6px 0 0',
-          touchAction: 'none',
-        }}
+        className="relative touch-none rounded-md border border-border bg-[#11141a] pt-1.5"
       >
         {/* Clock axis */}
-        <div style={{ position: 'relative', height: 16, margin: '0 0 2px' }}>
+        <div className="relative mb-0.5 h-4">
           {TICKS.map((s, i) => (
             <span
               key={s}
+              className="pointer-events-none absolute top-0 text-[11px] text-muted tabular-nums"
               style={{
-                position: 'absolute',
-                top: 0,
                 left: `${pctOf(s)}%`,
                 transform: i === 0 ? 'none' : i === TICKS.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)',
-                fontSize: 11,
-                color: 'var(--muted)',
-                fontVariantNumeric: 'tabular-nums',
-                pointerEvents: 'none',
               }}
             >
               {fmtClock(s)}
@@ -214,9 +184,9 @@ export function ScoutingTimeline({
         </div>
 
         {/* Active ("next utility") lane */}
-        <div style={{ position: 'relative', height: LANE_H }}>
+        <div className="relative" style={{ height: LANE_H }}>
           {TICKS.map((s) => (
-            <div key={s} style={{ position: 'absolute', top: 0, bottom: 0, left: `${pctOf(s)}%`, width: 1, background: 'var(--border)' }} />
+            <div key={s} className="absolute top-0 bottom-0 w-px bg-border" style={{ left: `${pctOf(s)}%` }} />
           ))}
           {renderSegment({
             from: activeFrom,
@@ -231,9 +201,9 @@ export function ScoutingTimeline({
         </div>
 
         {/* Placed-utility lanes */}
-        <div style={{ position: 'relative', height: tokenAreaH, borderTop: '1px solid var(--border)' }}>
+        <div className="relative border-t border-border" style={{ height: tokenAreaH }}>
           {TICKS.map((s) => (
-            <div key={s} style={{ position: 'absolute', top: 0, bottom: 0, left: `${pctOf(s)}%`, width: 1, background: 'var(--border)' }} />
+            <div key={s} className="absolute top-0 bottom-0 w-px bg-border" style={{ left: `${pctOf(s)}%` }} />
           ))}
           {tokens.map((tk, i) =>
             renderSegment({
@@ -249,7 +219,7 @@ export function ScoutingTimeline({
           )}
         </div>
       </div>
-      <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
+      <p className="mt-1.5 mb-0 text-xs text-muted">
         {t('scouting.timelineHint')}
       </p>
     </div>

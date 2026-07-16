@@ -27,16 +27,16 @@ export function TeamSearch({ onSelect }: Props) {
         placeholder={t('hltv.searchPlaceholder')}
         onChange={(e) => setTerm(e.target.value)}
       />
-      {isFetching && <p className="muted">{t('common.loading')}</p>}
+      {isFetching && <p className="text-muted">{t('common.loading')}</p>}
       {data && data.length > 0 && (
         <table>
           <tbody>
             {data.map((team) => (
               <tr key={team.id}>
                 <td>{team.name}</td>
-                <td className="muted">#{team.id}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <button className="ghost" onClick={() => onSelect(team)}>
+                <td className="text-muted">#{team.id}</td>
+                <td className="text-right">
+                  <button className="border border-border bg-transparent text-text" onClick={() => onSelect(team)}>
                     {t('hltv.selectTeam')}
                   </button>
                 </td>

@@ -24,7 +24,7 @@ export function GroupsPage() {
     <div>
       <h1>{t('groups.title')}</h1>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('groups.create')}</h2>
         <form
           onSubmit={(e) => {
@@ -33,7 +33,7 @@ export function GroupsPage() {
             createGroup.mutate(name, { onSuccess: () => setName('') })
           }}
         >
-          <div className="row" style={{ maxWidth: 480 }}>
+          <div className="flex max-w-[480px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
             <input
               placeholder={t('groups.name')}
               value={name}
@@ -46,10 +46,10 @@ export function GroupsPage() {
         </form>
       </div>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('groups.title')}</h2>
         {!groups || groups.length === 0 ? (
-          <p className="muted">{t('groups.noGroups')}</p>
+          <p className="text-muted">{t('groups.noGroups')}</p>
         ) : (
           <table>
             <thead>
@@ -64,11 +64,11 @@ export function GroupsPage() {
                 <tr key={g.id}>
                   <td>
                     {g.name}{' '}
-                    {g.is_owner && <span className="badge">{t('groups.owner')}</span>}
+                    {g.is_owner && <span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">{t('groups.owner')}</span>}
                   </td>
                   <td>{g.member_count}</td>
                   <td>
-                    <div className="row" style={{ minWidth: 260 }}>
+                    <div className="flex min-w-[260px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
                       <input
                         placeholder={t('groups.inviteEmail')}
                         value={inviteEmail[g.id] ?? ''}
@@ -77,7 +77,7 @@ export function GroupsPage() {
                         }
                       />
                       <button
-                        className="ghost"
+                        className="border border-border bg-transparent text-text"
                         disabled={invite.isPending || !inviteEmail[g.id]}
                         onClick={() =>
                           invite.mutate(
@@ -100,10 +100,10 @@ export function GroupsPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h2>{t('groups.invitations')}</h2>
         {!invitations || invitations.length === 0 ? (
-          <p className="muted">{t('groups.noInvitations')}</p>
+          <p className="text-muted">{t('groups.noInvitations')}</p>
         ) : (
           <table>
             <thead>
@@ -119,14 +119,14 @@ export function GroupsPage() {
               {invitations.map((inv) => (
                 <tr key={inv.id}>
                   <td>{inv.group_name}</td>
-                  <td className="muted">{inv.inviter_email}</td>
+                  <td className="text-muted">{inv.inviter_email}</td>
                   <td>
-                    <span className="badge">{inv.status}</span>
+                    <span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">{inv.status}</span>
                   </td>
-                  <td className="muted">{formatDate(inv.created_at)}</td>
+                  <td className="text-muted">{formatDate(inv.created_at)}</td>
                   <td>
                     {inv.status === 'pending' && (
-                      <div className="row" style={{ minWidth: 200 }}>
+                      <div className="flex min-w-[200px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
                         <button
                           onClick={() => respond.mutate({ id: inv.id, accept: true })}
                           disabled={respond.isPending}
@@ -134,7 +134,7 @@ export function GroupsPage() {
                           {t('groups.accept')}
                         </button>
                         <button
-                          className="ghost"
+                          className="border border-border bg-transparent text-text"
                           onClick={() => respond.mutate({ id: inv.id, accept: false })}
                           disabled={respond.isPending}
                         >

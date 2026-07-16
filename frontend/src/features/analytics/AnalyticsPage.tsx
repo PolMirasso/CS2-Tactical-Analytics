@@ -42,10 +42,10 @@ export function AnalyticsPage() {
   return (
     <div>
       <h1>{t('analytics.title')}</h1>
-      <p className="muted">{t('analytics.subtitle')}</p>
+      <p className="text-muted">{t('analytics.subtitle')}</p>
 
-      <div className="card">
-        <div className="row">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+        <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
             <label htmlFor="an-map">{t('demos.map')}</label>
             <select id="an-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeam('') }}>
@@ -66,9 +66,9 @@ export function AnalyticsPage() {
         </div>
 
         <label>{t('demos.buy')}</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <div className="flex flex-wrap gap-3">
           {BUY_TYPES.map((b) => (
-            <label key={b} style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'normal', whiteSpace: 'nowrap' }}>
+            <label key={b} className="flex items-center gap-1 font-normal whitespace-nowrap">
               <input type="checkbox" checked={buyTypes.includes(b)} onChange={() => toggleBuy(b)} />
               {t(`demos.buyTypes.${b}`)}
             </label>
@@ -78,37 +78,36 @@ export function AnalyticsPage() {
 
       {team && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
-      {isLoading && <p className="muted">{t('common.loading')}</p>}
-      {isError && <p className="error">{t('common.error')}</p>}
+      {isLoading && <p className="text-muted">{t('common.loading')}</p>}
+      {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
 
       {data && (
-        <div className="card">
+        <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
           <h2>{t('analytics.siteDistribution')}</h2>
           {data.total_rounds === 0 ? (
-            <p className="muted">{t('analytics.noData')}</p>
+            <p className="text-muted">{t('analytics.noData')}</p>
           ) : (
             <>
-              <p className="muted">
+              <p className="text-muted">
                 {t('analytics.summary', {
                   rounds: data.total_rounds,
                   demos: data.total_demos,
                   winRate: pct(data.overall_win_rate),
                 })}
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              <div className="mt-3 flex flex-col gap-2.5">
                 {data.sites.map((s) => (
                   <div key={s.site}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                      <span><span className="badge">{s.site}</span> {s.rounds} ({pct(s.pct)})</span>
-                      <span className="muted">{t('analytics.winRate')}: {s.rounds ? pct(s.win_rate) : '-'}</span>
+                    <div className="flex justify-between text-sm">
+                      <span><span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">{s.site}</span> {s.rounds} ({pct(s.pct)})</span>
+                      <span className="text-muted">{t('analytics.winRate')}: {s.rounds ? pct(s.win_rate) : '-'}</span>
                     </div>
-                    <div style={{ background: '#1f2937', borderRadius: 4, height: 14, marginTop: 2 }}>
+                    <div className="mt-0.5 h-3.5 rounded bg-[#1f2937]">
                       <div
+                        className="h-full rounded"
                         style={{
                           width: pct(s.pct),
-                          height: '100%',
                           background: SITE_COLOR[s.site] ?? '#888',
-                          borderRadius: 4,
                           minWidth: s.rounds ? 2 : 0,
                         }}
                       />

@@ -28,8 +28,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-shell">
-      <div className="card">
+    <div className="mx-auto mt-[12vh] max-w-[360px]">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h1>{t('auth.loginTitle')}</h1>
         <form onSubmit={onSubmit}>
           <label htmlFor="email">{t('auth.email')}</label>
@@ -48,12 +48,12 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="error">{error}</p>}
+          {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
           <button type="submit" disabled={busy}>
             {t('auth.login')}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: 12 }}>
+        <p className="mt-3 text-muted">
           <Link to="/register">{t('auth.needAccount')}</Link>
         </p>
       </div>

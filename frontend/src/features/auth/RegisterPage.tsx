@@ -28,8 +28,8 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="auth-shell">
-      <div className="card">
+    <div className="mx-auto mt-[12vh] max-w-[360px]">
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <h1>{t('auth.registerTitle')}</h1>
         <form onSubmit={onSubmit}>
           <label htmlFor="email">{t('auth.email')}</label>
@@ -49,12 +49,12 @@ export function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="error">{error}</p>}
+          {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
           <button type="submit" disabled={busy}>
             {t('auth.register')}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: 12 }}>
+        <p className="text-muted mt-3">
           <Link to="/login">{t('auth.haveAccount')}</Link>
         </p>
       </div>

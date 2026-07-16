@@ -185,18 +185,18 @@ export function MapEditorPage() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  if (isLoading) return <p className="muted">Loading…</p>
+  if (isLoading) return <p className="text-muted">Loading…</p>
 
   return (
     <div>
       <h1>Editor de zonas</h1>
-      <p className="muted">
+      <p className="text-muted">
         Arrastra los vértices para ajustar una zona. Click en una zona para seleccionarla; arrastra
         su interior para moverla entera. Doble-click en un borde añade un vértice; doble-click en un
         vértice lo borra. Usa la recalibración global para encajar todo el set sobre el radar.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <select value={mapId ?? ''} onChange={(e) => setMapId(e.target.value)}>
           {maps?.map((m) => (
             <option key={m.id} value={m.id}>
@@ -204,7 +204,7 @@ export function MapEditorPage() {
             </option>
           ))}
         </select>
-        <button className="ghost" onClick={() => map && setZones(toEditZones(map.zones))}>
+        <button className="border border-border bg-transparent text-text" onClick={() => map && setZones(toEditZones(map.zones))}>
           Restablecer
         </button>
         <button onClick={addZone} disabled={!map}>
@@ -212,30 +212,19 @@ export function MapEditorPage() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <div
-          style={{
-            position: 'relative',
-            width: 640,
-            height: 640,
-            flexShrink: 0,
-            background: '#11141a',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            overflow: 'hidden',
-          }}
-        >
+      <div className="flex flex-wrap gap-6">
+        <div className="relative h-[640px] w-[640px] shrink-0 overflow-hidden rounded-lg border border-border bg-[#11141a]">
           {map && (
             <img
               src={apiUrl(`/maps/${map.id}/radar.png`)}
               alt={map.id}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              className="absolute inset-0 h-full w-full object-contain"
             />
           )}
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VIEW} ${VIEW}`}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none' }}
+            className="absolute inset-0 h-full w-full touch-none"
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
             onPointerLeave={endDrag}
@@ -252,7 +241,7 @@ export function MapEditorPage() {
                   stroke={color}
                   strokeWidth={active ? 2.5 : 1.2}
                   strokeLinejoin="round"
-                  style={{ cursor: active ? 'move' : 'pointer' }}
+                  className={active ? 'cursor-move' : 'cursor-pointer'}
                   onPointerDown={(e) => {
                     if (active) {
                       e.stopPropagation()
@@ -281,7 +270,7 @@ export function MapEditorPage() {
                   fill="#fff"
                   stroke="#11141a"
                   strokeWidth={2}
-                  style={{ cursor: 'grab' }}
+                  className="cursor-grab"
                   onPointerDown={(e) => {
                     e.stopPropagation()
                     setDrag({ type: 'vertex', zi: selected, pi })
@@ -295,42 +284,42 @@ export function MapEditorPage() {
           </svg>
         </div>
 
-        <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="card" style={{ margin: 0 }}>
-            <h3 style={{ marginTop: 0 }}>Recalibración global</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'center' }}>
-              <span className="muted">Escala %</span>
+        <div className="flex min-w-[280px] flex-1 flex-col gap-4">
+          <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
+            <h3 className="mt-0">Recalibración global</h3>
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <span className="text-muted">Escala %</span>
               <input type="range" min={50} max={150} step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} />
-              <input type="number" step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} style={{ width: 70 }} />
-              <span className="muted">Offset X</span>
+              <input type="number" step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} className="w-[70px]" />
+              <span className="text-muted">Offset X</span>
               <input type="range" min={-200} max={200} value={offX} onChange={(e) => setOffX(+e.target.value)} />
-              <input type="number" value={offX} onChange={(e) => setOffX(+e.target.value)} style={{ width: 70 }} />
-              <span className="muted">Offset Y</span>
+              <input type="number" value={offX} onChange={(e) => setOffX(+e.target.value)} className="w-[70px]" />
+              <span className="text-muted">Offset Y</span>
               <input type="range" min={-200} max={200} value={offY} onChange={(e) => setOffY(+e.target.value)} />
-              <input type="number" value={offY} onChange={(e) => setOffY(+e.target.value)} style={{ width: 70 }} />
+              <input type="number" value={offY} onChange={(e) => setOffY(+e.target.value)} className="w-[70px]" />
             </div>
-            <button style={{ marginTop: 10 }} onClick={applyGlobal}>
+            <button className="mt-2.5" onClick={applyGlobal}>
               Aplicar a todas las zonas
             </button>
           </div>
 
           {selected !== null && zones[selected] && (
-            <div className="card" style={{ margin: 0 }}>
-              <h3 style={{ marginTop: 0 }}>Zona seleccionada</h3>
-              <label style={{ display: 'block', marginBottom: 8 }}>
+            <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
+              <h3 className="mt-0">Zona seleccionada</h3>
+              <label className="mb-2 block">
                 Nombre
                 <input
                   value={zones[selected].name}
                   onChange={(e) => updateZone(selected, (z) => ({ ...z, name: e.target.value }))}
-                  style={{ width: '100%' }}
+                  className="w-full"
                 />
               </label>
-              <label style={{ display: 'block' }}>
+              <label className="block">
                 Región
                 <select
                   value={zones[selected].region}
                   onChange={(e) => updateZone(selected, (z) => ({ ...z, region: e.target.value as Region }))}
-                  style={{ width: '100%' }}
+                  className="w-full"
                 >
                   {REGIONS.map((r) => (
                     <option key={r} value={r}>
@@ -339,26 +328,26 @@ export function MapEditorPage() {
                   ))}
                 </select>
               </label>
-              <p className="muted" style={{ marginBottom: 8 }}>
+              <p className="mb-2 text-muted">
                 {zones[selected].polygon.length} vértices · id <code>{zones[selected].id}</code>
               </p>
               <button
                 onClick={() => deleteZone(selected)}
-                style={{ background: '#ff5d5d', borderColor: '#ff5d5d', color: '#fff' }}
+                className="border-danger bg-danger text-white"
               >
                 Eliminar zona
               </button>
             </div>
           )}
 
-          <div className="card" style={{ margin: 0 }}>
-            <h3 style={{ marginTop: 0 }}>Exportar</h3>
+          <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
+            <h3 className="mt-0">Exportar</h3>
             <button onClick={copy}>{copied ? '¡Copiado!' : 'Copiar JSON'}</button>
             <textarea
               readOnly
               value={json}
               onFocus={(e) => e.target.select()}
-              style={{ width: '100%', height: 140, marginTop: 8, fontFamily: 'monospace', fontSize: 11 }}
+              className="mt-2 h-[140px] w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-mono text-[11px] text-text"
             />
           </div>
         </div>

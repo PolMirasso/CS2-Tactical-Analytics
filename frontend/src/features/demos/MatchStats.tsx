@@ -17,7 +17,7 @@ export function PlayerScoreboard({ players }: { players: PlayerStatOut[] }) {
   const { t } = useTranslation()
   if (players.length === 0) return null
   return (
-    <div className="card">
+    <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
       <h2>{t('stats.scoreboard', 'Estadísticas de jugadores')}</h2>
       <table>
         <thead>
@@ -35,7 +35,7 @@ export function PlayerScoreboard({ players }: { players: PlayerStatOut[] }) {
           {groupByTeam(players).map(([team, group]) => (
             <Fragment key={team}>
               <tr>
-                <th colSpan={7} style={{ textAlign: 'left', color: '#9aa3b2', paddingTop: 12 }}>
+                <th colSpan={7} className="pt-3 text-left text-muted">
                   {team}
                 </th>
               </tr>
@@ -45,7 +45,7 @@ export function PlayerScoreboard({ players }: { players: PlayerStatOut[] }) {
                   <td>{p.kills}</td>
                   <td>{p.deaths}</td>
                   <td>{p.assists}</td>
-                  <td style={{ color: p.kills - p.deaths >= 0 ? '#7bd88f' : '#ff5d5d' }}>
+                  <td className={p.kills - p.deaths >= 0 ? 'text-[#7bd88f]' : 'text-danger'}>
                     {p.kills - p.deaths > 0 ? '+' : ''}
                     {p.kills - p.deaths}
                   </td>
@@ -81,13 +81,13 @@ function tally(rounds: RoundOut[], key: (r: RoundOut) => string): Record<string,
 function Bar({ label, cell }: { label: string; cell: Tally }) {
   const p = pct(cell.wins, cell.total)
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 70px', gap: 8, alignItems: 'center' }}>
-      <span className="muted" style={{ fontSize: 13 }}>{label}</span>
-      <div style={{ height: 14, borderRadius: 7, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-        <div style={{ width: `${p}%`, height: '100%', background: 'var(--accent, #4f8cff)' }} />
+    <div className="grid grid-cols-[120px_1fr_70px] items-center gap-2">
+      <span className="text-muted text-[13px]">{label}</span>
+      <div className="h-3.5 overflow-hidden rounded-[7px] bg-white/8">
+        <div className="h-full bg-accent" style={{ width: `${p}%` }} />
       </div>
-      <span style={{ fontSize: 13 }}>
-        {p}% <span className="muted">({cell.wins}/{cell.total})</span>
+      <span className="text-[13px]">
+        {p}% <span className="text-muted">({cell.wins}/{cell.total})</span>
       </span>
     </div>
   )
@@ -115,23 +115,23 @@ export function WinRateSummary({ rounds }: { rounds: RoundOut[] }) {
   }
 
   return (
-    <div className="card">
+    <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
       <h2>{t('stats.winRate', 'Win rate (lado T)')}</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
+      <p className="text-muted mt-0">
         T {pct(tWins, total)}% · CT {pct(total - tWins, total)}%
         {pistolWon > 0 && (
-          <span style={{ marginLeft: 12 }}>
+          <span className="ml-3">
             · {t('stats.pistolConversion', 'Conversión pistola')}: {pct(converted, pistolWon)}%
           </span>
         )}
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="flex flex-col gap-1.5">
         {Object.entries(byBuy).map(([k, cell]) => (
           <Bar key={k} label={t(`demos.buyTypes.${k}`, k)} cell={cell} />
         ))}
       </div>
-      <h3 style={{ marginBottom: 6 }}>{t('demos.site')}</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <h3 className="mb-1.5">{t('demos.site')}</h3>
+      <div className="flex flex-col gap-1.5">
         {Object.entries(bySite).map(([k, cell]) => (
           <Bar key={k} label={k} cell={cell} />
         ))}

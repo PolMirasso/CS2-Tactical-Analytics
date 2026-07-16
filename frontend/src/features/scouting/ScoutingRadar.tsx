@@ -112,29 +112,19 @@ export function ScoutingRadar({
 
   return (
     <div
-      style={{
-        position: 'relative',
-        width: size,
-        height: size,
-        maxWidth: '100%',
-        aspectRatio: '1 / 1',
-        flexShrink: 0,
-        background: '#11141a',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        overflow: 'hidden',
-      }}
+      className="relative aspect-square max-w-full shrink-0 overflow-hidden rounded-lg border border-border bg-[#11141a]"
+      style={{ width: size, height: size }}
     >
       <img
         src={apiUrl(`/maps/${mapId}/radar.png`)}
         alt={mapId}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.85 }}
+        className="absolute inset-0 h-full w-full object-contain opacity-85"
       />
       <svg
         ref={svgRef}
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         preserveAspectRatio="none"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawing ? 'crosshair' : 'default' }}
+        className={`absolute inset-0 h-full w-full ${drawing ? 'cursor-crosshair' : 'cursor-default'}`}
         onMouseDown={onDown}
         onMouseMove={onMove}
         onMouseUp={finish}
@@ -185,7 +175,7 @@ export function ScoutingRadar({
                 stroke="#11141a"
                 strokeWidth={3}
                 paintOrder="stroke"
-                style={{ pointerEvents: 'none' }}
+                className="pointer-events-none"
               >
                 {total}
               </text>
@@ -203,14 +193,14 @@ export function ScoutingRadar({
             stroke={drawColor}
             strokeWidth={2}
             strokeDasharray="6 4"
-            style={{ pointerEvents: 'none' }}
+            className="pointer-events-none"
           />
         )}
 
         {tokens.map((tk) => (
           <g
             key={tk.id}
-            style={{ pointerEvents: 'none' }}
+            className="pointer-events-none"
           >
             <rect
               x={tk.x - tk.w / 2}
@@ -232,7 +222,7 @@ export function ScoutingRadar({
               fontSize={14}
               fontWeight={700}
               fill="#11141a"
-              style={{ pointerEvents: 'none' }}
+              className="pointer-events-none"
             >
               {UTIL_GLYPH[tk.util_type]}
             </text>
@@ -246,7 +236,7 @@ export function ScoutingRadar({
               stroke="#11141a"
               strokeWidth={3}
               paintOrder="stroke"
-              style={{ pointerEvents: 'none' }}
+              className="pointer-events-none"
             >
               {fmtClock(tk.time_from)}–{fmtClock(tk.time_to)}
             </text>

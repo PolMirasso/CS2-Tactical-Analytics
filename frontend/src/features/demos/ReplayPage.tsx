@@ -10,13 +10,13 @@ export function ReplayPage() {
   const { data: demo } = useDemo(demoId)
 
   return (
-    <div className="replay-page">
-      <div className="replay-page-head">
-        <Link to={`/demos/${demoId}`} className="ghost back-link">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3.5">
+        <Link to={`/demos/${demoId}`} className="inline-block rounded-md border border-border px-3 py-1.5 text-text hover:bg-surface-2">
           ← {t('replay.back')}
         </Link>
         {demo && (
-          <span className="muted">
+          <span className="text-muted">
             {demo.team ?? ''} {demo.opponent ? `vs ${demo.opponent}` : ''} · {demo.map_id ?? ''}
           </span>
         )}

@@ -50,8 +50,8 @@ export function DemosPage() {
       <UploadDemoForm />
 
       {isAdmin && (
-        <div className="card">
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => reparseAll.mutate(mapId || undefined)}
               disabled={reparseAll.isPending || !!job?.running}
@@ -63,7 +63,7 @@ export function DemosPage() {
                   : t('demos.reparseAll')}
             </button>
             {job && (job.running || job.total > 0) && (
-              <span className="muted" style={{ fontSize: 13 }}>
+              <span className="text-muted text-[13px]">
                 {job.done}/{job.total}
                 {job.failed > 0 ? ` · ${t('demos.reparseFailed', { n: job.failed })}` : ''}
                 {!job.running && job.total > 0 ? ` · ${t('demos.reparseDone')}` : ''}
@@ -71,24 +71,21 @@ export function DemosPage() {
             )}
           </div>
           {job && job.total > 0 && (
-            <div style={{ background: '#1f2937', borderRadius: 4, height: 8, marginTop: 8 }}>
+            <div className="mt-2 h-2 rounded bg-[#1f2937]">
               <div
-                style={{
-                  width: `${(job.done / job.total) * 100}%`,
-                  height: '100%',
-                  background: job.running ? 'var(--accent, #4f8cff)' : '#10b981',
-                  borderRadius: 4,
-                  transition: 'width 0.3s',
-                }}
+                className={`h-full rounded transition-[width] duration-300 ease-[ease] ${
+                  job.running ? 'bg-accent' : 'bg-[#10b981]'
+                }`}
+                style={{ width: `${(job.done / job.total) * 100}%` }}
               />
             </div>
           )}
-          <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>{t('demos.reparseHint')}</p>
+          <p className="mt-2 mb-0 text-xs text-muted">{t('demos.reparseHint')}</p>
         </div>
       )}
 
-      <div className="card">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+      <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <select value={mapId} onChange={(e) => reset(setMapId)(e.target.value)}>
             <option value="">{t('demos.allMaps', 'Todos los mapas')}</option>
             {maps?.map((m) => (
@@ -102,21 +99,21 @@ export function DemosPage() {
             value={team}
             onChange={(e) => reset(setTeam)(e.target.value)}
             placeholder={t('demos.search')}
-            style={{ maxWidth: 220 }}
+            className="max-w-[220px]"
           />
-          <label className="muted" style={{ fontSize: 12 }}>
+          <label className="text-muted text-xs">
             {t('demos.from', 'Desde')}
             <input type="date" value={dateFrom} onChange={(e) => reset(setDateFrom)(e.target.value)} />
           </label>
-          <label className="muted" style={{ fontSize: 12 }}>
+          <label className="text-muted text-xs">
             {t('demos.to', 'Hasta')}
             <input type="date" value={dateTo} onChange={(e) => reset(setDateTo)(e.target.value)} />
           </label>
         </div>
 
-        {isLoading && <p className="muted">{t('common.loading')}</p>}
-        {isError && <p className="error">{t('common.error')}</p>}
-        {!isLoading && items.length === 0 && <p className="muted">{t('demos.noMatches')}</p>}
+        {isLoading && <p className="text-muted">{t('common.loading')}</p>}
+        {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
+        {!isLoading && items.length === 0 && <p className="text-muted">{t('demos.noMatches')}</p>}
         {items.length > 0 && (
           <>
             <table>
@@ -142,27 +139,27 @@ export function DemosPage() {
                     <td>{d.team ?? t('common.none')}</td>
                     <td>{d.opponent ?? t('common.none')}</td>
                     <td>{d.event ?? t('common.none')}</td>
-                    <td className="muted">{formatDay(d.match_date)}</td>
+                    <td className="text-muted">{formatDay(d.match_date)}</td>
                     <td>{d.source}</td>
                     <td>
                       <StatusBadge status={d.status} />
                     </td>
                     <td>{formatBytes(d.size_bytes)}</td>
-                    <td className="muted">{formatDate(d.created_at)}</td>
+                    <td className="text-muted">{formatDate(d.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12 }}>
-              <button className="ghost" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <div className="mt-3 flex items-center gap-3">
+              <button className="border border-border bg-transparent text-text" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
                 ← {t('demos.prev', 'Anterior')}
               </button>
-              <span className="muted">
+              <span className="text-muted">
                 {t('demos.page', 'Página')} {page + 1}/{pages} · {total}
               </span>
               <button
-                className="ghost"
+                className="border border-border bg-transparent text-text"
                 disabled={page + 1 >= pages}
                 onClick={() => setPage((p) => p + 1)}
               >
