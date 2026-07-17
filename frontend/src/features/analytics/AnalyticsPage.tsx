@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { SITE_COLOR } from '@/lib/colors'
 import type { BuyType, SiteDistributionParams } from '@/types/api'
 import { useMaps } from '@/features/maps/hooks'
+import { SearchSelect } from '@/components/SearchSelect'
 import { useSiteDistribution, useTeamRoster, useTeams } from './hooks'
 import { RosterChangeWarning } from './RosterChangeWarning'
 
@@ -56,12 +57,13 @@ export function AnalyticsPage() {
           </div>
           <div>
             <label htmlFor="an-team">{t('demos.team')}</label>
-            <select id="an-team" value={team} onChange={(e) => setTeam(e.target.value)}>
-              <option value="">{t('analytics.allTeams')}</option>
-              {(teams ?? []).map((tm) => (
-                <option key={tm.id} value={tm.id}>{tm.name}</option>
-              ))}
-            </select>
+            <SearchSelect
+              id="an-team"
+              options={teams ?? []}
+              value={team}
+              onChange={setTeam}
+              allLabel={t('analytics.allTeams')}
+            />
           </div>
         </div>
 

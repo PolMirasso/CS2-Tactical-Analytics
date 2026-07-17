@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
+import { SearchSelect } from '@/components/SearchSelect'
 import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
@@ -134,12 +135,13 @@ export function ScoutingPage() {
           </div>
           <div>
             <label htmlFor="sc-team">{t('scouting.team')}</label>
-            <select id="sc-team" value={team} onChange={(e) => setTeam(e.target.value)}>
-              <option value="">{t('analytics.allTeams')}</option>
-              {(teams ?? []).map((tm) => (
-                <option key={tm.id} value={tm.id}>{tm.name}</option>
-              ))}
-            </select>
+            <SearchSelect
+              id="sc-team"
+              options={teams ?? []}
+              value={team}
+              onChange={setTeam}
+              allLabel={t('analytics.allTeams')}
+            />
           </div>
           <div>
             <label htmlFor="sc-buy">{t('demos.buy')}</label>
@@ -198,7 +200,7 @@ export function ScoutingPage() {
       {/* Tactical board */}
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <div className="flex flex-wrap items-start gap-5">
-          <div className="min-w-[320px] flex-[1_1_480px]">
+          <div className="min-w-[320px] flex-[1_1_620px]">
             <div className="print:hidden mb-2.5">
               <div className="mb-2 flex flex-wrap gap-2">
                 {UTILS.map((u) => (
@@ -237,6 +239,7 @@ export function ScoutingPage() {
                 onDrawZone={addDrawnZone}
                 onRemoveToken={removeToken}
                 drawColor={UTIL_COLOR[activeUtil]}
+                size={720}
               />
             ) : (
               <p className="text-muted">{t('common.loading')}</p>

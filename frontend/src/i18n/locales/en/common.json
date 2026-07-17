@@ -20,6 +20,8 @@
     "delete": "Delete",
     "submit": "Submit",
     "search": "Search",
+    "searchTeam": "Search team…",
+    "noResults": "No results",
     "none": "-",
     "actions": "Actions",
     "yes": "Yes",
