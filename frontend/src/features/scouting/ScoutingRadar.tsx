@@ -112,8 +112,8 @@ export function ScoutingRadar({
 
   return (
     <div
-      className="relative aspect-square max-w-full shrink-0 overflow-hidden rounded-lg border border-border bg-[#11141a]"
-      style={{ width: size, height: size }}
+      className="relative aspect-square w-full shrink-0 overflow-hidden rounded-lg border border-border bg-[#11141a]"
+      style={{ maxWidth: size }}
     >
       <img
         src={apiUrl(`/maps/${mapId}/radar.png`)}
