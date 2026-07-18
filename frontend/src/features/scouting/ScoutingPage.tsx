@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -58,7 +58,9 @@ export function ScoutingPage() {
   const trainModel = useTrainModel()
 
   // Reset the board when the map changes (zones differ between maps).
+  const skipResetRef = useRef(false)
   useEffect(() => {
+    if (skipResetRef.current) { skipResetRef.current = false; return }
     setTokens([])
     predict.reset()
   }, [mapId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -84,6 +86,90 @@ export function ScoutingPage() {
     setTokens((ts) => ts.map((tk) =>
       tk.id === id ? { ...tk, time_from: clampS(from), time_to: clampS(to) } : tk,
     ))
+
+  // Save/load the whole board as a JSON file
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importErr, setImportErr] = useState('')
+
+  const exportSetup = () => {
+    const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'setup'
+    const json = JSON.stringify({
+      kind: 'cs2ta.scouting.v1',
+      map_id: mapId,
+      team: team || null,
+      buy_type: buyType,
+      tokens: tokens.map((tk) => ({
+        util_type: tk.util_type,
+        time_from: tk.time_from,
+        time_to: tk.time_to,
+        x: tk.x, y: tk.y, w: tk.w, h: tk.h,
+      })),
+    }, null, 2)
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `scouting-${slug(map?.name ?? mapId)}${teamName ? `-${slug(teamName)}` : ''}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importSetup = async (file: File) => {
+    setImportErr('')
+    let data: unknown
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      setImportErr(t('scouting.importError'))
+      return
+    }
+    if (typeof data !== 'object' || data === null || !Array.isArray((data as Record<string, unknown>).tokens)) {
+      setImportErr(t('scouting.importError'))
+      return
+    }
+    const obj = data as Record<string, unknown>
+
+    const fileMap = typeof obj.map_id === 'string' ? obj.map_id : undefined
+    if (fileMap && !(maps ?? []).some((m) => m.id === fileMap)) {
+      setImportErr(t('scouting.importUnknownMap'))
+      return
+    }
+
+    const parsed: Token[] = []
+    for (const item of obj.tokens as unknown[]) {
+      if (typeof item !== 'object' || item === null) continue
+      const tk = item as Record<string, unknown>
+      if (typeof tk.util_type !== 'string' || !UTILS.includes(tk.util_type as UtilityType)) continue
+      const xywh = [tk.x, tk.y, tk.w, tk.h]
+      if (!xywh.every((n) => typeof n === 'number' && Number.isFinite(n))) continue
+      const [x, y, w, h] = xywh as number[]
+      const from = clampS(typeof tk.time_from === 'number' ? tk.time_from : 0)
+      const to = clampS(typeof tk.time_to === 'number' ? tk.time_to : 0)
+      parsed.push({
+        id: makeId(),
+        util_type: tk.util_type as UtilityType,
+        time_from: Math.min(from, to),
+        time_to: Math.max(from, to),
+        x: Math.round(x), y: Math.round(y),
+        w: Math.round(Math.abs(w)), h: Math.round(Math.abs(h)),
+      })
+    }
+    if (parsed.length === 0) {
+      setImportErr(t('scouting.importEmpty'))
+      return
+    }
+
+    if (fileMap && fileMap !== mapId) {
+      skipResetRef.current = true
+      setMapId(fileMap)
+    }
+    if (typeof obj.buy_type === 'string' && (BUY_TYPES as string[]).includes(obj.buy_type)) {
+      setBuyType(obj.buy_type as BuyType)
+    }
+    if (typeof obj.team === 'string') setTeam(obj.team)
+    else if (obj.team === null) setTeam('')
+    setTokens(parsed)
+    predict.reset()
+  }
 
   const analyze = () => {
     if (!mapId) return
@@ -249,12 +335,30 @@ export function ScoutingPage() {
           {/* Setup list + prediction */}
           <div className="flex min-w-[280px] flex-[1_1_320px] flex-col gap-3.5">
             <div className="print:hidden">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="m-0">{t('scouting.placed')} ({tokens.length})</h2>
-                {tokens.length > 0 && (
-                  <button className="border border-border bg-transparent text-text" onClick={() => setTokens([])}>{t('scouting.clear')}</button>
-                )}
+                <div className="flex flex-wrap gap-1.5">
+                  <button className="border border-border bg-transparent text-text" onClick={() => fileRef.current?.click()}>{t('scouting.import')}</button>
+                  {tokens.length > 0 && (
+                    <button className="border border-border bg-transparent text-text" onClick={exportSetup}>{t('scouting.export')}</button>
+                  )}
+                  {tokens.length > 0 && (
+                    <button className="border border-border bg-transparent text-text" onClick={() => setTokens([])}>{t('scouting.clear')}</button>
+                  )}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) importSetup(f)
+                    e.target.value = ''
+                  }}
+                />
               </div>
+              {importErr && <p className="mt-1 mb-0 text-xs text-danger">{importErr}</p>}
               {tokens.length === 0 ? (
                 <p className="text-muted">{t('scouting.noTokens')}</p>
               ) : (
