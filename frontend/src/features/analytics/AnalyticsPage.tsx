@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { SITE_COLOR } from '@/lib/colors'
 import type { BuyType, SiteDistributionParams } from '@/types/api'
 import { useMaps } from '@/features/maps/hooks'
-import { SearchSelect } from '@/components/SearchSelect'
+import { MultiSelect } from '@/components/MultiSelect'
 import { useSiteDistribution, useTeamRoster, useTeams } from './hooks'
 import { RosterChangeWarning } from './RosterChangeWarning'
 
@@ -17,7 +17,7 @@ export function AnalyticsPage() {
   const { t } = useTranslation()
   const { data: maps } = useMaps()
   const [mapId, setMapId] = useState('')
-  const [team, setTeam] = useState('')
+  const [teamIds, setTeamIds] = useState<string[]>([])
   const [buyTypes, setBuyTypes] = useState<BuyType[]>([])
 
   useEffect(() => {
@@ -30,12 +30,14 @@ export function AnalyticsPage() {
   const params = useMemo<SiteDistributionParams | undefined>(
     () =>
       mapId
-        ? { map_id: mapId, team: team || undefined, buy_type: buyTypes.length ? buyTypes : undefined }
+        ? { map_id: mapId, team: teamIds.length ? teamIds : undefined, buy_type: buyTypes.length ? buyTypes : undefined }
         : undefined,
-    [mapId, team, buyTypes],
+    [mapId, teamIds, buyTypes],
   )
   const { data, isLoading, isError } = useSiteDistribution(params)
-  const { data: roster } = useTeamRoster(mapId || undefined, team || undefined)
+  // Roster continuity is a single-team notion; only surface it when one is picked.
+  const soloTeam = teamIds.length === 1 ? teamIds[0] : undefined
+  const { data: roster } = useTeamRoster(mapId || undefined, soloTeam)
 
   const toggleBuy = (b: BuyType) =>
     setBuyTypes((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
@@ -49,7 +51,7 @@ export function AnalyticsPage() {
         <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
             <label htmlFor="an-map">{t('demos.map')}</label>
-            <select id="an-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeam('') }}>
+            <select id="an-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
               {(maps ?? []).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -57,12 +59,12 @@ export function AnalyticsPage() {
           </div>
           <div>
             <label htmlFor="an-team">{t('demos.team')}</label>
-            <SearchSelect
+            <MultiSelect
               id="an-team"
               options={teams ?? []}
-              value={team}
-              onChange={setTeam}
-              allLabel={t('analytics.allTeams')}
+              values={teamIds}
+              onChange={setTeamIds}
+              placeholder={t('analytics.allTeams')}
             />
           </div>
         </div>
@@ -78,7 +80,7 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {team && roster?.has_changes && <RosterChangeWarning roster={roster} />}
+      {soloTeam && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
       {isLoading && <p className="text-muted">{t('common.loading')}</p>}
       {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}

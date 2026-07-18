@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PredictIn } from '@/types/api'
 import { scoutingApi } from './api'
 
-export function useTendencies(mapId: string | undefined, team: string | undefined) {
+export function useTendencies(mapId: string | undefined, teams: string[] | undefined) {
   return useQuery({
-    queryKey: ['scouting', 'tendencies', mapId, team],
-    queryFn: () => scoutingApi.tendencies(mapId!, team),
+    queryKey: ['scouting', 'tendencies', mapId, teams],
+    queryFn: () => scoutingApi.tendencies(mapId!, teams),
     enabled: !!mapId,
     staleTime: 60_000,
   })

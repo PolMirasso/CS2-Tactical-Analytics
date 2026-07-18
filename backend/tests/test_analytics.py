@@ -48,6 +48,37 @@ def test_site_distribution_buy_filter_subsets_rounds(client):
     assert 0 < pistols["total_rounds"] <= full["total_rounds"]
 
 
+def test_site_distribution_aggregates_multiple_teams(client):
+    token = register_and_login(client, "multiteam@example.com")
+
+    def upload(content, team):
+        files = {"file": ("m.dem", io.BytesIO(content), "application/octet-stream")}
+        return client.post(
+            "/demos/upload",
+            files=files,
+            data={"map_id": "de_mirage", "team": team, "visibility": "private"},
+            headers=auth(token),
+        )
+
+    # Distinct bytes so the content-hash dedup keeps both demos.
+    upload(b"alpha-demo", "MTeamAlpha")
+    upload(b"bravo-demo", "MTeamBravo")
+
+    base = "/analytics/site-distribution"
+    a = client.get(base, params={"map_id": "de_mirage", "team": "MTeamAlpha"}, headers=auth(token)).json()
+    b = client.get(base, params={"map_id": "de_mirage", "team": "MTeamBravo"}, headers=auth(token)).json()
+    both = client.get(
+        base, params={"map_id": "de_mirage", "team": ["MTeamAlpha", "MTeamBravo"]}, headers=auth(token)
+    ).json()
+
+    assert a["total_rounds"] > 0 and b["total_rounds"] > 0
+    # Selecting both teams pools their rounds into one distribution.
+    assert both["total_rounds"] == a["total_rounds"] + b["total_rounds"]
+    assert a["total_rounds"] < both["total_rounds"]
+    # The single-team echo is dropped once several teams are selected.
+    assert both["team"] is None
+
+
 def test_analytics_teams_lists_executing_team(client):
     token = register_and_login(client, "teamslist@example.com")
     _upload(client, token, map_id="de_ancient", team="Spirit", visibility="private")

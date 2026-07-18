@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.analytics import aggregate
@@ -44,7 +44,7 @@ def _status(p: SitePredictor) -> ModelStatusOut:
 
 
 def _baseline_dist(session: Session, user: User, map_id: str, team: str | None) -> dict[str, float]:
-    dist = aggregate.site_distribution(session, user, map_id=map_id, team=team)
+    dist = aggregate.site_distribution(session, user, map_id=map_id, teams=[team] if team else None)
     if dist.total_rounds == 0:
         return {s: 1.0 / len(SITES) for s in SITES}
     return {s.site: s.pct for s in dist.sites}
@@ -98,15 +98,15 @@ def predict(
 @router.get("/tendencies", response_model=TendenciesOut)
 def tendencies(
     map_id: str,
-    team: str | None = None,
+    team: list[str] | None = Query(None),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> TendenciesOut:
-    dist = aggregate.site_distribution(session, user, map_id=map_id, team=team)
-    heatmap = aggregate.utility_heatmap(session, user, map_id=map_id, team=team)
+    dist = aggregate.site_distribution(session, user, map_id=map_id, teams=team)
+    heatmap = aggregate.utility_heatmap(session, user, map_id=map_id, teams=team)
     return TendenciesOut(
         map_id=map_id,
-        team=team,
+        team=team[0] if team and len(team) == 1 else None,
         total_rounds=dist.total_rounds,
         sites=dist.sites,
         heatmap=heatmap,

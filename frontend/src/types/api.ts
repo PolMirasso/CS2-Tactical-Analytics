@@ -188,7 +188,7 @@ export interface SiteDistributionOut {
 
 export interface SiteDistributionParams {
   map_id: string
-  team?: string
+  team?: string[]
   buy_type?: BuyType[]
   date_from?: string
   date_to?: string

@@ -33,6 +33,11 @@ def _team_filter(team_id: str):
     return or_(Round.team_hltv_id == team_id, Round.team == team_id)
 
 
+def _teams_filter(team_ids: list[str]):
+    """Match rounds executed by any of team_ids"""
+    return or_(Round.team_hltv_id.in_(team_ids), Round.team.in_(team_ids))
+
+
 def teams_for_map(session: Session, user: User, map_id: str) -> list[TeamRef]:
     """Distinct executing teams with parsed rounds on a map, most rounds first"""
     from app.demos.service import resolve_team_names
@@ -63,15 +68,16 @@ def site_distribution(
         user: User,
         *,
         map_id: str,
-        team: str | None = None,
+        teams: list[str] | None = None,
         buy_types: list[str] | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
 ) -> SiteDistributionOut:
     """Historical plant-site split (and per-site win rate) over matching T rounds."""
+
     conds = _base_conditions(session, user, map_id)
-    if team:
-        conds.append(_team_filter(team))
+    if teams:
+        conds.append(_teams_filter(teams))
     if buy_types:
         conds.append(Round.buy_type.in_(buy_types))
     if date_from:
@@ -115,7 +121,7 @@ def site_distribution(
     ]
     return SiteDistributionOut(
         map_id=map_id,
-        team=team,
+        team=teams[0] if teams and len(teams) == 1 else None,
         total_rounds=total_rounds,
         total_demos=total_demos,
         overall_win_rate=total_wins / total_rounds if total_rounds else 0.0,
@@ -240,12 +246,12 @@ def utility_heatmap(
         user: User,
         *,
         map_id: str,
-        team: str | None = None,
+        teams: list[str] | None = None,
 ) -> list[ZoneUtilStat]:
-    """T-side utility counts per callout zone (and type) for a team on a map."""
+    """T-side utility counts per callout zone (and type), aggregated over ``teams``."""
     conds = _base_conditions(session, user, map_id)
-    if team:
-        conds.append(_team_filter(team))
+    if teams:
+        conds.append(_teams_filter(teams))
 
     rows = session.execute(
         select(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type, func.count())

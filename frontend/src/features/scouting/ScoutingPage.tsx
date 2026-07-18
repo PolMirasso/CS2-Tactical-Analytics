@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
-import { SearchSelect } from '@/components/SearchSelect'
+import { MultiSelect } from '@/components/MultiSelect'
 import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
@@ -30,7 +30,7 @@ export function ScoutingPage() {
 
   const { data: maps } = useMaps()
   const [mapId, setMapId] = useState('')
-  const [team, setTeam] = useState('')
+  const [teamIds, setTeamIds] = useState<string[]>([])
   const [buyType, setBuyType] = useState<BuyType>('full')
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
@@ -45,14 +45,17 @@ export function ScoutingPage() {
 
   const { data: teams } = useTeams(mapId || undefined)
   const map = useMemo(() => maps?.find((m) => m.id === mapId) ?? null, [maps, mapId])
-  const teamName = useMemo(
-    () => teams?.find((tm) => tm.id === team)?.name ?? '',
-    [teams, team],
+
+  // Prediction is one opponent
+  const soloTeam = teamIds.length === 1 ? teamIds[0] : undefined
+  const teamLabel = useMemo(
+    () => teamIds.map((id) => teams?.find((tm) => tm.id === id)?.name ?? id).join(', '),
+    [teams, teamIds],
   )
   const zones: ZoneOut[] = map?.zones ?? []
 
-  const { data: roster } = useTeamRoster(mapId || undefined, team || undefined)
-  const tendencies = useTendencies(mapId || undefined, team || undefined)
+  const { data: roster } = useTeamRoster(mapId || undefined, soloTeam)
+  const tendencies = useTendencies(mapId || undefined, teamIds.length ? teamIds : undefined)
   const modelStatus = useModelStatus()
   const predict = usePredict()
   const trainModel = useTrainModel()
@@ -96,7 +99,7 @@ export function ScoutingPage() {
     const json = JSON.stringify({
       kind: 'cs2ta.scouting.v1',
       map_id: mapId,
-      team: team || null,
+      teams: teamIds,
       buy_type: buyType,
       tokens: tokens.map((tk) => ({
         util_type: tk.util_type,
@@ -108,7 +111,7 @@ export function ScoutingPage() {
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `scouting-${slug(map?.name ?? mapId)}${teamName ? `-${slug(teamName)}` : ''}.json`
+    a.download = `scouting-${slug(map?.name ?? mapId)}${teamLabel ? `-${slug(teamLabel)}` : ''}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -165,8 +168,8 @@ export function ScoutingPage() {
     if (typeof obj.buy_type === 'string' && (BUY_TYPES as string[]).includes(obj.buy_type)) {
       setBuyType(obj.buy_type as BuyType)
     }
-    if (typeof obj.team === 'string') setTeam(obj.team)
-    else if (obj.team === null) setTeam('')
+    if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
+    else if (typeof obj.team === 'string') setTeamIds([obj.team])
     setTokens(parsed)
     predict.reset()
   }
@@ -175,7 +178,7 @@ export function ScoutingPage() {
     if (!mapId) return
     predict.mutate({
       map_id: mapId,
-      team: team || undefined,
+      team: soloTeam,
       buy_type: buyType,
       equip_value: BUY_EQUIP[buyType] ?? 0,
       utility: tokens.map((tk) => ({
@@ -199,11 +202,11 @@ export function ScoutingPage() {
       <h1>{t('scouting.title')}</h1>
       <p className="text-muted">{t('scouting.subtitle')}</p>
 
-      {team && roster?.has_changes && <RosterChangeWarning roster={roster} />}
+      {soloTeam && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
       <div className="mb-3 hidden print:block">
         <h2 className="mb-1">
-          {t('scouting.reportTitle')}: {teamName || t('analytics.allTeams')} — {map?.name ?? mapId}
+          {t('scouting.reportTitle')}: {teamLabel || t('analytics.allTeams')} — {map?.name ?? mapId}
         </h2>
         <p className="text-muted">{t('demos.buy')}: {t(`demos.buyTypes.${buyType}`)}</p>
       </div>
@@ -213,7 +216,7 @@ export function ScoutingPage() {
         <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
             <label htmlFor="sc-map">{t('demos.map')}</label>
-            <select id="sc-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeam('') }}>
+            <select id="sc-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
               {(maps ?? []).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -221,12 +224,12 @@ export function ScoutingPage() {
           </div>
           <div>
             <label htmlFor="sc-team">{t('scouting.team')}</label>
-            <SearchSelect
+            <MultiSelect
               id="sc-team"
               options={teams ?? []}
-              value={team}
-              onChange={setTeam}
-              allLabel={t('analytics.allTeams')}
+              values={teamIds}
+              onChange={setTeamIds}
+              placeholder={t('analytics.allTeams')}
             />
           </div>
           <div>
@@ -387,6 +390,9 @@ export function ScoutingPage() {
               >
                 {predict.isPending ? t('common.loading') : t('scouting.analyze')}
               </button>
+              {teamIds.length > 1 && (
+                <p className="mt-1.5 mb-0 text-xs text-muted">{t('scouting.multiTeamHint')}</p>
+              )}
             </div>
 
             {result && <Prediction result={result} />}
@@ -396,7 +402,7 @@ export function ScoutingPage() {
 
       {/* Historical tendencies + utility heatmap */}
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h2>{t('scouting.tendencies')}{teamName ? ` · ${teamName}` : ''}</h2>
+        <h2>{t('scouting.tendencies')}{teamLabel ? ` · ${teamLabel}` : ''}</h2>
         {tendencies.isLoading && <p className="text-muted">{t('common.loading')}</p>}
         {tendencies.data && tendencies.data.total_rounds === 0 && (
           <p className="text-muted">{t('scouting.noTendencies')}</p>

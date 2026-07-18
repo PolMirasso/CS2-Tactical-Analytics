@@ -99,7 +99,7 @@ def get_roster(
 @analytics_router.get("/site-distribution", response_model=SiteDistributionOut)
 def get_site_distribution(
         map_id: str,
-        team: str | None = None,
+        team: list[str] | None = Query(None),
         buy_type: list[str] | None = Query(None),
         date_from: date | None = None,
         date_to: date | None = None,
@@ -108,6 +108,6 @@ def get_site_distribution(
 ) -> SiteDistributionOut:
     return aggregate.site_distribution(
         session, user,
-        map_id=map_id, team=team, buy_types=buy_type,
+        map_id=map_id, teams=team, buy_types=buy_type,
         date_from=date_from, date_to=date_to,
     )
