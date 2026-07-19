@@ -140,18 +140,18 @@ def test_team_rosters_flags_lineup_change():
                   team_hltv_id="100", buy_type="full", equip_value=4000,
                   target_site="A", winner="t")
         )
-        for name in roster:
-            session.add(PlayerStat(demo_id=did, name=name, team="TeamA"))
+        for sid, name in roster:
+            session.add(PlayerStat(demo_id=did, steamid=sid, name=name, team="TeamA"))
         session.flush()
 
-    old = ["p1", "p2", "p3", "p4", "old"]
-    new = ["p1", "p2", "p3", "p4", "new"]
+    old = [("1", "p1"), ("2", "p2"), ("3", "p3"), ("4", "p4"), ("9", "old")]
+    new = [("1", "p1"), ("2", "p2"), ("3", "p3"), ("4", "p4"), ("10", "new")]
     # demo_id runs opposite to chronology; hltv_match_id is the true order.
     make(38, "2395698", new)  # newest match -> current roster
     make(39, "2395210", old)
     make(40, "2395201", old)
     make(41, "2395133", old)  # oldest match -> former roster
-    make(42, "2395999", ["p1", "p2", "p3", "new"])  # newest but incomplete: no flag
+    make(42, "2395999", [("1", "p1"), ("2", "p2"), ("3", "p3"), ("10", "new")])  # newest but incomplete: no flag
 
     out = aggregate.team_rosters(session, admin, map_id="de_mirage", team="100")
     assert out.has_changes is True
@@ -164,6 +164,49 @@ def test_team_rosters_flags_lineup_change():
     gap = next(e for e in out.entries if e.demo_id == 42)
     assert gap.complete is False
     assert gap.added == [] and gap.removed == []
+
+
+def test_team_rosters_ignores_rename_same_steamid():
+    """A player who changes nick (same steamid) must not read as a roster change."""
+    from datetime import date
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.analytics import aggregate
+    from app.db import Base
+    from app.domain.models import Demo, PlayerStat, Round, User
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    admin = User(email="rn@x.io", hashed_password="x", role="admin")
+    session.add(admin)
+    session.flush()
+
+    def make(did, match_id, roster):
+        session.add(
+            Demo(id=did, owner_id=admin.id, map_id="de_mirage", visibility="public",
+                 team_hltv_id="100", match_date=date(2026, 7, 15), hltv_match_id=match_id)
+        )
+        session.add(
+            Round(demo_id=did, round_number=1, map_id="de_mirage", team="TeamA",
+                  team_hltv_id="100", buy_type="full", equip_value=4000,
+                  target_site="A", winner="t")
+        )
+        for sid, name in roster:
+            session.add(PlayerStat(demo_id=did, steamid=sid, name=name, team="TeamA"))
+        session.flush()
+
+    # Same five steamids in both demos; player "5" renamed guardian -> guardiaN.
+    make(1, "300", [("1", "p1"), ("2", "p2"), ("3", "p3"), ("4", "p4"), ("5", "guardian")])
+    make(2, "301", [("1", "p1"), ("2", "p2"), ("3", "p3"), ("4", "p4"), ("5", "guardiaN")])
+
+    out = aggregate.team_rosters(session, admin, map_id="de_mirage", team="100")
+    assert out.has_changes is False
+    assert all(not e.added and not e.removed for e in out.entries)
+    # Core is the five stable steamids, labelled with the most recent nick.
+    assert "guardiaN" in out.core and "guardian" not in out.core
 
 
 def test_site_distribution_respects_visibility(client):

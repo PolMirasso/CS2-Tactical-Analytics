@@ -170,14 +170,16 @@ def team_rosters(
     if not meta:
         return TeamRostersOut(map_id=map_id, team=team)
 
-    roster_by_demo: dict[int, set[str]] = {}
+    # identify players by steamid 
+    roster_by_demo: dict[int, dict[str, str]] = {}  # demo_id -> {player_key: name}
     prows = session.execute(
-        select(PlayerStat.demo_id, PlayerStat.name, PlayerStat.team)
+        select(PlayerStat.demo_id, PlayerStat.steamid, PlayerStat.name, PlayerStat.team)
         .where(PlayerStat.demo_id.in_(list(meta)))
     ).all()
-    for demo_id, name, pteam in prows:
+    for demo_id, sid, name, pteam in prows:
         if name and pteam is not None and pteam == meta[demo_id]["clan"]:
-            roster_by_demo.setdefault(demo_id, set()).add(name)
+            key = sid or f"name:{name}"
+            roster_by_demo.setdefault(demo_id, {})[key] = name
 
     from app.demos.service import resolve_team_names
 
@@ -201,17 +203,19 @@ def team_rosters(
 
     entries: list[RosterEntry] = []
     has_changes = False
-    prev_full: set[str] | None = None
-    full_rosters: list[set[str]] = []
+    prev_full: dict[str, str] | None = None  # player key name
+    full_rosters: list[set[str]] = []  # sets of player keys
+    name_of: dict[str, str] = {}  # player_key
     for demo_id in ordered:
-        roster = roster_by_demo.get(demo_id, set())
-        complete = len(roster) == _ROSTER_SIZE
+        roster = roster_by_demo.get(demo_id, {})
+        keys = set(roster)
+        complete = len(keys) == _ROSTER_SIZE
         added: list[str] = []
         removed: list[str] = []
         # Only compare full line-ups
         if complete and prev_full is not None:
-            added = sorted(roster - prev_full)
-            removed = sorted(prev_full - roster)
+            added = sorted(roster[k] for k in keys - set(prev_full))
+            removed = sorted(prev_full[k] for k in set(prev_full) - keys)
             if added or removed:
                 has_changes = True
         m = meta[demo_id]
@@ -220,7 +224,7 @@ def team_rosters(
                 demo_id=demo_id,
                 match_date=m["date"],
                 opponent=opp_names.get(m["opp_id"]) or m["opp_clan"],
-                players=sorted(roster),
+                players=sorted(roster.values()),
                 added=added,
                 removed=removed,
                 complete=complete,
@@ -228,9 +232,11 @@ def team_rosters(
         )
         if complete:
             prev_full = roster
-            full_rosters.append(roster)
+            full_rosters.append(keys)
+            name_of.update(roster)  # ordered oldest 2 newest
 
-    core = sorted(set.intersection(*full_rosters)) if full_rosters else []
+    core_keys = set.intersection(*full_rosters) if full_rosters else set()
+    core = sorted(name_of[k] for k in core_keys)
     return TeamRostersOut(
         map_id=map_id,
         team=team,

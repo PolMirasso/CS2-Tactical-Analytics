@@ -195,6 +195,7 @@ class PlayerStat(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     demo_id: Mapped[int] = mapped_column(ForeignKey("demos.id"), index=True)
     name: Mapped[str] = mapped_column(String, index=True)
+    steamid: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     team: Mapped[str | None] = mapped_column(String, nullable=True)
     kills: Mapped[int] = mapped_column(default=0)
     deaths: Mapped[int] = mapped_column(default=0)

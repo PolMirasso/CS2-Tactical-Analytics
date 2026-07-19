@@ -48,6 +48,7 @@ def _add_missing_columns() -> None:
         "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR",
                   "team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR"},
         "utility_events": {"radar_x": "FLOAT", "radar_y": "FLOAT", "z": "FLOAT"},
+        "player_stats": {"steamid": "VARCHAR"},
     }
     insp = inspect(_engine)
     for table, columns in wanted.items():

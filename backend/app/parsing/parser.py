@@ -101,6 +101,7 @@ class KillData:
 class PlayerStatData:
     name: str
     team: str | None
+    steamid: str | None = None
     kills: int = 0
     deaths: int = 0
     assists: int = 0
@@ -384,15 +385,18 @@ def _assign_player_teams(
         return
     team_t, team_ct = rounds[0].team, rounds[0].opponent
     side_of: dict[str, str] = {}
+    id_of: dict[str, str] = {}
     if replay is not None:
         for r in replay.rounds:
-            if r.round_number > _REGULATION_HALF:
-                continue  # first half: sides are stable
             for p in r.players:
-                side_of.setdefault(p.name, p.side)
+                # steamid is stable across halves
+                id_of.setdefault(p.name, p.steamid)
+                if r.round_number <= _REGULATION_HALF:
+                    side_of.setdefault(p.name, p.side)  # sides are stable pre-half
     for s in stats:
         side = side_of.get(s.name)
         s.team = team_t if side == "t" else team_ct if side == "ct" else None
+        s.steamid = id_of.get(s.name)
     stats.sort(key=lambda s: (s.team or "~", -s.kills))
 
 

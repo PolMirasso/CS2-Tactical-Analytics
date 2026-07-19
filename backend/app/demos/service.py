@@ -301,6 +301,7 @@ def parse_and_store(
             PlayerStat(
                 demo_id=demo.id,
                 name=p.name,
+                steamid=p.steamid,
                 team=p.team,
                 kills=p.kills,
                 deaths=p.deaths,
