@@ -14,6 +14,7 @@ import type {
   UtilityType,
 } from '@/types/api'
 import { useReplayMeta, useReplayRound } from './hooks'
+import { WeaponIcon, hasWeaponIcon } from './WeaponIcon'
 
 const RADAR = 1024 // awpy radar images and our SVG viewBox are 1024×1024
 const SIDE_COLOR: Record<string, string> = { t: '#f3c244', ct: '#5b9cff' }
@@ -372,7 +373,8 @@ function TeamPanel({
         const st = (statFrame.st?.[e.idx] as Stat) ?? [0, 0, 0, 0, 0, 0]
         const hp = Math.max(0, Math.round(pos[3]))
         const dead = hp <= 0
-        const weapon = prettyWeapon(weapons?.[st[2]])
+        const rawWeapon = weapons?.[st[2]]
+        const weapon = prettyWeapon(rawWeapon)
         const clip = st[3] ?? 0
         const reserve = st[4] ?? 0
         const nadeMask = st[5] ?? 0
@@ -416,9 +418,17 @@ function TeamPanel({
               </span>
             </div>
             <div className="flex justify-between gap-1.5 text-xs text-muted">
-              <span title={t('replay.weapon')} className="overflow-hidden text-ellipsis whitespace-nowrap">
-                {weapon}
-              </span>
+              {hasWeaponIcon(rawWeapon) ? (
+                <WeaponIcon
+                  weapon={rawWeapon}
+                  title={weapon}
+                  className="h-4 w-auto max-w-[120px] shrink text-muted"
+                />
+              ) : (
+                <span title={t('replay.weapon')} className="overflow-hidden text-ellipsis whitespace-nowrap">
+                  {weapon}
+                </span>
+              )}
               {!dead && (clip > 0 || reserve > 0) && (
                 <span title={t('replay.ammo')} className="shrink-0">
                   {clip}/{reserve}
@@ -1048,7 +1058,15 @@ function ReplayStage({
               className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border border-border bg-[rgba(10,12,16,0.82)] px-2 py-[3px] text-[13px]"
             >
               <span className="font-semibold [overflow-wrap:anywhere]" style={{ color: SIDE_COLOR[k.as] ?? '#fff' }}>{k.atk}</span>
-              <span className="text-muted">{prettyWeapon(k.wp)}</span>
+              {hasWeaponIcon(k.wp) ? (
+                <WeaponIcon
+                  weapon={k.wp}
+                  title={prettyWeapon(k.wp)}
+                  className="h-3.5 w-auto max-w-[80px] shrink-0 text-muted"
+                />
+              ) : (
+                <span className="text-muted">{prettyWeapon(k.wp)}</span>
+              )}
               {k.air && (
                 <span title={t('replay.jump')} className="font-bold text-[#5fd0ff]">
                   JUMP
