@@ -255,6 +255,10 @@
       "flash": "Flash",
       "molotov": "Molotov",
       "he": "HE"
-    }
+    },
+    "testMaps": "Test all maps",
+    "okShort": "% OK",
+    "mapTestResults": "Map test results (% OK per map)",
+    "mapTestEmpty": "Not enough data to test (need ≥20 rounds with A, B and NoPlant)."
   }
 }

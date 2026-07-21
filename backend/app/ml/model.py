@@ -12,6 +12,7 @@ from app.ml.features import SITES, TOKEN_DIM, _attr, round_context, round_tokens
 # Below this many rounds (or < 2 distinct sites) we don't fit the net and serve
 # the historical base rate instead — too little signal to learn anything.
 MIN_ROUNDS = 20
+HOLDOUT_FRAC = 0.2
 _WEIGHT_DECAY = 1e-4
 # Set pooling over the round's utility tokens: mean (baseline), sum (keeps cardinality) or attention (learned per-grenade weights)
 _POOLING = "attention"
@@ -174,10 +175,10 @@ class SitePredictor:
         tgt = [targets[i] for i in keep]
         is_plant = [t in ("A", "B") for t in tgt]
 
-        # One outer holdout for honest, comparable metrics
+        # One outer 80/20 holdout for honest, comparable metrics
         rng = np.random.default_rng(0)
         order = rng.permutation(len(keep))
-        n_val = max(2, len(keep) // 5)
+        n_val = max(2, round(len(keep) * HOLDOUT_FRAC))
         va, tr = list(order[:n_val]), list(order[n_val:])
 
         vec = DictVectorizer(sparse=False)

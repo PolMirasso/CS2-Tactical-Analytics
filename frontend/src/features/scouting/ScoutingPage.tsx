@@ -10,7 +10,7 @@ import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
-import { useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
+import { useEvaluateMaps, useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
@@ -59,6 +59,7 @@ export function ScoutingPage() {
   const modelStatus = useModelStatus()
   const predict = usePredict()
   const trainModel = useTrainModel()
+  const evaluateMaps = useEvaluateMaps()
 
   // Reset the board when the map changes (zones differ between maps).
   const skipResetRef = useRef(false)
@@ -196,6 +197,8 @@ export function ScoutingPage() {
 
   const result = predict.data
   const ms = modelStatus.data
+  // test all maps
+  const perMap = evaluateMaps.data?.per_map ?? (ms?.trained ? ms.per_map : null)
 
   return (
     <div>
@@ -277,9 +280,17 @@ export function ScoutingPage() {
               {trainModel.isPending ? t('common.loading') : t('scouting.train')}
             </button>
           )}
+          {isAdmin && (
+            <button className="border border-border bg-transparent text-text" onClick={() => evaluateMaps.mutate()} disabled={evaluateMaps.isPending}>
+              {evaluateMaps.isPending ? t('common.loading') : t('scouting.testMaps')}
+            </button>
+          )}
         </div>
-        {ms?.trained && ms.per_map && ms.per_map.length > 0 && (
-          <PerMapTable rows={ms.per_map} maps={maps} />
+        {perMap && perMap.length > 0 && (
+          <PerMapTable rows={perMap} maps={maps} tested={!!evaluateMaps.data} />
+        )}
+        {isAdmin && evaluateMaps.data && (!perMap || perMap.length === 0) && (
+          <div className="text-muted mt-2 text-xs">{t('scouting.mapTestEmpty')}</div>
         )}
         {ms?.trained && ms.reliability && ms.reliability.length > 0 && (
           <ReliabilityDiagram bins={ms.reliability} />
@@ -464,19 +475,20 @@ function Bar({ label, value, color, note }: { label: string; value: number; colo
 }
 
 // per-map held-out accuracy table
-function PerMapTable({ rows, maps }: { rows: PerMapMetric[]; maps?: MapOut[] }) {
+function PerMapTable({ rows, maps, tested }: { rows: PerMapMetric[]; maps?: MapOut[]; tested?: boolean }) {
   const { t } = useTranslation()
   const name = (id: string) => maps?.find((m) => m.id === id)?.name ?? id
   const cell = 'py-0.5 pr-2.5 pl-0 text-right whitespace-nowrap'
   const head = `${cell} border-b border-border font-semibold`
   return (
     <div className="mt-3 overflow-x-auto print:hidden">
-      <div className="text-muted mb-1 text-xs">{t('scouting.byMap')}</div>
+      <div className="text-muted mb-1 text-xs">{tested ? t('scouting.mapTestResults') : t('scouting.byMap')}</div>
       <table className="border-collapse text-xs">
         <thead>
           <tr className="text-muted">
             <th className={`${head} text-left`}>{t('scouting.map')}</th>
             <th className={head}>{t('scouting.plants')}</th>
+            <th className={head}>{t('scouting.okShort')}</th>
             <th className={head}>{t('scouting.siteAccShort')}</th>
             <th className={head}>{t('scouting.baselineShort')}</th>
           </tr>
@@ -486,6 +498,7 @@ function PerMapTable({ rows, maps }: { rows: PerMapMetric[]; maps?: MapOut[] }) 
             <tr key={r.map_id}>
               <td className={`${cell} text-left`}>{name(r.map_id)}</td>
               <td className={cell}>{r.n_plant}</td>
+              <td className={`${cell} font-semibold`}>{r.accuracy != null ? pct(r.accuracy) : '—'}</td>
               <td className={cell}>{r.site_accuracy != null ? pct(r.site_accuracy) : '—'}</td>
               <td className={`${cell} text-muted`}>{r.baseline_accuracy != null ? pct(r.baseline_accuracy) : '—'}</td>
             </tr>

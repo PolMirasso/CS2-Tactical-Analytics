@@ -255,6 +255,10 @@
       "flash": "Flash",
       "molotov": "Molotov",
       "he": "HE"
-    }
+    },
+    "testMaps": "Testear todos los mapas",
+    "okShort": "% OK",
+    "mapTestResults": "Resultados del test (% OK por mapa)",
+    "mapTestEmpty": "Datos insuficientes para testear (hacen falta ≥20 rondas con A, B y NoPlant)."
   }
 }

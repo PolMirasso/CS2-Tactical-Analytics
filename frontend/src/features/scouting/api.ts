@@ -7,4 +7,5 @@ export const scoutingApi = {
     api.get<TendenciesOut>(`/scouting/tendencies${qs({ map_id: mapId, team })}`),
   model: () => api.get<ModelStatusOut>('/scouting/model'),
   train: () => api.post<ModelStatusOut>('/scouting/train'),
+  evaluate: () => api.post<ModelStatusOut>('/scouting/evaluate'),
 }

@@ -45,6 +45,12 @@ def _load_from_disk() -> SitePredictor | None:
     return obj
 
 
+def evaluate_model(session: Session, user: User) -> SitePredictor:
+    """fit the 80/20 holdout and report its per-map metrics"""
+    samples, targets, meta = build_dataset(session, user)
+    return SitePredictor.train(samples, targets, meta)
+
+
 def train_model(session: Session, user: User) -> SitePredictor:
     global _predictor, _loaded
     samples, targets, meta = build_dataset(session, user)

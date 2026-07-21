@@ -30,3 +30,8 @@ export function useTrainModel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scouting', 'model'] }),
   })
 }
+
+// evaluates without persisting
+export function useEvaluateMaps() {
+  return useMutation({ mutationFn: () => scoutingApi.evaluate() })
+}

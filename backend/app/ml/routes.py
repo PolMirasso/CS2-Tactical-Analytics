@@ -63,6 +63,14 @@ def train(
     return _status(service.train_model(session, user))
 
 
+@router.post("/evaluate", response_model=ModelStatusOut)
+def evaluate(
+    user: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> ModelStatusOut:
+    return _status(service.evaluate_model(session, user))
+
+
 @router.post("/predict", response_model=PredictOut)
 def predict(
     payload: PredictIn,

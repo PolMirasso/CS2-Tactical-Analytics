@@ -6,7 +6,7 @@ import numpy as np
 
 from app.ml.deepsets import POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TOKEN_DIM, round_context, round_tokens
-from app.ml.model import SitePredictor, _reliability
+from app.ml.model import HOLDOUT_FRAC, SitePredictor, _reliability
 from tests.conftest import auth, register_and_login
 
 
@@ -225,10 +225,99 @@ def test_train_reports_per_map_breakdown():
         assert 0.0 <= r["baseline_accuracy"] <= 1.0
         assert r["site_accuracy"] is None or 0.0 <= r["site_accuracy"] <= 1.0
     # the per-map rows partition the single held-out split (20%)
-    assert sum(r["n_rounds"] for r in p.per_map) == max(2, len(samples) // 5)
+    assert sum(r["n_rounds"] for r in p.per_map) == max(2, round(len(samples) * HOLDOUT_FRAC))
+
+
+# 80/20 holdout evaluation + prediction driven by the selected (drawn) utility
+
+def test_train_holds_out_20_percent_for_evaluation():
+    """Fit on 80%, keep the other 20% untouched: per_map rows cover exactly the
+    held-out split and n_plant never exceeds n_rounds inside it."""
+    rng = np.random.default_rng(2)
+    samples, targets = _synth_rounds(rng, "de_mirage", "NaVi", 300)
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 1})
+    assert p.trained
+    n_val = sum(r["n_rounds"] for r in p.per_map)
+    assert n_val == max(2, round(len(samples) * HOLDOUT_FRAC))  # ~20% held out
+    assert round(len(samples) * HOLDOUT_FRAC) == 60  # 20% of 300
+
+
+def test_holdout_evaluation_shows_model_is_correct():
+    """The honest test: train on 80%, score on the held-out 20%. With the site
+    fully decided by the utility position, the model recovers it on unseen rounds
+    far better than the historical base-rate baseline."""
+    rng = np.random.default_rng(3)
+    samples, targets = [], []
+    for mp, team in [("de_mirage", "NaVi"), ("de_inferno", "G2")]:
+        s, tg = _synth_rounds(rng, mp, team, 200)
+        samples += s
+        targets += tg
+
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 2})
+    assert p.trained
+    # A-vs-B given a plant is the real job and position decides it here → near-perfect
+    assert p.site_accuracy is not None and p.site_accuracy >= 0.9
+    # 3-class accuracy on the held-out rows clears the base rate on those same rows
+    assert p.accuracy is not None and p.baseline_accuracy is not None
+    assert p.accuracy > p.baseline_accuracy
+
+
+def test_prediction_follows_selected_utility_box():
+    """'El recuadro manda': after training, the SAME drawn box predicts A when
+    placed on the A side and B when placed on the B side — the selected utility's
+    position, not the context, drives the call."""
+    rng = np.random.default_rng(4)
+    samples, targets = _synth_rounds(rng, "de_mirage", "NaVi", 300)
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 1})
+    assert p.trained
+
+    def predict_box(x: float) -> dict[str, float] | None:
+        return p.model_proba(
+            map_id="de_mirage", team="NaVi", opponent="OPP",
+            buy_type="full", equip_value=4000,
+            utility=[{
+                "util_type": "smoke", "x": x, "y": 500.0,
+                "w": 60.0, "h": 60.0, "time_from": 4.0, "time_to": 8.0, "side": "t",
+            }],
+        )
+
+    a_box = predict_box(200.0)  # box drawn on the A side
+    b_box = predict_box(800.0)  # box drawn on the B side
+    assert a_box is not None and b_box is not None
+    assert a_box["A"] > a_box["B"]  # box on A ⇒ A wins
+    assert b_box["B"] > b_box["A"]  # box on B ⇒ B wins
+    # sliding the box A→B trades probability mass the expected way
+    assert b_box["B"] > a_box["B"]
+    assert a_box["A"] > b_box["A"]
 
 
 # API
+
+
+def test_predict_accepts_selected_utility_box(client):
+    # drawn-box utility (x/y + w/h) — the scouting "select utility" input — plumbs
+    # through /scouting/predict and returns a valid, normalised distribution
+    token = register_and_login(client, "mlbox@example.com")
+    _upload(client, token, map_id="de_mirage", team="NaVi", visibility="private")
+    resp = client.post(
+        "/scouting/predict",
+        json={
+            "map_id": "de_mirage",
+            "team": "NaVi",
+            "buy_type": "full",
+            "utility": [{
+                "util_type": "smoke", "x": 200.0, "y": 500.0,
+                "w": 60.0, "h": 60.0, "time_from": 4.0, "time_to": 8.0, "side": "t",
+            }],
+        },
+        headers=auth(token),
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert [s["site"] for s in body["sites"]] == SITES
+    assert abs(sum(s["prob"] for s in body["sites"]) - 1.0) < 1e-6
+    assert body["predicted_site"] in SITES
+
 
 def test_predict_contract(client):
     token = register_and_login(client, "mlpredict@example.com")
@@ -323,6 +412,34 @@ def test_train_then_predict_uses_model(client):
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["source"] == "model"
+
+
+def test_evaluate_requires_admin(client):
+    token = register_and_login(client, "mlevalnotadmin@example.com")
+    resp = client.post("/scouting/evaluate", headers=auth(token))
+    assert resp.status_code == 403
+
+
+def test_evaluate_reports_per_map_ok_without_persisting(client):
+    admin = _admin(client)
+    for mp, team in [
+        ("de_mirage", "NaVi"), ("de_inferno", "G2"),
+        ("de_ancient", "Vitality"), ("de_nuke", "FaZe"),
+    ]:
+        _upload(client, admin, content=f"eval-{mp}".encode(), map_id=mp, team=team, visibility="public")
+
+    before = client.get("/scouting/model", headers=auth(admin)).json()
+    resp = client.post("/scouting/evaluate", headers=auth(admin))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["trained"] is True
+    assert body["per_map"]
+    for r in body["per_map"]:
+        assert 0 <= r["n_plant"] <= r["n_rounds"]
+        assert r["accuracy"] is None or 0.0 <= r["accuracy"] <= 1.0  # % OK per map
+    # "test all maps" evaluates only — it must never persist or swap the deployed model
+    after = client.get("/scouting/model", headers=auth(admin)).json()
+    assert after == before
 
 
 def test_tendencies_returns_sites_and_heatmap(client):
