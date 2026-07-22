@@ -46,7 +46,8 @@ def _add_missing_columns() -> None:
                           "max_matches": "INTEGER"},
         "demos": {"team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR"},
         "rounds": {"winner": "VARCHAR", "win_reason": "VARCHAR",
-                  "team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR"},
+                  "team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR",
+                  "plant_time_s": "FLOAT"},
         "utility_events": {"radar_x": "FLOAT", "radar_y": "FLOAT", "z": "FLOAT"},
         "player_stats": {"steamid": "VARCHAR"},
     }

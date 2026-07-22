@@ -4,11 +4,13 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
-from app.ml.features import round_context, round_tokens
+from app.ml.features import round_context, round_tokens, timing_label
 
 
-def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], dict]:
-    # all visible T-side rounds (samples, target sites, meta)
+def build_dataset(
+    session: Session, user: User
+) -> tuple[list[dict], list[str], list[str | None], dict]:
+    # all visible T-side rounds (samples, target sites, timing labels, meta)
     from app.demos.service import _visibility_clause
 
     rounds = list(
@@ -22,7 +24,7 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
         )
     )
     if not rounds:
-        return [], [], {"n_rounds": 0, "n_teams": 0}
+        return [], [], [], {"n_rounds": 0, "n_teams": 0}
 
     util_by_round: dict[int, list[UtilityEvent]] = {}
     for u in session.scalars(
@@ -32,6 +34,7 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
 
     samples: list[dict] = []
     targets: list[str] = []
+    timing_targets: list[str | None] = []
     teams: set[str] = set()
     for r in rounds:
         util = util_by_round.get(r.id, [])
@@ -51,6 +54,7 @@ def build_dataset(session: Session, user: User) -> tuple[list[dict], list[str], 
             }
         )
         targets.append(r.target_site)
+        timing_targets.append(timing_label(getattr(r, "plant_time_s", None)))
         if team:
             teams.add(team)
-    return samples, targets, {"n_rounds": len(samples), "n_teams": len(teams)}
+    return samples, targets, timing_targets, {"n_rounds": len(samples), "n_teams": len(teams)}

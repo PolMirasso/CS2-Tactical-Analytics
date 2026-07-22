@@ -228,6 +228,13 @@
     "baselineSource": "Historical base rate",
     "baseline": "Historical frequency",
     "baselineHint": "The bar is the model probability; the vertical tick is the team's historical frequency (baseline).",
+    "executionTiming": "Execution timing",
+    "timingHint": "If they commit, when they'll most likely plant (from the throw time of the drawn utility).",
+    "timings": {
+      "rush": "Rush",
+      "default": "Default",
+      "late": "Late"
+    },
     "tendencies": "Historical tendencies",
     "tendenciesSummary": "{{rounds}} T-side rounds analyzed.",
     "heatmap": "Utility heatmap (T side)",
@@ -236,6 +243,7 @@
     "trained": "Model trained · {{rounds}} rounds · accuracy {{acc}}",
     "untrained": "Model not trained (using historical base rate)",
     "siteAccuracy": "Site accuracy (on plants)",
+    "timingAccuracy": "Timing accuracy",
     "baselineAccuracy": "Baseline accuracy",
     "byMap": "Held-out accuracy by map",
     "map": "Map",

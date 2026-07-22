@@ -228,6 +228,13 @@
     "baselineSource": "Base histórica",
     "baseline": "Frecuencia histórica",
     "baselineHint": "La barra muestra la probabilidad del modelo; la marca vertical, la frecuencia histórica del equipo (baseline).",
+    "executionTiming": "Timing de ejecución",
+    "timingHint": "Si el equipo ejecuta, cuándo es más probable que plante (a partir del tiempo de la utility dibujada).",
+    "timings": {
+      "rush": "Rush",
+      "default": "Default",
+      "late": "Lenta"
+    },
     "tendencies": "Tendencias históricas",
     "tendenciesSummary": "{{rounds}} rondas de lado T analizadas.",
     "heatmap": "Mapa de calor de utility (lado T)",
@@ -236,6 +243,7 @@
     "trained": "Modelo entrenado · {{rounds}} rondas · acierto {{acc}}",
     "untrained": "Modelo sin entrenar (se usa la base histórica)",
     "siteAccuracy": "Acierto de site (en plants)",
+    "timingAccuracy": "Acierto de timing",
     "baselineAccuracy": "Acierto baseline",
     "byMap": "Acierto held-out por mapa",
     "map": "Mapa",

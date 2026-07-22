@@ -248,6 +248,7 @@ def parse_and_store(
             buy_type=r.buy_type,
             equip_value=r.equip_value,
             target_site=r.target_site,
+            plant_time_s=r.plant_time_s,
             winner=r.winner,
             win_reason=r.win_reason,
         )

@@ -303,6 +303,11 @@ class SiteProb(BaseModel):
     prob: float  # 0..1
 
 
+class TimingProb(BaseModel):
+    timing: str  # rush / default / late
+    prob: float  # 0..1
+
+
 class PredictOut(BaseModel):
     map_id: str
     team: str | None = None
@@ -311,6 +316,10 @@ class PredictOut(BaseModel):
     source: str  # "model" (MLP) or "baseline" (historical base rate fallback)
     sites: list[SiteProb]
     baseline: list[SiteProb]
+    # execution timing given a plant
+    predicted_timing: str | None = None
+    timing_confidence: float | None = None
+    timing: list[TimingProb] | None = None
 
 
 class ZoneUtilStat(BaseModel):
@@ -355,6 +364,9 @@ class ModelStatusOut(BaseModel):
     accuracy: float | None = None
     site_accuracy: float | None = None
     baseline_accuracy: float | None = None
+    # rush/default/late given a plant
+    timing_accuracy: float | None = None
+    timing_baseline_accuracy: float | None = None
     # Confidence calibration
     ece: float | None = None
     ece_uncalibrated: float | None = None

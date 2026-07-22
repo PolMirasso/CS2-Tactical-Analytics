@@ -38,31 +38,41 @@ def _load_from_disk() -> SitePredictor | None:
         obj = joblib.load(path)
     except Exception:
         return None
-    # Reject a model pickled by an incompatible older version (single-head models
-    # lack the two-stage gate/site fields); the caller falls back to the baseline until retrained
-    if not isinstance(obj, SitePredictor) or not hasattr(obj, "gate_net"):
+    # Reject a model pickled by an incompatible older version (pre-two-stage models
+    # lack gate_net; pre-timing-head models lack timing_net); the caller
+    # falls back to the baseline until retrained.
+    if (
+        not isinstance(obj, SitePredictor)
+        or not hasattr(obj, "gate_net")
+        or not hasattr(obj, "timing_net")
+    ):
         return None
     return obj
 
 
 def evaluate_model(session: Session, user: User) -> SitePredictor:
     """fit the 80/20 holdout and report its per-map metrics"""
-    samples, targets, meta = build_dataset(session, user)
-    return SitePredictor.train(samples, targets, meta)
+    samples, targets, timing_targets, meta = build_dataset(session, user)
+    return SitePredictor.train(samples, targets, meta, timing_targets)
 
 
 def train_model(session: Session, user: User) -> SitePredictor:
     global _predictor, _loaded
-    samples, targets, meta = build_dataset(session, user)
-    predictor = SitePredictor.train(samples, targets, meta)
-    _persist(predictor, samples, targets)
+    samples, targets, timing_targets, meta = build_dataset(session, user)
+    predictor = SitePredictor.train(samples, targets, meta, timing_targets)
+    _persist(predictor, samples, targets, timing_targets)
     with _lock:
         _predictor = predictor
         _loaded = True
     return predictor
 
 
-def _persist(predictor: SitePredictor, samples: list[dict], targets: list[str]) -> None:
+def _persist(
+    predictor: SitePredictor,
+    samples: list[dict],
+    targets: list[str],
+    timing_targets: list[str | None] | None = None,
+) -> None:
     import joblib
 
     settings = get_settings()
@@ -70,12 +80,14 @@ def _persist(predictor: SitePredictor, samples: list[dict], targets: list[str]) 
     if predictor.trained:
         joblib.dump(predictor, _model_path())
     try:
-        _export_snapshot(samples, targets)
+        _export_snapshot(samples, targets, timing_targets)
     except Exception:
         pass
 
 
-def _export_snapshot(samples: list[dict], targets: list[str]) -> None:
+def _export_snapshot(
+    samples: list[dict], targets: list[str], timing_targets: list[str | None] | None = None
+) -> None:
     """Reproducibility: dump the round context table to dataset_dir (best effort)."""
     if not samples:
         return
@@ -86,4 +98,6 @@ def _export_snapshot(samples: list[dict], targets: list[str]) -> None:
     rows = [{**s["context"], "n_tokens": len(s["tokens"])} for s in samples]
     df = pd.DataFrame(rows)
     df["target_site"] = targets
+    if timing_targets is not None:
+        df["target_timing"] = timing_targets
     df.to_parquet(settings.dataset_dir / "rounds.parquet", index=False)

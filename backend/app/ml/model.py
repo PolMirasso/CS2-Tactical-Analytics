@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import numpy as np
 
 from app.ml.deepsets import DeepSets, _softmax
-from app.ml.features import SITES, TOKEN_DIM, _attr, round_context, round_tokens
+from app.ml.features import SITES, TIMINGS, TOKEN_DIM, _attr, round_context, round_tokens
 
 # Below this many rounds (or < 2 distinct sites) we don't fit the net and serve
 # the historical base rate instead — too little signal to learn anything.
@@ -124,13 +124,18 @@ class SitePredictor:
 
     gate_net: DeepSets | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
     gate_vec: object | None = None
-    site_net: DeepSets | None = None  # 0 = A, 1 = B 
+    site_net: DeepSets | None = None  # 0 = A, 1 = B
+    # execution timing given a plant (rush/default/late)
+    timing_net: DeepSets | None = None
+    timing_classes: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
     trained_at: datetime | None = None
     n_rounds: int = 0
     n_teams: int = 0
     accuracy: float | None = None  # held-out 3-class
     site_accuracy: float | None = None  # held-out A-vs-B given a plant
+    timing_accuracy: float | None = None  # rush/default/late given a plant
+    timing_baseline_accuracy: float | None = None
     baseline_accuracy: float | None = None
     # Confidence calibration (temperature scaling)
     ece: float | None = None
@@ -145,7 +150,13 @@ class SitePredictor:
         return self.gate_net is not None and self.site_net is not None
 
     @classmethod
-    def train(cls, samples: list[dict], targets: list[str], meta: dict) -> SitePredictor:
+    def train(
+        cls,
+        samples: list[dict],
+        targets: list[str],
+        meta: dict,
+        timing_targets: list[str | None] | None = None,
+    ) -> SitePredictor:
         """ samples = {"tokens", "context"} dicts"""
         from sklearn.feature_extraction import DictVectorizer
 
@@ -174,6 +185,9 @@ class SitePredictor:
         ctxs = [contexts[i] for i in keep]
         tgt = [targets[i] for i in keep]
         is_plant = [t in ("A", "B") for t in tgt]
+        tim = (
+            [timing_targets[i] for i in keep] if timing_targets is not None else [None] * len(keep)
+        )
 
         # One outer 80/20 holdout for honest, comparable metrics
         rng = np.random.default_rng(0)
@@ -208,6 +222,34 @@ class SitePredictor:
             site_logits = np.array([site_net.predict_logits(tokens[i], dummy[i]) for i in vap])
             y_site_va = np.array([0 if tgt[i] == "A" else 1 for i in vap])
             site_net.temperature = DeepSets.fit_temperature(site_logits, y_site_va)
+
+        # Third head — execution timing given a plant. Trains only when the plant rounds carry timing labels
+        trp_t = [i for i in trp if tim[i] is not None]
+        timing_classes = [c for c in TIMINGS if c in {tim[i] for i in trp_t}]
+        if len(timing_classes) >= 2 and len(trp_t) >= 10:
+            ti = {c: k for k, c in enumerate(timing_classes)}
+            timing_net, _, _ = DeepSets.fit(
+                [tokens[i] for i in trp_t], dummy[trp_t],
+                np.array([ti[tim[i]] for i in trp_t]), len(timing_classes),
+                weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
+            )
+            vap_t = [i for i in vap if tim[i] is not None]
+            if vap_t:
+                t_logits = np.array([timing_net.predict_logits(tokens[i], dummy[i]) for i in vap_t])
+                timing_net.temperature = DeepSets.fit_temperature(
+                    t_logits, np.array([ti[tim[i]] for i in vap_t])
+                )
+                self.timing_accuracy = float(np.mean([
+                    np.argmax(timing_net.predict_proba(tokens[i], dummy[i])) == ti[tim[i]]
+                    for i in vap_t
+                ]))
+                ttbl, tgmode = _base_rate([ctxs[i] for i in trp_t], [tim[i] for i in trp_t])
+                self.timing_baseline_accuracy = float(np.mean([
+                    int(ttbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", tgmode) == tim[i])
+                    for i in vap_t
+                ]))
+            self.timing_net = timing_net
+            self.timing_classes = timing_classes
 
         idx3 = {"A": 0, "B": 1, "NoPlant": 2}
 
@@ -286,6 +328,9 @@ class SitePredictor:
             "gate_T": f"{gate_net.temperature:.2f}",
             "site_T": f"{site_net.temperature:.2f}",
         }
+        if self.timing_net is not None:
+            self.params["timing"] = self.timing_net.layers
+            self.params["timing_T"] = f"{self.timing_net.temperature:.2f}"
         self.trained_at = datetime.now(UTC)
         return self
 
@@ -328,5 +373,22 @@ class SitePredictor:
 
         triple = {"A": proba[0], "B": proba[1], "NoPlant": proba[2]}
         out = {s: float(triple.get(s, 0.0)) for s in SITES}
+        total = sum(out.values()) or 1.0
+        return {k: v / total for k, v in out.items()}
+
+    def timing_proba(self, *, map_id: str | None, utility) -> dict[str, float] | None:
+        """P(rush/default/late) given a plant, from the drawn utility only"""
+        if self.timing_net is None or self.timing_net.token_dim != TOKEN_DIM:
+            return None
+        sets = _sampled_utility_sets(utility, _N_SAMPLES)
+        dummy = np.zeros(1)
+        acc = np.zeros(len(self.timing_classes))
+        for sampled in sets:
+            tokens = _to_array(round_tokens(map_id, sampled))
+            acc += self.timing_net.predict_proba(tokens, dummy)
+        acc /= len(sets)
+        out = {c: 0.0 for c in TIMINGS}
+        for i, c in enumerate(self.timing_classes):
+            out[c] = float(acc[i])
         total = sum(out.values()) or 1.0
         return {k: v / total for k, v in out.items()}

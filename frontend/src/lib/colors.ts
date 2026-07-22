@@ -20,3 +20,9 @@ export const SITE_COLOR: Record<string, string> = {
   Mid: '#10b981',
   NoPlant: '#6b7280',
 }
+
+export const TIMING_COLOR: Record<string, string> = {
+  rush: '#22c55e',
+  default: '#f3c244',
+  late: '#ef4444',
+}

@@ -6,6 +6,12 @@ from app.domain.enums import Region, Site, UtilityType
 # Canonical label order for the softmax output
 SITES: list[str] = [s.value for s in Site if s is not Site.MID]
 
+# Execution-timing classes
+TIMINGS: list[str] = ["rush", "default", "late"]
+# Tactical thresholds on the plant time
+_TIMING_RUSH_MAX_S = 35.0
+_TIMING_LATE_MIN_S = 70.0
+
 _REGIONS = [r.value for r in Region]  # A, B, Mid
 _UTILS = [u.value for u in UtilityType]  # smoke, flash, molotov, he
 _MAP_ORDER = [m.id for m in list_maps()]
@@ -76,6 +82,18 @@ def _radar_pos(map_id: str | None, ev) -> tuple[float, float] | None:
 
 def _clamp01(v: float) -> float:
     return 0.0 if v < 0.0 else 1.0 if v > 1.0 else v
+
+
+def timing_label(plant_time_s: float | None) -> str | None:
+    """rush / default / late from the plant time"""
+    if plant_time_s is None:
+        return None
+    t = float(plant_time_s)
+    if t <= _TIMING_RUSH_MAX_S:
+        return "rush"
+    if t > _TIMING_LATE_MIN_S:
+        return "late"
+    return "default"
 
 
 def _z_level(map_id: str | None, ev) -> float:

@@ -147,6 +147,8 @@ class Round(Base):
     buy_type: Mapped[str] = mapped_column(String)
     equip_value: Mapped[int] = mapped_column(default=0)
     target_site: Mapped[str] = mapped_column(String)
+    # bomb-plant time 
+    plant_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     winner: Mapped[str | None] = mapped_column(String, nullable=True)
     win_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 

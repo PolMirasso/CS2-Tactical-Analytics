@@ -244,6 +244,13 @@ export interface SiteProb {
   prob: number
 }
 
+export type Timing = 'rush' | 'default' | 'late'
+
+export interface TimingProb {
+  timing: Timing
+  prob: number
+}
+
 export interface PredictOut {
   map_id: string
   team: string | null
@@ -252,6 +259,9 @@ export interface PredictOut {
   source: 'model' | 'baseline'
   sites: SiteProb[]
   baseline: SiteProb[]
+  predicted_timing: Timing | null
+  timing_confidence: number | null
+  timing: TimingProb[] | null
 }
 
 export interface ZoneUtilStat {
@@ -296,6 +306,9 @@ export interface ModelStatusOut {
   accuracy: number | null
   site_accuracy: number | null
   baseline_accuracy: number | null
+  // execution-timing head (rush/default/late given a plant)
+  timing_accuracy: number | null
+  timing_baseline_accuracy: number | null
   // calibration (temperature scaling): ECE after vs. before + diagram bins
   ece: number | null
   ece_uncalibrated: number | null

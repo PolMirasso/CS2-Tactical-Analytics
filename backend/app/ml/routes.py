@@ -15,9 +15,10 @@ from app.domain.schemas import (
     ReliabilityBin,
     SiteProb,
     TendenciesOut,
+    TimingProb,
 )
 from app.ml import service
-from app.ml.features import SITES
+from app.ml.features import SITES, TIMINGS
 from app.ml.model import SitePredictor
 
 router = APIRouter(prefix="/scouting", tags=["scouting"])
@@ -35,6 +36,8 @@ def _status(p: SitePredictor) -> ModelStatusOut:
         accuracy=p.accuracy,
         site_accuracy=getattr(p, "site_accuracy", None),
         baseline_accuracy=p.baseline_accuracy,
+        timing_accuracy=getattr(p, "timing_accuracy", None),
+        timing_baseline_accuracy=getattr(p, "timing_baseline_accuracy", None),
         ece=getattr(p, "ece", None),
         ece_uncalibrated=getattr(p, "ece_uncalibrated", None),
         reliability=[ReliabilityBin(**b) for b in bins] if bins else None,
@@ -92,6 +95,14 @@ def predict(
 
     sites = [SiteProb(site=s, prob=dist.get(s, 0.0)) for s in SITES]
     top = max(sites, key=lambda s: s.prob)
+
+    # Execution timing (rush/default/late given a plant) — model-only enrichment
+    timing_dist = predictor.timing_proba(map_id=payload.map_id, utility=payload.utility)
+    timing = top_timing = None
+    if timing_dist is not None:
+        timing = [TimingProb(timing=k, prob=timing_dist.get(k, 0.0)) for k in TIMINGS]
+        top_timing = max(timing, key=lambda tp: tp.prob)
+
     return PredictOut(
         map_id=payload.map_id,
         team=payload.team,
@@ -100,6 +111,9 @@ def predict(
         source=source,
         sites=sites,
         baseline=[SiteProb(site=s, prob=baseline.get(s, 0.0)) for s in SITES],
+        predicted_timing=top_timing.timing if top_timing else None,
+        timing_confidence=top_timing.prob if top_timing else None,
+        timing=timing,
     )
 
 

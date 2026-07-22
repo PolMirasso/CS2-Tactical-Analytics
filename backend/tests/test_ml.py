@@ -5,7 +5,7 @@ import io
 import numpy as np
 
 from app.ml.deepsets import POOLINGS, DeepSets, _softmax
-from app.ml.features import SITES, TOKEN_DIM, round_context, round_tokens
+from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
 from app.ml.model import HOLDOUT_FRAC, SitePredictor, _reliability
 from tests.conftest import auth, register_and_login
 
@@ -228,6 +228,89 @@ def test_train_reports_per_map_breakdown():
     assert sum(r["n_rounds"] for r in p.per_map) == max(2, round(len(samples) * HOLDOUT_FRAC))
 
 
+# execution-timing head (rush / default / late given a plant)
+
+def test_timing_label_thresholds():
+    assert timing_label(None) is None  # no plant → no timing
+    assert timing_label(10.0) == "rush"
+    assert timing_label(35.0) == "rush"  # boundary is inclusive
+    assert timing_label(50.0) == "default"
+    assert timing_label(70.0) == "default"
+    assert timing_label(90.0) == "late"
+
+
+def _synth_timed_rounds(rng, map_id, team, n):
+    """Plant rounds whose site is decided by x and whose timing is decided by the
+    utility throw time (rush=early, late=late) — the tokens-only heads can recover
+    both. NoPlant rounds carry no timing label."""
+    samples, targets, timings = [], [], []
+    for _ in range(n):
+        site = rng.choice(["A", "B", "NoPlant"], p=[0.35, 0.35, 0.30])
+        if site == "NoPlant":
+            x, t, tim = 500.0, 90.0, None
+        else:
+            x = 200.0 if site == "A" else 800.0
+            tim = rng.choice(TIMINGS)
+            t = {"rush": 5.0, "default": 22.0, "late": 42.0}[tim]
+        util = [{"util_type": "smoke", "x": x, "y": 500.0, "round_time_s": t, "side": "t"}]
+        samples.append({
+            "tokens": round_tokens(map_id, util),
+            "context": round_context(
+                map_id=map_id, team=team, opponent="OPP",
+                buy_type="full", equip_value=4000, utility=util,
+            ),
+        })
+        targets.append(site)
+        timings.append(tim)
+    return samples, targets, timings
+
+
+def test_timing_head_learns_and_beats_baseline():
+    rng = np.random.default_rng(5)
+    samples, targets, timings = _synth_timed_rounds(rng, "de_mirage", "NaVi", 400)
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 1}, timings)
+    assert p.trained
+    assert p.timing_net is not None
+    assert p.timing_classes == TIMINGS  # all three present, canonical order
+    assert p.timing_accuracy is not None and p.timing_accuracy >= 0.8
+    assert p.timing_accuracy > (p.timing_baseline_accuracy or 0.0)
+    assert "timing" in p.params and "timing_T" in p.params
+
+
+def test_timing_proba_responds_to_throw_time():
+    rng = np.random.default_rng(6)
+    samples, targets, timings = _synth_timed_rounds(rng, "de_mirage", "NaVi", 400)
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 1}, timings)
+
+    def timing_at(t: float) -> dict[str, float]:
+        return p.timing_proba(
+            map_id="de_mirage",
+            utility=[{
+                "util_type": "smoke", "x": 200.0, "y": 500.0,
+                "w": 40.0, "h": 40.0, "time_from": t, "time_to": t, "side": "t",
+            }],
+        )
+
+    early, late = timing_at(5.0), timing_at(42.0)
+    assert early is not None and late is not None
+    assert abs(sum(early.values()) - 1.0) < 1e-6
+    assert set(early) == set(TIMINGS)
+    assert early["rush"] > early["late"]  # early utility ⇒ rush
+    assert late["late"] > late["rush"]  # late utility ⇒ late
+
+
+def test_timing_head_off_without_labels():
+    # No timing labels (old un-reparsed data) ⇒ the timing head stays off, the
+    # site model still trains, and timing_proba returns None.
+    rng = np.random.default_rng(7)
+    samples, targets = _synth_rounds(rng, "de_mirage", "NaVi", 200)
+    p = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 1})
+    assert p.trained
+    assert p.timing_net is None
+    assert p.timing_accuracy is None
+    assert p.timing_proba(map_id="de_mirage", utility=[]) is None
+
+
 # 80/20 holdout evaluation + prediction driven by the selected (drawn) utility
 
 def test_train_holds_out_20_percent_for_evaluation():
@@ -411,7 +494,13 @@ def test_train_then_predict_uses_model(client):
         headers=auth(admin),
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["source"] == "model"
+    body = resp.json()
+    assert body["source"] == "model"
+    # Timing head trained from the sample plant-times and plumbs through predict
+    assert status["timing_accuracy"] is not None
+    assert [tp["timing"] for tp in body["timing"]] == TIMINGS
+    assert abs(sum(tp["prob"] for tp in body["timing"]) - 1.0) < 1e-6
+    assert body["predicted_timing"] in TIMINGS
 
 
 def test_evaluate_requires_admin(client):

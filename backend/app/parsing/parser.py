@@ -80,6 +80,7 @@ class RoundData:
     opponent: str | None = None
     winner: str | None = None  # "t" / "ct"
     win_reason: str | None = None
+    plant_time_s: float | None = None
 
 
 @dataclass
@@ -145,8 +146,8 @@ def classify_buy(
     return base
 
 
-def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, str]:
-    # round planted site from the bomb_planted event
+def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, tuple[str, float | None]]:
+    # round (planted site, plant tick) from the bomb_planted event
     events = getattr(demo, "events", None) or {}
     planted = events.get("bomb_planted")
     if planted is None or planted.is_empty():
@@ -158,7 +159,7 @@ def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, str]:
         end = float(r.get("official_end") or r.get("end") or start)
         windows.append((int(r["round_num"]), start, end))
 
-    out: dict[int, str] = {}
+    out: dict[int, tuple[str, float | None]] = {}
     for row in planted.iter_rows(named=True):
         tick = row.get("tick")
         if tick is None:
@@ -176,7 +177,7 @@ def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, str]:
             continue
         for rnum, start, end in windows:
             if start <= float(tick) <= end:
-                out[rnum] = site
+                out[rnum] = (site, float(tick))
                 break
     return out
 
@@ -272,16 +273,23 @@ def _parse_with_awpy(
         for clan in (team, opp):
             if clan:
                 clan_votes[clan] = clan_votes.get(clan, 0) + 1
+        site, plant_tick = planted_sites.get(rnum, (Site.NO_PLANT.value, None))
+        plant_time_s = (
+            max(0.0, (plant_tick - float(freeze_end)) / tickrate)
+            if plant_tick is not None
+            else None
+        )
         rounds.append(
             RoundData(
                 round_number=rnum,
-                target_site=planted_sites.get(rnum, Site.NO_PLANT.value),
+                target_site=site,
                 buy_type=classify_buy(equip, rnum, _hero_weapon(t_rows)).value,
                 equip_value=equip,
                 team=team,
                 opponent=opp,
                 winner=_side(r.get("winner")),
                 win_reason=_win_reason(r),
+                plant_time_s=plant_time_s,
             )
         )
 
@@ -637,6 +645,12 @@ def generate_sample(
             target = Site.NO_PLANT
         else:
             target = rng.choices([Site.A, Site.B, Site.NO_PLANT], weights=[0.45, 0.4, 0.15])[0]
+        # Plant time on plant rounds only
+        if target is Site.NO_PLANT:
+            plant_time_s = None
+        else:
+            center = 25.0 if target is Site.A else 55.0
+            plant_time_s = round(max(0.0, min(110.0, rng.gauss(center, 15.0))), 1)
         rounds.append(
             RoundData(
                 round_number=rnum,
@@ -645,6 +659,7 @@ def generate_sample(
                 equip_value=equip,
                 team=team,
                 opponent=opponent,
+                plant_time_s=plant_time_s,
             )
         )
         # Utility lands mostly in the region the team is executing toward.

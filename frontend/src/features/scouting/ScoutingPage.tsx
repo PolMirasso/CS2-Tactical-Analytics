@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, Timing, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
 import { MultiSelect } from '@/components/MultiSelect'
-import { SITE_COLOR, UTIL_COLOR } from '@/lib/colors'
+import { SITE_COLOR, TIMING_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
@@ -15,6 +15,7 @@ import { useEvaluateMaps, useModelStatus, usePredict, useTendencies, useTrainMod
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
 const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
+const TIMING_ORDER: Timing[] = ['rush', 'default', 'late']
 const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
 }
@@ -257,6 +258,14 @@ export function ScoutingPage() {
           {ms?.trained && ms.site_accuracy != null && (
             <span className="text-muted text-xs">
               {t('scouting.siteAccuracy')}: {pct(ms.site_accuracy)}
+            </span>
+          )}
+          {ms?.trained && ms.timing_accuracy != null && (
+            <span className="text-muted text-xs">
+              {t('scouting.timingAccuracy')}: {pct(ms.timing_accuracy)}
+              {ms.timing_baseline_accuracy != null && (
+                <span className="text-muted"> ({pct(ms.timing_baseline_accuracy)})</span>
+              )}
             </span>
           )}
           {ms?.trained && ms.baseline_accuracy != null && (
@@ -600,6 +609,40 @@ function Prediction({ result }: { result: PredictOut }) {
         )
       })}
       <p className="mt-1.5 mb-0 text-xs text-muted">{t('scouting.baselineHint')}</p>
+
+      {result.timing && result.predicted_timing && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="mt-0 mb-2 text-sm">
+            {t('scouting.executionTiming')}:{' '}
+            <strong style={{ color: TIMING_COLOR[result.predicted_timing] ?? 'var(--color-text)' }}>
+              {t(`scouting.timings.${result.predicted_timing}`)}
+            </strong>{' '}
+            {result.timing_confidence != null && (
+              <span className="text-muted">({(result.timing_confidence * 100).toFixed(0)}%)</span>
+            )}
+          </p>
+          {TIMING_ORDER.map((tm) => {
+            const prob = result.timing?.find((x) => x.timing === tm)?.prob ?? 0
+            return (
+              <div key={tm} className="mb-2.5">
+                <div className="flex justify-between text-sm">
+                  <span className="inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs">
+                    {t(`scouting.timings.${tm}`)}
+                  </span>
+                  <span>{(prob * 100).toFixed(0)}%</span>
+                </div>
+                <div className="mt-0.5 h-3.5 rounded bg-[#1f2937]">
+                  <div
+                    className="h-full rounded"
+                    style={{ width: `${prob * 100}%`, background: TIMING_COLOR[tm], minWidth: prob > 0 ? 2 : 0 }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+          <p className="mt-1.5 mb-0 text-xs text-muted">{t('scouting.timingHint')}</p>
+        </div>
+      )}
     </div>
   )
 }
