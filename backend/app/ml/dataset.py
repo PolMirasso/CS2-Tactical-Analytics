@@ -50,6 +50,10 @@ def build_dataset(
                     buy_type=r.buy_type,
                     equip_value=r.equip_value,
                     utility=util,
+                    opponent_buy_type=r.opponent_buy_type,
+                    opponent_equip_value=r.opponent_equip_value,
+                    team_weapons=r.team_weapons,
+                    opponent_weapons=r.opponent_weapons,
                 ),
             }
         )

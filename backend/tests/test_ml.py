@@ -84,6 +84,8 @@ def test_round_context_t_side_and_timing():
         opponent="Y",
         buy_type="full",
         equip_value=20_000,
+        opponent_buy_type="eco",
+        opponent_equip_value=5_000,
         utility=[
             {"util_type": "smoke", "region": "A", "time_from": 4, "time_to": 10, "side": "t"},
             {"util_type": "flash", "region": "B", "time_from": 30, "time_to": 40, "side": "t"},
@@ -91,12 +93,33 @@ def test_round_context_t_side_and_timing():
         ],
     )
     assert ctx["map"] == "de_mirage"
+    assert ctx["opp_buy"] == "eco"
+    assert ctx["opp_equip"] == 5_000 / 25_000.0
     assert ctx["u_smoke"] == 1.0  # the CT smoke is ignored
     assert ctx["u_flash"] == 1.0
     assert ctx["n_util"] == 2.0
     assert ctx["n_opening"] == 1.0  # only the 4-10 window (mid 7) is "opening"
     assert ctx["t_min"] == 7.0 / 115.0  # midpoint of 4-10, normalised by round time
     assert ctx["t_mean"] == 21.0 / 115.0  # ((7 + 35) / 2) / 115
+
+
+def test_round_context_weapon_flags():
+    tr = round_context(
+        map_id="de_dust2", team="X", opponent="Y", buy_type="full", equip_value=20_000,
+        utility=[], team_weapons="awp,deagle", opponent_weapons="",
+    )
+    assert tr["w_t_awp"] == 1.0
+    assert tr["w_t_deagle"] == 1.0
+    assert "w_t_ak47" not in tr
+    inf = round_context(
+        map_id="de_dust2", team="X", opponent="Y", buy_type=None, equip_value=None,
+        utility=[], team_weapon="awp", opponent_weapon=None,
+    )
+    assert inf["buy"] == "?"
+    assert inf["equip"] == 0.5
+    assert inf["w_t_awp"] == 1.0
+    assert inf["w_t_ak47"] == 0.5
+    assert inf["w_ct_awp"] == 0.5
 
 
 # deepSets pooling (fwd/bwd) + temperature calibration
@@ -436,6 +459,45 @@ def test_predict_accepts_time_window(client):
             "utility": [
                 {"util_type": "smoke", "region": "A", "time_from": 4.0, "time_to": 12.0, "side": "t"}
             ],
+        },
+        headers=auth(token),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["predicted_site"] in SITES
+
+
+def test_predict_accepts_opponent_buy(client):
+    token = register_and_login(client, "mloppbuy@example.com")
+    _upload(client, token, map_id="de_mirage", team="NaVi", visibility="private")
+    resp = client.post(
+        "/scouting/predict",
+        json={
+            "map_id": "de_mirage",
+            "team": "NaVi",
+            "buy_type": "full",
+            "opponent_buy_type": "eco",
+            "opponent_equip_value": 5000,
+            "utility": [{"util_type": "smoke", "region": "A", "round_time_s": 8.0, "side": "t"}],
+        },
+        headers=auth(token),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["predicted_site"] in SITES
+
+
+def test_predict_accepts_weapon_and_any_buy(client):
+    token = register_and_login(client, "mlweapon@example.com")
+    _upload(client, token, map_id="de_mirage", team="NaVi", visibility="private")
+    resp = client.post(
+        "/scouting/predict",
+        json={
+            "map_id": "de_mirage",
+            "team": "NaVi",
+            "buy_type": None,
+            "opponent_buy_type": None,
+            "team_weapon": "awp",
+            "opponent_weapon": "m4a4",
+            "utility": [{"util_type": "smoke", "region": "A", "round_time_s": 8.0, "side": "t"}],
         },
         headers=auth(token),
     )

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from app.analytics.maps import get_map, list_maps, lower_level_threshold
 from app.domain.enums import Region, Site, UtilityType
+from app.domain.weapons import WEAPON_IDS
+
+_WEAPON_NEUTRAL = 0.5
 
 # Canonical label order for the softmax output
 SITES: list[str] = [s.value for s in Site if s is not Site.MID]
@@ -129,6 +132,25 @@ def round_tokens(map_id: str | None, utility) -> list[list[float]]:
     return tokens
 
 
+def _equip_scalar(equip_value: float | int | None) -> float:
+    if equip_value is None:
+        return _WEAPON_NEUTRAL
+    return float(equip_value) / _EQUIP_NORM
+
+
+def _emit_weapons(
+    ctx: dict[str, float | str], prefix: str, present: str | None, query: str | None
+) -> None:
+    # training: present set ⇒ 1.0 each; inference: query ⇒ 1.0, rest neutral (as z_lvl)
+    if present is not None:
+        for wid in present.split(","):
+            if wid:
+                ctx[f"w_{prefix}_{wid}"] = 1.0
+        return
+    for wid in WEAPON_IDS:
+        ctx[f"w_{prefix}_{wid}"] = 1.0 if wid == query else _WEAPON_NEUTRAL
+
+
 def round_context(
     *,
     map_id: str | None,
@@ -137,9 +159,15 @@ def round_context(
     buy_type: str | None,
     equip_value: float | int | None,
     utility,
+    opponent_buy_type: str | None = None,
+    opponent_equip_value: float | int | None = None,
+    team_weapons: str | None = None,
+    opponent_weapons: str | None = None,
+    team_weapon: str | None = None,
+    opponent_weapon: str | None = None,
 ) -> dict[str, float | str]:
     """Round-level context fed to the DeepSets head alongside the pooled set.
-    Categorical keys (map/team/opponent/buy) stay strings for the
+    Categorical keys (map/team/opponent/buy/opp_buy) stay strings for the
     DictVectorizer to one-hot; the rest are normalised scalars
     """
     ctx: dict[str, float | str] = {
@@ -147,8 +175,12 @@ def round_context(
         "team": team or "?",
         "opponent": opponent or "?",
         "buy": buy_type or "?",
-        "equip": float(equip_value or 0) / _EQUIP_NORM,
+        "equip": _equip_scalar(equip_value),
+        "opp_buy": opponent_buy_type or "?",
+        "opp_equip": _equip_scalar(opponent_equip_value),
     }
+    _emit_weapons(ctx, "t", team_weapons, team_weapon)
+    _emit_weapons(ctx, "ct", opponent_weapons, opponent_weapon)
     for u in _UTILS:
         ctx[f"u_{u}"] = 0.0
 

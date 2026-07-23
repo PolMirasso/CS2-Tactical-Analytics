@@ -7,6 +7,7 @@ from pathlib import Path
 from app.analytics.maps import classify_point, get_map, list_maps, to_radar_pixel
 from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
+from app.domain.weapons import weapons_present
 from app.parsing.replay import ReplayData, build_replay, build_sample_replay
 
 TICKRATE = 64
@@ -81,6 +82,10 @@ class RoundData:
     winner: str | None = None  # "t" / "ct"
     win_reason: str | None = None
     plant_time_s: float | None = None
+    opponent_buy_type: str | None = None
+    opponent_equip_value: int | None = None
+    team_weapons: str | None = None
+    opponent_weapons: str | None = None
 
 
 @dataclass
@@ -267,9 +272,11 @@ def _parse_with_awpy(
         rnum = int(r["round_num"])
         freeze_end = r.get("freeze_end") or r.get("start") or 0
         t_rows = _round_side_rows(pl, ticks_df, rnum, freeze_end, "t")
+        ct_rows = _round_side_rows(pl, ticks_df, rnum, freeze_end, "ct")
         equip = _sum_equip(t_rows)
+        opp_equip = _sum_equip(ct_rows)
         team = _mode_clan(t_rows)
-        opp = _mode_clan(_round_side_rows(pl, ticks_df, rnum, freeze_end, "ct"))
+        opp = _mode_clan(ct_rows)
         for clan in (team, opp):
             if clan:
                 clan_votes[clan] = clan_votes.get(clan, 0) + 1
@@ -290,6 +297,10 @@ def _parse_with_awpy(
                 winner=_side(r.get("winner")),
                 win_reason=_win_reason(r),
                 plant_time_s=plant_time_s,
+                opponent_buy_type=classify_buy(opp_equip, rnum, _hero_weapon(ct_rows)).value,
+                opponent_equip_value=opp_equip,
+                team_weapons=_side_weapons(t_rows),
+                opponent_weapons=_side_weapons(ct_rows),
             )
         )
 
@@ -493,10 +504,9 @@ def _sum_equip(rows) -> int:
         return 0
 
 
-def _hero_weapon(rows) -> str | None:
-    """Detect an AWP/AK/M4 held by the side, used to flag hero eco buys."""
+def _inventory_strings(rows) -> list[str]:
     if rows.is_empty():
-        return None
+        return []
     weapons: list[str] = []
     for col in ("inventory", "active_weapon_name"):
         if col not in rows.columns:
@@ -509,10 +519,23 @@ def _hero_weapon(rows) -> str | None:
                     weapons.append(str(v).lower())
         except Exception:
             continue
+    return weapons
+
+
+def _hero_weapon(rows) -> str | None:
+    """Detect an AWP/AK/M4 held by the side, used to flag hero eco buys."""
+    weapons = _inventory_strings(rows)
     for key, needles, _ in _HERO_BUYS:
         if any(any(n in w for n in needles) for w in weapons):
             return key
     return None
+
+
+def _side_weapons(rows) -> str | None:
+    weapons = _inventory_strings(rows)
+    if not weapons:
+        return None
+    return ",".join(weapons_present(weapons))
 
 
 def _mode_clan(rows) -> str | None:
@@ -601,6 +624,21 @@ def _build_side_lookup(pl, ticks_df) -> dict[tuple[int, object], str]:
 
 
 # sample-data path
+def _sample_weapons(buy: BuyType, side: str, rng: random.Random) -> str:
+    rifle = "ak47" if side == "t" else "m4a4"
+    pistol = "glock" if side == "t" else "usp_s"
+    if buy is BuyType.PISTOL:
+        ids = [pistol] + (["deagle"] if rng.random() < 0.3 else [])
+    elif buy in (BuyType.FULL_ECO, BuyType.ECO):
+        ids = [pistol] + (["deagle"] if rng.random() < 0.25 else []) \
+            + (["ssg08"] if rng.random() < 0.2 else [])
+    elif buy is BuyType.FORCE:
+        ids = [pistol, rng.choice(["mp9", "mac10", "mp7", "ump45"])]
+    else:
+        ids = [rifle] + (["awp"] if rng.random() < 0.35 else [])
+    return ",".join(ids)
+
+
 def generate_sample(
         *, map_id: str | None = None, team: str | None = None, seed: int = 0
 ) -> ParsedDemo:
@@ -651,6 +689,13 @@ def generate_sample(
         else:
             center = 25.0 if target is Site.A else 55.0
             plant_time_s = round(max(0.0, min(110.0, rng.gauss(center, 15.0))), 1)
+        if is_pistol_round(rnum):
+            opp_buy = BuyType.PISTOL
+        else:
+            opp_buy = rng.choices(
+                [BuyType.FULL, BuyType.FORCE, BuyType.ECO, BuyType.FULL_ECO],
+                weights=[0.45, 0.25, 0.15, 0.15],
+            )[0]
         rounds.append(
             RoundData(
                 round_number=rnum,
@@ -660,6 +705,13 @@ def generate_sample(
                 team=team,
                 opponent=opponent,
                 plant_time_s=plant_time_s,
+                opponent_buy_type=opp_buy.value,
+                opponent_equip_value={
+                    BuyType.FULL: 22000, BuyType.FORCE: 12000,
+                    BuyType.ECO: 6000, BuyType.FULL_ECO: 1500, BuyType.PISTOL: 4000,
+                }[opp_buy],
+                team_weapons=_sample_weapons(buy, "t", rng),
+                opponent_weapons=_sample_weapons(opp_buy, "ct", rng),
             )
         )
         # Utility lands mostly in the region the team is executing toward.

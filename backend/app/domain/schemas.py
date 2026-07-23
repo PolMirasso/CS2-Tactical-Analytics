@@ -293,8 +293,12 @@ class PredictIn(BaseModel):
     map_id: str
     team: str | None = None
     opponent: str | None = None
-    buy_type: str = "full"
-    equip_value: int = 0
+    buy_type: str | None = None
+    equip_value: int | None = None
+    opponent_buy_type: str | None = None
+    opponent_equip_value: int | None = None
+    team_weapon: str | None = None
+    opponent_weapon: str | None = None
     utility: list[UtilityInput] = []
 
 

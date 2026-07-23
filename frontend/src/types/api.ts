@@ -234,8 +234,12 @@ export interface PredictIn {
   map_id: string
   team?: string | null
   opponent?: string | null
-  buy_type: BuyType
-  equip_value?: number
+  buy_type?: BuyType | null
+  equip_value?: number | null
+  opponent_buy_type?: BuyType | null
+  opponent_equip_value?: number | null
+  team_weapon?: string | null
+  opponent_weapon?: string | null
   utility: UtilityInput[]
 }
 

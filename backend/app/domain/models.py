@@ -146,6 +146,10 @@ class Round(Base):
     opponent_hltv_id: Mapped[str | None] = mapped_column(String, nullable=True)
     buy_type: Mapped[str] = mapped_column(String)
     equip_value: Mapped[int] = mapped_column(default=0)
+    opponent_buy_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    opponent_equip_value: Mapped[int | None] = mapped_column(default=None, nullable=True)
+    team_weapons: Mapped[str | None] = mapped_column(String, nullable=True)
+    opponent_weapons: Mapped[str | None] = mapped_column(String, nullable=True)
     target_site: Mapped[str] = mapped_column(String)
     # bomb-plant time 
     plant_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)

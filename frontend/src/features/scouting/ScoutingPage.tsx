@@ -7,6 +7,7 @@ import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
 import { MultiSelect } from '@/components/MultiSelect'
 import { SITE_COLOR, TIMING_COLOR, UTIL_COLOR } from '@/lib/colors'
+import { WEAPON_CATEGORIES, WEAPON_IDS, WEAPON_LABELS } from '@/lib/weapons'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
@@ -18,6 +19,31 @@ const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
 const TIMING_ORDER: Timing[] = ['rush', 'default', 'late']
 const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
+}
+
+function WeaponSelect(props: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  anyLabel: string
+  catLabel: (id: string) => string
+}) {
+  return (
+    <div>
+      <label htmlFor={props.id}>{props.label}</label>
+      <select id={props.id} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        <option value="">{props.anyLabel}</option>
+        {WEAPON_CATEGORIES.map((c) => (
+          <optgroup key={c.id} label={props.catLabel(c.id)}>
+            {c.weapons.map((w) => (
+              <option key={w.id} value={w.id}>{w.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  )
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`
@@ -32,7 +58,11 @@ export function ScoutingPage() {
   const { data: maps } = useMaps()
   const [mapId, setMapId] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [buyType, setBuyType] = useState<BuyType>('full')
+  const [buyType, setBuyType] = useState<BuyType | ''>('')
+  const [oppBuyType, setOppBuyType] = useState<BuyType | ''>('')
+  const [teamWeapon, setTeamWeapon] = useState('')
+  const [oppWeapon, setOppWeapon] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
   const [activeFrom, setActiveFrom] = useState(5)
@@ -103,6 +133,9 @@ export function ScoutingPage() {
       map_id: mapId,
       teams: teamIds,
       buy_type: buyType,
+      opponent_buy_type: oppBuyType,
+      team_weapon: teamWeapon,
+      opponent_weapon: oppWeapon,
       tokens: tokens.map((tk) => ({
         util_type: tk.util_type,
         time_from: tk.time_from,
@@ -167,9 +200,14 @@ export function ScoutingPage() {
       skipResetRef.current = true
       setMapId(fileMap)
     }
-    if (typeof obj.buy_type === 'string' && (BUY_TYPES as string[]).includes(obj.buy_type)) {
-      setBuyType(obj.buy_type as BuyType)
-    }
+    const readBuy = (v: unknown): BuyType | '' | null =>
+      v === '' ? '' : (typeof v === 'string' && (BUY_TYPES as string[]).includes(v) ? (v as BuyType) : null)
+    const readWeapon = (v: unknown): string | null =>
+      v === '' ? '' : (typeof v === 'string' && WEAPON_IDS.includes(v) ? v : null)
+    const b = readBuy(obj.buy_type); if (b !== null) setBuyType(b)
+    const ob = readBuy(obj.opponent_buy_type); if (ob !== null) setOppBuyType(ob)
+    const tw = readWeapon(obj.team_weapon); if (tw !== null) setTeamWeapon(tw)
+    const ow = readWeapon(obj.opponent_weapon); if (ow !== null) setOppWeapon(ow)
     if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
     else if (typeof obj.team === 'string') setTeamIds([obj.team])
     setTokens(parsed)
@@ -181,8 +219,12 @@ export function ScoutingPage() {
     predict.mutate({
       map_id: mapId,
       team: soloTeam,
-      buy_type: buyType,
-      equip_value: BUY_EQUIP[buyType] ?? 0,
+      buy_type: buyType || null,
+      equip_value: buyType ? (BUY_EQUIP[buyType] ?? null) : null,
+      opponent_buy_type: oppBuyType || null,
+      opponent_equip_value: oppBuyType ? (BUY_EQUIP[oppBuyType] ?? null) : null,
+      team_weapon: teamWeapon || null,
+      opponent_weapon: oppWeapon || null,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
         x: tk.x,
@@ -212,7 +254,14 @@ export function ScoutingPage() {
         <h2 className="mb-1">
           {t('scouting.reportTitle')}: {teamLabel || t('analytics.allTeams')} — {map?.name ?? mapId}
         </h2>
-        <p className="text-muted">{t('demos.buy')}: {t(`demos.buyTypes.${buyType}`)}</p>
+        <p className="text-muted">
+          {[
+            buyType && `${t('scouting.teamBuy')}: ${t(`demos.buyTypes.${buyType}`)}`,
+            oppBuyType && `${t('scouting.oppBuy')}: ${t(`demos.buyTypes.${oppBuyType}`)}`,
+            teamWeapon && `${t('scouting.teamWeapon')}: ${WEAPON_LABELS[teamWeapon]}`,
+            oppWeapon && `${t('scouting.oppWeapon')}: ${WEAPON_LABELS[oppWeapon]}`,
+          ].filter(Boolean).join(' · ') || t('scouting.anyFilter')}
+        </p>
       </div>
 
       {/* Controls */}
@@ -236,14 +285,60 @@ export function ScoutingPage() {
               placeholder={t('analytics.allTeams')}
             />
           </div>
-          <div>
-            <label htmlFor="sc-buy">{t('demos.buy')}</label>
-            <select id="sc-buy" value={buyType} onChange={(e) => setBuyType(e.target.value as BuyType)}>
-              {BUY_TYPES.map((b) => (
-                <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
-              ))}
-            </select>
-          </div>
+        </div>
+
+        <div className="mt-3">
+          <button
+            type="button"
+            className="text-sm text-muted hover:text-text"
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            {showFilters ? '▾' : '▸'} {t('scouting.filters')}
+            {[buyType, oppBuyType, teamWeapon, oppWeapon].filter(Boolean).length > 0 && (
+              <span className="ml-1 rounded bg-accent px-1.5 text-xs text-accent-text">
+                {[buyType, oppBuyType, teamWeapon, oppWeapon].filter(Boolean).length}
+              </span>
+            )}
+          </button>
+          {showFilters && (
+            <div className="mt-2 flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
+              <div>
+                <label htmlFor="sc-buy">{t('scouting.teamBuy')}</label>
+                <select id="sc-buy" value={buyType} onChange={(e) => setBuyType(e.target.value as BuyType | '')}>
+                  <option value="">{t('scouting.anyFilter')}</option>
+                  {BUY_TYPES.map((b) => (
+                    <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="sc-opp-buy">{t('scouting.oppBuy')}</label>
+                <select id="sc-opp-buy" value={oppBuyType} onChange={(e) => setOppBuyType(e.target.value as BuyType | '')}>
+                  <option value="">{t('scouting.anyFilter')}</option>
+                  {BUY_TYPES.map((b) => (
+                    <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <WeaponSelect
+                id="sc-team-weapon"
+                label={t('scouting.teamWeapon')}
+                value={teamWeapon}
+                onChange={setTeamWeapon}
+                anyLabel={t('scouting.anyFilter')}
+                catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
+              />
+              <WeaponSelect
+                id="sc-opp-weapon"
+                label={t('scouting.oppWeapon')}
+                value={oppWeapon}
+                onChange={setOppWeapon}
+                anyLabel={t('scouting.anyFilter')}
+                catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-1 flex flex-wrap items-center gap-3">
