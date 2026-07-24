@@ -209,6 +209,10 @@
     "oppBuy": "Opponent buy",
     "teamWeapon": "Team weapon",
     "oppWeapon": "Opponent weapon",
+    "addWeapon": "Add weapon…",
+    "weaponCount": "Minimum count",
+    "weaponMinHint": "The team carries these weapons, at least the number shown (≥).",
+    "removeWeapon": "Remove weapon",
     "filters": "Filters",
     "anyFilter": "Any",
     "weaponCategories": {

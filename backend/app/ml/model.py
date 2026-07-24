@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -345,8 +346,8 @@ class SitePredictor:
         utility,
         opponent_buy_type: str | None = None,
         opponent_equip_value: float | int | None = None,
-        team_weapon: str | None = None,
-        opponent_weapon: str | None = None,
+        team_weapon: str | Iterable[str] | None = None,
+        opponent_weapon: str | Iterable[str] | None = None,
     ) -> dict[str, float] | None:
         """Per-site probabilities P = [gate·site, gate·site, 1-gate], or None untrained"""
         if self.gate_net is None or self.site_net is None or self.gate_vec is None:

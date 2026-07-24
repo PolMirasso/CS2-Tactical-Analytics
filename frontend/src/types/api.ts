@@ -238,8 +238,8 @@ export interface PredictIn {
   equip_value?: number | null
   opponent_buy_type?: BuyType | null
   opponent_equip_value?: number | null
-  team_weapon?: string | null
-  opponent_weapon?: string | null
+  team_weapons?: string[] | null
+  opponent_weapons?: string[] | null
   utility: UtilityInput[]
 }
 

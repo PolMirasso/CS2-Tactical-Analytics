@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from app.analytics.maps import get_map, list_maps, lower_level_threshold
 from app.domain.enums import Region, Site, UtilityType
 from app.domain.weapons import WEAPON_IDS
@@ -139,16 +141,20 @@ def _equip_scalar(equip_value: float | int | None) -> float:
 
 
 def _emit_weapons(
-    ctx: dict[str, float | str], prefix: str, present: str | None, query: str | None
+    ctx: dict[str, float | str],
+    prefix: str,
+    present: str | None,
+    query: str | Iterable[str] | None,
 ) -> None:
-    # training: present set ⇒ 1.0 each; inference: query ⇒ 1.0, rest neutral (as z_lvl)
+    # training: present set
     if present is not None:
         for wid in present.split(","):
             if wid:
                 ctx[f"w_{prefix}_{wid}"] = 1.0
         return
+    wanted = {query} if isinstance(query, str) else set(query or ())
     for wid in WEAPON_IDS:
-        ctx[f"w_{prefix}_{wid}"] = 1.0 if wid == query else _WEAPON_NEUTRAL
+        ctx[f"w_{prefix}_{wid}"] = 1.0 if wid in wanted else _WEAPON_NEUTRAL
 
 
 def round_context(
@@ -163,8 +169,8 @@ def round_context(
     opponent_equip_value: float | int | None = None,
     team_weapons: str | None = None,
     opponent_weapons: str | None = None,
-    team_weapon: str | None = None,
-    opponent_weapon: str | None = None,
+    team_weapon: str | Iterable[str] | None = None,
+    opponent_weapon: str | Iterable[str] | None = None,
 ) -> dict[str, float | str]:
     """Round-level context fed to the DeepSets head alongside the pooled set.
     Categorical keys (map/team/opponent/buy/opp_buy) stay strings for the

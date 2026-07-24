@@ -91,8 +91,8 @@ def predict(
         utility=payload.utility,
         opponent_buy_type=payload.opponent_buy_type,
         opponent_equip_value=payload.opponent_equip_value,
-        team_weapon=payload.team_weapon,
-        opponent_weapon=payload.opponent_weapon,
+        team_weapon=payload.team_weapons,
+        opponent_weapon=payload.opponent_weapons,
     )
     source = "model" if probs is not None else "baseline"
     dist = probs if probs is not None else baseline

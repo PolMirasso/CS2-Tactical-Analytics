@@ -297,8 +297,9 @@ class PredictIn(BaseModel):
     equip_value: int | None = None
     opponent_buy_type: str | None = None
     opponent_equip_value: int | None = None
-    team_weapon: str | None = None
-    opponent_weapon: str | None = None
+    # Weapons the side is expected to carry
+    team_weapons: list[str] | None = None
+    opponent_weapons: list[str] | None = None
     utility: list[UtilityInput] = []
 
 

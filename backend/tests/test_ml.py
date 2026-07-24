@@ -120,6 +120,15 @@ def test_round_context_weapon_flags():
     assert inf["w_t_awp"] == 1.0
     assert inf["w_t_ak47"] == 0.5
     assert inf["w_ct_awp"] == 0.5
+    # inference accepts several queried weapons (presence of each)
+    multi = round_context(
+        map_id="de_dust2", team="X", opponent="Y", buy_type=None, equip_value=None,
+        utility=[], team_weapon=["awp", "ak47"], opponent_weapon=[],
+    )
+    assert multi["w_t_awp"] == 1.0
+    assert multi["w_t_ak47"] == 1.0
+    assert multi["w_t_deagle"] == 0.5
+    assert multi["w_ct_awp"] == 0.5
 
 
 # deepSets pooling (fwd/bwd) + temperature calibration
@@ -495,8 +504,8 @@ def test_predict_accepts_weapon_and_any_buy(client):
             "team": "NaVi",
             "buy_type": None,
             "opponent_buy_type": None,
-            "team_weapon": "awp",
-            "opponent_weapon": "m4a4",
+            "team_weapons": ["awp", "deagle"],
+            "opponent_weapons": ["m4a4"],
             "utility": [{"util_type": "smoke", "region": "A", "round_time_s": 8.0, "side": "t"}],
         },
         headers=auth(token),

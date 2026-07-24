@@ -209,6 +209,10 @@
     "oppBuy": "Compra del rival",
     "teamWeapon": "Arma del equipo",
     "oppWeapon": "Arma del rival",
+    "addWeapon": "Añadir arma…",
+    "weaponCount": "Cantidad mínima",
+    "weaponMinHint": "El equipo lleva estas armas, al menos las veces indicadas (≥).",
+    "removeWeapon": "Quitar arma",
     "filters": "Filtros",
     "anyFilter": "Cualquiera",
     "weaponCategories": {

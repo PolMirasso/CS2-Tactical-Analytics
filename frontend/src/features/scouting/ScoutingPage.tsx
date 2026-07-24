@@ -21,27 +21,115 @@ const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
 }
 
+interface WeaponPick {
+  id: string
+  weapon: string
+  count: number
+}
+
 function WeaponSelect(props: {
   id: string
-  label: string
   value: string
   onChange: (v: string) => void
-  anyLabel: string
+  placeholder: string
   catLabel: (id: string) => string
+  exclude?: Set<string>
+  className?: string
+  ariaLabel?: string
 }) {
   return (
-    <div>
-      <label htmlFor={props.id}>{props.label}</label>
-      <select id={props.id} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
-        <option value="">{props.anyLabel}</option>
-        {WEAPON_CATEGORIES.map((c) => (
+    <select
+      id={props.id}
+      aria-label={props.ariaLabel}
+      className={props.className}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    >
+      <option value="">{props.placeholder}</option>
+      {WEAPON_CATEGORIES.map((c) => {
+        const ws = c.weapons.filter((w) => !props.exclude?.has(w.id) || w.id === props.value)
+        if (ws.length === 0) return null
+        return (
           <optgroup key={c.id} label={props.catLabel(c.id)}>
-            {c.weapons.map((w) => (
+            {ws.map((w) => (
               <option key={w.id} value={w.id}>{w.label}</option>
             ))}
           </optgroup>
+        )
+      })}
+    </select>
+  )
+}
+
+// Growing list of weapons a side carries: a new empty selector shows up only
+function WeaponPicker(props: {
+  idPrefix: string
+  label: string
+  picks: WeaponPick[]
+  onChange: (picks: WeaponPick[]) => void
+  addLabel: string
+  countLabel: string
+  removeLabel: string
+  hint: string
+  catLabel: (id: string) => string
+}) {
+  const used = new Set(props.picks.map((p) => p.weapon))
+  const setWeapon = (id: string, weapon: string) =>
+    props.onChange(
+      weapon === ''
+        ? props.picks.filter((p) => p.id !== id)
+        : props.picks.map((p) => (p.id === id ? { ...p, weapon } : p)),
+    )
+  const setCount = (id: string, count: number) =>
+    props.onChange(props.picks.map((p) => (p.id === id ? { ...p, count: clampCount(count) } : p)))
+  return (
+    <div>
+      <label>{props.label}</label>
+      <p className="mt-0.5 mb-1 text-xs text-muted">{props.hint}</p>
+      <div className="flex flex-col gap-2">
+        {props.picks.map((p) => (
+          <div key={p.id} className="flex items-center gap-2">
+            <WeaponSelect
+              id={`${props.idPrefix}-${p.id}`}
+              value={p.weapon}
+              onChange={(w) => setWeapon(p.id, w)}
+              placeholder={props.removeLabel}
+              exclude={used}
+              catLabel={props.catLabel}
+              className="min-w-0 flex-1"
+            />
+            <span className="flex shrink-0 items-center gap-1 text-sm text-muted" title={props.countLabel}>
+              <span aria-hidden="true">≥</span>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={p.count}
+                aria-label={props.countLabel}
+                onChange={(e) => setCount(p.id, parseInt(e.target.value, 10))}
+                className="w-12"
+              />
+            </span>
+            <button
+              type="button"
+              className="shrink-0 px-1 text-muted hover:text-text"
+              aria-label={props.removeLabel}
+              onClick={() => setWeapon(p.id, '')}
+            >
+              ✕
+            </button>
+          </div>
         ))}
-      </select>
+        <WeaponSelect
+          id={`${props.idPrefix}-add`}
+          value=""
+          onChange={(w) => w && props.onChange([...props.picks, { id: makeId(), weapon: w, count: 1 }])}
+          placeholder={props.addLabel}
+          ariaLabel={props.addLabel}
+          exclude={used}
+          catLabel={props.catLabel}
+        />
+      </div>
     </div>
   )
 }
@@ -49,6 +137,9 @@ function WeaponSelect(props: {
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`
 const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`
 const clampS = (v: number) => Math.max(0, Math.min(Math.round(v || 0), 115))
+const clampCount = (v: number) => Math.max(1, Math.min(5, Math.round(v) || 1))
+const weaponSummary = (picks: WeaponPick[]) =>
+  picks.map((p) => `${WEAPON_LABELS[p.weapon]}${p.count > 1 ? ` ≥${p.count}` : ''}`).join(', ')
 
 export function ScoutingPage() {
   const { t } = useTranslation()
@@ -60,8 +151,8 @@ export function ScoutingPage() {
   const [teamIds, setTeamIds] = useState<string[]>([])
   const [buyType, setBuyType] = useState<BuyType | ''>('')
   const [oppBuyType, setOppBuyType] = useState<BuyType | ''>('')
-  const [teamWeapon, setTeamWeapon] = useState('')
-  const [oppWeapon, setOppWeapon] = useState('')
+  const [teamWeapons, setTeamWeapons] = useState<WeaponPick[]>([])
+  const [oppWeapons, setOppWeapons] = useState<WeaponPick[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
@@ -134,8 +225,8 @@ export function ScoutingPage() {
       teams: teamIds,
       buy_type: buyType,
       opponent_buy_type: oppBuyType,
-      team_weapon: teamWeapon,
-      opponent_weapon: oppWeapon,
+      team_weapons: teamWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
+      opponent_weapons: oppWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       tokens: tokens.map((tk) => ({
         util_type: tk.util_type,
         time_from: tk.time_from,
@@ -202,12 +293,30 @@ export function ScoutingPage() {
     }
     const readBuy = (v: unknown): BuyType | '' | null =>
       v === '' ? '' : (typeof v === 'string' && (BUY_TYPES as string[]).includes(v) ? (v as BuyType) : null)
-    const readWeapon = (v: unknown): string | null =>
-      v === '' ? '' : (typeof v === 'string' && WEAPON_IDS.includes(v) ? v : null)
+    // Accepts the new [{weapon, count}] shape or the legacy single-weapon string.
+    const readWeapons = (v: unknown): WeaponPick[] | null => {
+      if (v === undefined) return null
+      const items = typeof v === 'string' ? [v] : Array.isArray(v) ? v : null
+      if (items === null) return null
+      const out: WeaponPick[] = []
+      const seen = new Set<string>()
+      for (const it of items) {
+        const wid = typeof it === 'string' ? it
+          : it && typeof it === 'object' && typeof (it as Record<string, unknown>).weapon === 'string'
+            ? (it as Record<string, string>).weapon : ''
+        const rawCount = it && typeof it === 'object' ? (it as Record<string, unknown>).count : 1
+        const count = clampCount(typeof rawCount === 'number' ? rawCount : 1)
+        if (WEAPON_IDS.includes(wid) && !seen.has(wid)) {
+          seen.add(wid)
+          out.push({ id: makeId(), weapon: wid, count })
+        }
+      }
+      return out
+    }
     const b = readBuy(obj.buy_type); if (b !== null) setBuyType(b)
     const ob = readBuy(obj.opponent_buy_type); if (ob !== null) setOppBuyType(ob)
-    const tw = readWeapon(obj.team_weapon); if (tw !== null) setTeamWeapon(tw)
-    const ow = readWeapon(obj.opponent_weapon); if (ow !== null) setOppWeapon(ow)
+    const tw = readWeapons(obj.team_weapons ?? obj.team_weapon); if (tw !== null) setTeamWeapons(tw)
+    const ow = readWeapons(obj.opponent_weapons ?? obj.opponent_weapon); if (ow !== null) setOppWeapons(ow)
     if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
     else if (typeof obj.team === 'string') setTeamIds([obj.team])
     setTokens(parsed)
@@ -223,8 +332,8 @@ export function ScoutingPage() {
       equip_value: buyType ? (BUY_EQUIP[buyType] ?? null) : null,
       opponent_buy_type: oppBuyType || null,
       opponent_equip_value: oppBuyType ? (BUY_EQUIP[oppBuyType] ?? null) : null,
-      team_weapon: teamWeapon || null,
-      opponent_weapon: oppWeapon || null,
+      team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : null,
+      opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : null,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
         x: tk.x,
@@ -242,6 +351,8 @@ export function ScoutingPage() {
   const ms = modelStatus.data
   // test all maps
   const perMap = evaluateMaps.data?.per_map ?? (ms?.trained ? ms.per_map : null)
+  const activeFilterCount =
+    [buyType, oppBuyType].filter(Boolean).length + teamWeapons.length + oppWeapons.length
 
   return (
     <div>
@@ -258,8 +369,8 @@ export function ScoutingPage() {
           {[
             buyType && `${t('scouting.teamBuy')}: ${t(`demos.buyTypes.${buyType}`)}`,
             oppBuyType && `${t('scouting.oppBuy')}: ${t(`demos.buyTypes.${oppBuyType}`)}`,
-            teamWeapon && `${t('scouting.teamWeapon')}: ${WEAPON_LABELS[teamWeapon]}`,
-            oppWeapon && `${t('scouting.oppWeapon')}: ${WEAPON_LABELS[oppWeapon]}`,
+            teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
+            oppWeapons.length > 0 && `${t('scouting.oppWeapon')}: ${weaponSummary(oppWeapons)}`,
           ].filter(Boolean).join(' · ') || t('scouting.anyFilter')}
         </p>
       </div>
@@ -295,9 +406,9 @@ export function ScoutingPage() {
             onClick={() => setShowFilters((v) => !v)}
           >
             {showFilters ? '▾' : '▸'} {t('scouting.filters')}
-            {[buyType, oppBuyType, teamWeapon, oppWeapon].filter(Boolean).length > 0 && (
+            {activeFilterCount > 0 && (
               <span className="ml-1 rounded bg-accent px-1.5 text-xs text-accent-text">
-                {[buyType, oppBuyType, teamWeapon, oppWeapon].filter(Boolean).length}
+                {activeFilterCount}
               </span>
             )}
           </button>
@@ -321,20 +432,26 @@ export function ScoutingPage() {
                   ))}
                 </select>
               </div>
-              <WeaponSelect
-                id="sc-team-weapon"
+              <WeaponPicker
+                idPrefix="sc-team-weapon"
                 label={t('scouting.teamWeapon')}
-                value={teamWeapon}
-                onChange={setTeamWeapon}
-                anyLabel={t('scouting.anyFilter')}
+                picks={teamWeapons}
+                onChange={setTeamWeapons}
+                addLabel={t('scouting.addWeapon')}
+                countLabel={t('scouting.weaponCount')}
+                removeLabel={t('scouting.removeWeapon')}
+                hint={t('scouting.weaponMinHint')}
                 catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
               />
-              <WeaponSelect
-                id="sc-opp-weapon"
+              <WeaponPicker
+                idPrefix="sc-opp-weapon"
                 label={t('scouting.oppWeapon')}
-                value={oppWeapon}
-                onChange={setOppWeapon}
-                anyLabel={t('scouting.anyFilter')}
+                picks={oppWeapons}
+                onChange={setOppWeapons}
+                addLabel={t('scouting.addWeapon')}
+                countLabel={t('scouting.weaponCount')}
+                removeLabel={t('scouting.removeWeapon')}
+                hint={t('scouting.weaponMinHint')}
                 catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
               />
             </div>
