@@ -215,6 +215,16 @@
     "removeWeapon": "Remove weapon",
     "filters": "Filters",
     "anyFilter": "Any",
+    "period": "Period",
+    "periods": {
+      "all": "Any date",
+      "last_month": "Last month",
+      "last_3_months": "Last 3 months",
+      "custom": "Custom"
+    },
+    "periodFrom": "From",
+    "periodTo": "To",
+    "periodHint": "Scopes the tendencies and the baseline by match date, not the model. Demos without a date fall outside any window.",
     "weaponCategories": {
       "pistols": "Pistols",
       "smgs": "SMGs",
@@ -256,6 +266,7 @@
     "tendenciesSummary": "{{rounds}} T-side rounds analyzed.",
     "heatmap": "Utility heatmap (T side)",
     "noTendencies": "No historical rounds for this team on this map.",
+    "noTendenciesPeriod": "No rounds in the selected period. Widen it or clear the date filter.",
     "train": "Train model",
     "trained": "Model trained · {{rounds}} rounds · accuracy {{acc}}",
     "untrained": "Model not trained (using historical base rate)",

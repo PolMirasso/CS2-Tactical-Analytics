@@ -12,6 +12,7 @@ import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
 import { useEvaluateMaps, useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
+import { PERIOD_PRESETS, periodWindow, windowLabel, type PeriodPreset } from './period'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
@@ -153,6 +154,9 @@ export function ScoutingPage() {
   const [oppBuyType, setOppBuyType] = useState<BuyType | ''>('')
   const [teamWeapons, setTeamWeapons] = useState<WeaponPick[]>([])
   const [oppWeapons, setOppWeapons] = useState<WeaponPick[]>([])
+  const [period, setPeriod] = useState<PeriodPreset>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
@@ -176,8 +180,18 @@ export function ScoutingPage() {
   )
   const zones: ZoneOut[] = map?.zones ?? []
 
-  const { data: roster } = useTeamRoster(mapId || undefined, soloTeam)
-  const tendencies = useTendencies(mapId || undefined, teamIds.length ? teamIds : undefined)
+  const dateWindow = useMemo(
+    () => periodWindow(period, customFrom, customTo),
+    [period, customFrom, customTo],
+  )
+  const periodLabel = windowLabel(dateWindow)
+
+  const { data: roster } = useTeamRoster(mapId || undefined, soloTeam, dateWindow)
+  const tendencies = useTendencies(
+    mapId || undefined,
+    teamIds.length ? teamIds : undefined,
+    dateWindow,
+  )
   const modelStatus = useModelStatus()
   const predict = usePredict()
   const trainModel = useTrainModel()
@@ -227,6 +241,8 @@ export function ScoutingPage() {
       opponent_buy_type: oppBuyType,
       team_weapons: teamWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       opponent_weapons: oppWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
+      period,
+      ...dateWindow,
       tokens: tokens.map((tk) => ({
         util_type: tk.util_type,
         time_from: tk.time_from,
@@ -313,6 +329,13 @@ export function ScoutingPage() {
       }
       return out
     }
+    const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+    if (typeof obj.period === 'string' && (PERIOD_PRESETS as string[]).includes(obj.period)) {
+      setPeriod(obj.period as PeriodPreset)
+      // Presets re-resolve against today; the saved dates only drive 'custom'.
+      setCustomFrom(isDay(obj.date_from) ? obj.date_from : '')
+      setCustomTo(isDay(obj.date_to) ? obj.date_to : '')
+    }
     const b = readBuy(obj.buy_type); if (b !== null) setBuyType(b)
     const ob = readBuy(obj.opponent_buy_type); if (ob !== null) setOppBuyType(ob)
     const tw = readWeapons(obj.team_weapons ?? obj.team_weapon); if (tw !== null) setTeamWeapons(tw)
@@ -334,6 +357,7 @@ export function ScoutingPage() {
       opponent_equip_value: oppBuyType ? (BUY_EQUIP[oppBuyType] ?? null) : null,
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : null,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : null,
+      ...dateWindow,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
         x: tk.x,
@@ -367,6 +391,7 @@ export function ScoutingPage() {
         </h2>
         <p className="text-muted">
           {[
+            periodLabel && `${t('scouting.period')}: ${t(`scouting.periods.${period}`)} (${periodLabel})`,
             buyType && `${t('scouting.teamBuy')}: ${t(`demos.buyTypes.${buyType}`)}`,
             oppBuyType && `${t('scouting.oppBuy')}: ${t(`demos.buyTypes.${oppBuyType}`)}`,
             teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
@@ -395,6 +420,45 @@ export function ScoutingPage() {
               onChange={setTeamIds}
               placeholder={t('analytics.allTeams')}
             />
+          </div>
+          <div>
+            <label htmlFor="sc-period">{t('scouting.period')}</label>
+            <select
+              id="sc-period"
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as PeriodPreset)}
+            >
+              {PERIOD_PRESETS.map((p) => (
+                <option key={p} value={p}>{t(`scouting.periods.${p}`)}</option>
+              ))}
+            </select>
+            {period === 'custom' && (
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                <label className="text-muted flex-1 text-xs">
+                  {t('scouting.periodFrom')}
+                  <input
+                    type="date"
+                    value={customFrom}
+                    max={customTo || undefined}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                  />
+                </label>
+                <label className="text-muted flex-1 text-xs">
+                  {t('scouting.periodTo')}
+                  <input
+                    type="date"
+                    value={customTo}
+                    min={customFrom || undefined}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+            {periodLabel && (
+              <p className="mt-1 mb-0 text-xs text-muted">
+                {periodLabel} · {t('scouting.periodHint')}
+              </p>
+            )}
           </div>
         </div>
 
@@ -634,10 +698,15 @@ export function ScoutingPage() {
 
       {/* Historical tendencies + utility heatmap */}
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h2>{t('scouting.tendencies')}{teamLabel ? ` · ${teamLabel}` : ''}</h2>
+        <h2>
+          {t('scouting.tendencies')}{teamLabel ? ` · ${teamLabel}` : ''}
+          {periodLabel && <span className="text-muted text-sm font-normal"> · {periodLabel}</span>}
+        </h2>
         {tendencies.isLoading && <p className="text-muted">{t('common.loading')}</p>}
         {tendencies.data && tendencies.data.total_rounds === 0 && (
-          <p className="text-muted">{t('scouting.noTendencies')}</p>
+          <p className="text-muted">
+            {periodLabel ? t('scouting.noTendenciesPeriod') : t('scouting.noTendencies')}
+          </p>
         )}
         {tendencies.data && tendencies.data.total_rounds > 0 && (
           <div className="flex flex-wrap items-start gap-6">

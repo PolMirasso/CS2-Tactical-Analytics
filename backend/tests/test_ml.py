@@ -618,3 +618,74 @@ def test_tendencies_returns_sites_and_heatmap(client):
     assert len(body["heatmap"]) > 0
     z = body["heatmap"][0]
     assert z["total"] >= z["smoke"] + z["flash"] + z["molotov"] + z["he"]
+
+
+def test_tendencies_filters_by_match_date(client):
+    token = register_and_login(client, "mltenddate@example.com")
+    team = "DateWindowFC"
+    _upload(client, token, content=b"tend-date-old", map_id="de_inferno", team=team,
+            visibility="private", match_date="2026-01-15")
+    _upload(client, token, content=b"tend-date-new", map_id="de_inferno", team=team,
+            visibility="private", match_date="2026-07-20")
+
+    def tend(**params):
+        resp = client.get(
+            "/scouting/tendencies",
+            params={"map_id": "de_inferno", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    both, recent, old = tend(), tend(date_from="2026-07-01"), tend(date_to="2026-02-01")
+    empty = tend(date_from="2026-03-01", date_to="2026-04-01")
+
+    assert recent["total_rounds"] > 0 and old["total_rounds"] > 0
+    assert both["total_rounds"] == recent["total_rounds"] + old["total_rounds"]
+    assert empty["total_rounds"] == 0
+    assert empty["heatmap"] == []
+    assert 0 < sum(z["total"] for z in recent["heatmap"]) < sum(z["total"] for z in both["heatmap"])
+
+
+def test_predict_baseline_honours_date_window(client):
+    """The window scopes the historical baseline; the model itself is untouched."""
+    token = register_and_login(client, "mlpredictdate@example.com")
+    team = "BaselineFC"  # sample split for this map/team is lopsided, not uniform
+    _upload(client, token, content=b"predict-date", map_id="de_inferno", team=team,
+            visibility="private", match_date="2026-07-20")
+
+    def predict(**window):
+        resp = client.post(
+            "/scouting/predict",
+            json={
+                "map_id": "de_inferno",
+                "team": team,
+                "buy_type": "full",
+                "utility": [{
+                    "util_type": "smoke", "x": 300.0, "y": 400.0,
+                    "w": 60.0, "h": 60.0, "time_from": 4.0, "time_to": 8.0, "side": "t",
+                }],
+                **window,
+            },
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    inside = predict(date_from="2026-07-01", date_to="2026-07-31")
+    outside = predict(date_from="2026-03-01", date_to="2026-04-01")
+
+    # No rounds left inside the outside-window ⇒ uniform fallback.
+    dist = client.get(
+        "/analytics/site-distribution",
+        params={"map_id": "de_inferno", "team": team,
+                "date_from": "2026-07-01", "date_to": "2026-07-31"},
+        headers=auth(token),
+    ).json()
+    assert dist["total_rounds"] > 0
+    expected = {s["site"]: s["pct"] for s in dist["sites"]}
+    assert len(set(expected.values())) > 1
+    assert all(abs(b["prob"] - expected[b["site"]]) < 1e-9 for b in inside["baseline"])
+    assert all(abs(b["prob"] - 1 / len(SITES)) < 1e-9 for b in outside["baseline"])
+    if inside["source"] == "model":
+        assert inside["sites"] == outside["sites"]

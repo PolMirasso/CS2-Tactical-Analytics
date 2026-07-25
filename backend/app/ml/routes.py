@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -46,8 +48,19 @@ def _status(p: SitePredictor) -> ModelStatusOut:
     )
 
 
-def _baseline_dist(session: Session, user: User, map_id: str, team: str | None) -> dict[str, float]:
-    dist = aggregate.site_distribution(session, user, map_id=map_id, teams=[team] if team else None)
+def _baseline_dist(
+    session: Session,
+    user: User,
+    map_id: str,
+    team: str | None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict[str, float]:
+    dist = aggregate.site_distribution(
+        session, user,
+        map_id=map_id, teams=[team] if team else None,
+        date_from=date_from, date_to=date_to,
+    )
     if dist.total_rounds == 0:
         return {s: 1.0 / len(SITES) for s in SITES}
     return {s.site: s.pct for s in dist.sites}
@@ -81,7 +94,11 @@ def predict(
     session: Session = Depends(get_session),
 ) -> PredictOut:
     predictor = service.get_predictor()
-    baseline = _baseline_dist(session, user, payload.map_id, payload.team)
+    # The model is trained on the whole history
+    baseline = _baseline_dist(
+        session, user, payload.map_id, payload.team,
+        payload.date_from, payload.date_to,
+    )
     probs = predictor.model_proba(
         map_id=payload.map_id,
         team=payload.team,
@@ -125,11 +142,17 @@ def predict(
 def tendencies(
     map_id: str,
     team: list[str] | None = Query(None),
+    date_from: date | None = None,
+    date_to: date | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> TendenciesOut:
-    dist = aggregate.site_distribution(session, user, map_id=map_id, teams=team)
-    heatmap = aggregate.utility_heatmap(session, user, map_id=map_id, teams=team)
+    dist = aggregate.site_distribution(
+        session, user, map_id=map_id, teams=team, date_from=date_from, date_to=date_to,
+    )
+    heatmap = aggregate.utility_heatmap(
+        session, user, map_id=map_id, teams=team, date_from=date_from, date_to=date_to,
+    )
     return TendenciesOut(
         map_id=map_id,
         team=team[0] if team and len(team) == 1 else None,

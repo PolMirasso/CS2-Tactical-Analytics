@@ -38,6 +38,16 @@ def _teams_filter(team_ids: list[str]):
     return or_(Round.team_hltv_id.in_(team_ids), Round.team.in_(team_ids))
 
 
+def _date_conditions(date_from: date | None, date_to: date | None) -> list:
+    """match date window"""
+    conds = []
+    if date_from:
+        conds.append(Demo.match_date >= date_from)
+    if date_to:
+        conds.append(Demo.match_date <= date_to)
+    return conds
+
+
 def teams_for_map(session: Session, user: User, map_id: str) -> list[TeamRef]:
     """Distinct executing teams with parsed rounds on a map, most rounds first"""
     from app.demos.service import resolve_team_names
@@ -80,10 +90,7 @@ def site_distribution(
         conds.append(_teams_filter(teams))
     if buy_types:
         conds.append(Round.buy_type.in_(buy_types))
-    if date_from:
-        conds.append(Demo.match_date >= date_from)
-    if date_to:
-        conds.append(Demo.match_date <= date_to)
+    conds += _date_conditions(date_from, date_to)
 
     # The executing team is on T, so a round was won iff its winner is "t".
     rows = session.execute(
@@ -138,6 +145,8 @@ def team_rosters(
         *,
         map_id: str,
         team: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
 ) -> TeamRostersOut:
     """Roster the analysed team fielded per demo, flagging line-up changes"""
     if not team:
@@ -145,6 +154,7 @@ def team_rosters(
 
     conds = _base_conditions(session, user, map_id)
     conds.append(_team_filter(team))
+    conds += _date_conditions(date_from, date_to)
 
     rows = session.execute(
         select(
@@ -253,11 +263,14 @@ def utility_heatmap(
         *,
         map_id: str,
         teams: list[str] | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
 ) -> list[ZoneUtilStat]:
     """T-side utility counts per callout zone (and type), aggregated over ``teams``."""
     conds = _base_conditions(session, user, map_id)
     if teams:
         conds.append(_teams_filter(teams))
+    conds += _date_conditions(date_from, date_to)
 
     rows = session.execute(
         select(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type, func.count())

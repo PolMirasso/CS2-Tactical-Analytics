@@ -186,12 +186,15 @@ export interface SiteDistributionOut {
   sites: SiteStat[]
 }
 
-export interface SiteDistributionParams {
+export interface DateWindowParams {
+  date_from?: string
+  date_to?: string
+}
+
+export interface SiteDistributionParams extends DateWindowParams {
   map_id: string
   team?: string[]
   buy_type?: BuyType[]
-  date_from?: string
-  date_to?: string
 }
 
 export interface RosterEntry {
@@ -240,6 +243,8 @@ export interface PredictIn {
   opponent_equip_value?: number | null
   team_weapons?: string[] | null
   opponent_weapons?: string[] | null
+  date_from?: string
+  date_to?: string
   utility: UtilityInput[]
 }
 

@@ -90,6 +90,37 @@ def test_analytics_teams_lists_executing_team(client):
     assert "Spirit" in [t["name"] for t in resp.json()]
 
 
+def test_roster_endpoint_honours_date_window(client):
+    """/scouting shares its date window with the roster-change warning."""
+    token = register_and_login(client, "rosterdate@example.com")
+
+    def upload(content, match_date):
+        files = {"file": ("m.dem", io.BytesIO(content), "application/octet-stream")}
+        return client.post(
+            "/demos/upload",
+            files=files,
+            data={"map_id": "de_mirage", "team": "RosterWindowFC",
+                  "visibility": "private", "match_date": match_date},
+            headers=auth(token),
+        )
+
+    upload(b"roster-window-old", "2026-01-10")
+    upload(b"roster-window-new", "2026-07-18")
+
+    def roster(**params):
+        resp = client.get(
+            "/analytics/roster",
+            params={"map_id": "de_mirage", "team": "RosterWindowFC", **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    assert roster()["n_demos"] == 2
+    assert roster(date_from="2026-07-01")["n_demos"] == 1
+    assert roster(date_from="2026-03-01", date_to="2026-04-01")["n_demos"] == 0
+
+
 def test_roster_endpoint_stable_lineup(client):
     token = register_and_login(client, "roster1@example.com")
     _upload(client, token, map_id="de_mirage", team="Falcons", visibility="private")

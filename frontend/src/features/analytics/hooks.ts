@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { SiteDistributionParams } from '@/types/api'
+import type { DateWindowParams, SiteDistributionParams } from '@/types/api'
 import { analyticsApi } from './api'
 
 export function useTeams(mapId: string | undefined) {
@@ -19,10 +19,14 @@ export function useSiteDistribution(params: SiteDistributionParams | undefined) 
   })
 }
 
-export function useTeamRoster(mapId: string | undefined, team: string | undefined) {
+export function useTeamRoster(
+  mapId: string | undefined,
+  team: string | undefined,
+  dateWindow?: DateWindowParams,
+) {
   return useQuery({
-    queryKey: ['analytics', 'roster', mapId, team],
-    queryFn: () => analyticsApi.roster(mapId!, team!),
+    queryKey: ['analytics', 'roster', mapId, team, dateWindow],
+    queryFn: () => analyticsApi.roster(mapId!, team!, dateWindow),
     enabled: !!mapId && !!team,
     staleTime: 60_000,
   })

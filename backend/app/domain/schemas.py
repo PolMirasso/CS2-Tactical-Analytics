@@ -300,6 +300,9 @@ class PredictIn(BaseModel):
     # Weapons the side is expected to carry
     team_weapons: list[str] | None = None
     opponent_weapons: list[str] | None = None
+    # match-date window
+    date_from: date | None = None
+    date_to: date | None = None
     utility: list[UtilityInput] = []
 
 

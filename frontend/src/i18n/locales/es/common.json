@@ -215,6 +215,16 @@
     "removeWeapon": "Quitar arma",
     "filters": "Filtros",
     "anyFilter": "Cualquiera",
+    "period": "Periodo",
+    "periods": {
+      "all": "Cualquier fecha",
+      "last_month": "Último mes",
+      "last_3_months": "Últimos 3 meses",
+      "custom": "Personalizado"
+    },
+    "periodFrom": "Desde",
+    "periodTo": "Hasta",
+    "periodHint": "Acota las tendencias y el baseline por fecha de partido, no el modelo. Las demos sin fecha quedan fuera.",
     "weaponCategories": {
       "pistols": "Pistolas",
       "smgs": "Subfusiles",
@@ -256,6 +266,7 @@
     "tendenciesSummary": "{{rounds}} rondas de lado T analizadas.",
     "heatmap": "Mapa de calor de utility (lado T)",
     "noTendencies": "No hay rondas históricas para este equipo en este mapa.",
+    "noTendenciesPeriod": "No hay rondas en el periodo elegido. Prueba a ampliarlo o a quitar el filtro de fecha.",
     "train": "Entrenar modelo",
     "trained": "Modelo entrenado · {{rounds}} rondas · acierto {{acc}}",
     "untrained": "Modelo sin entrenar (se usa la base histórica)",

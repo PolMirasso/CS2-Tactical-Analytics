@@ -90,10 +90,15 @@ def get_teams(
 def get_roster(
         map_id: str,
         team: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
 ) -> TeamRostersOut:
-    return aggregate.team_rosters(session, user, map_id=map_id, team=team)
+    return aggregate.team_rosters(
+        session, user,
+        map_id=map_id, team=team, date_from=date_from, date_to=date_to,
+    )
 
 
 @analytics_router.get("/site-distribution", response_model=SiteDistributionOut)
