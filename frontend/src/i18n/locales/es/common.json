@@ -225,6 +225,16 @@
     "periodFrom": "Desde",
     "periodTo": "Hasta",
     "periodHint": "Acota las tendencias y el baseline por fecha de partido, no el modelo. Las demos sin fecha quedan fuera.",
+    "support": {
+      "title": "Pocos datos con estos filtros",
+      "noneModel": "Ninguna ronda histórica encaja con estos filtros: el modelo nunca ha visto esta combinación, así que la predicción es pura extrapolación.",
+      "lowModel": "Solo {{rounds}} rondas ({{plants}} con plant) encajan con estos filtros. Son muy pocos ejemplos: fíate más de las tendencias históricas que de la predicción.",
+      "nonePeriod": "No hay rondas en el periodo elegido: el baseline cae al reparto uniforme y las tendencias se quedan vacías. La predicción no cambia, el modelo no se acota por fecha.",
+      "lowPeriod": "Solo {{rounds}} rondas ({{plants}} con plant) en el periodo elegido: el baseline y las tendencias se apoyan en muy poco. La predicción no cambia, el modelo no se acota por fecha.",
+      "noneMap": "No hay ninguna ronda de {{map}} en la base de datos: el modelo no ha visto este mapa nunca.",
+      "lowMap": "{{map}} solo tiene {{rounds}} rondas ({{plants}} con plant) en la base de datos: el modelo apenas ha visto este mapa.",
+      "culprit": "El filtro que más recorta es «{{filter}}»: sin él quedarían {{rounds}} rondas."
+    },
     "weaponCategories": {
       "pistols": "Pistolas",
       "smgs": "Subfusiles",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, Timing, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, FilterSupportOut, FilterSupportParams, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, SupportFilter, Timing, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
@@ -11,7 +11,7 @@ import { WEAPON_CATEGORIES, WEAPON_IDS, WEAPON_LABELS } from '@/lib/weapons'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
 import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
-import { useEvaluateMaps, useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
+import { useEvaluateMaps, useFilterSupport, useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
 import { PERIOD_PRESETS, periodWindow, windowLabel, type PeriodPreset } from './period'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
@@ -192,6 +192,21 @@ export function ScoutingPage() {
     teamIds.length ? teamIds : undefined,
     dateWindow,
   )
+  const supportParams: FilterSupportParams | undefined = useMemo(
+    () => (mapId
+      ? {
+        map_id: mapId,
+        team: teamIds.length ? teamIds : undefined,
+        buy_type: buyType || undefined,
+        opponent_buy_type: oppBuyType || undefined,
+        team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : undefined,
+        opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : undefined,
+        ...dateWindow,
+      }
+      : undefined),
+    [mapId, teamIds, buyType, oppBuyType, teamWeapons, oppWeapons, dateWindow],
+  )
+  const { data: support } = useFilterSupport(supportParams)
   const modelStatus = useModelStatus()
   const predict = usePredict()
   const trainModel = useTrainModel()
@@ -582,6 +597,10 @@ export function ScoutingPage() {
         )}
       </div>
 
+      {support && support.level !== 'ok' && (
+        <SupportWarning support={support} mapName={map?.name ?? mapId} />
+      )}
+
       {/* Tactical board */}
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <div className="flex flex-wrap items-start gap-5">
@@ -731,6 +750,43 @@ export function ScoutingPage() {
       <div className="mb-6 print:hidden">
         <button className="border border-border bg-transparent text-text" onClick={() => window.print()}>{t('scouting.exportPdf')}</button>
       </div>
+    </div>
+  )
+}
+
+const SUPPORT_FILTER_LABEL: Record<SupportFilter, string> = {
+  team: 'scouting.team',
+  buy: 'scouting.teamBuy',
+  opp_buy: 'scouting.oppBuy',
+  team_weapons: 'scouting.teamWeapon',
+  opp_weapons: 'scouting.oppWeapon',
+  period: 'scouting.period',
+}
+
+function SupportWarning({ support, mapName }: { support: FilterSupportOut; mapName: string }) {
+  const { t } = useTranslation()
+  const empty = support.level === 'none'
+  const model = support.scope === 'model'
+  const rounds = model ? support.model_rounds : support.rounds
+  const plants = model ? support.model_plant_rounds : support.plant_rounds
+  const key = model
+    ? support.filters.some((f) => f !== 'period')
+      ? (empty ? 'noneModel' : 'lowModel')
+      : (empty ? 'noneMap' : 'lowMap')
+    : (empty ? 'nonePeriod' : 'lowPeriod')
+  const culprit = support.drops[0]
+  return (
+    <div className="mb-5 rounded-lg border border-l-4 border-warn bg-warn/8 px-3.5 py-3 text-[0.9rem]">
+      <p className="mt-0 mb-1.5 font-semibold text-warn">⚠ {t('scouting.support.title')}</p>
+      <div>{t(`scouting.support.${key}`, { rounds, plants, map: mapName })}</div>
+      {culprit && (
+        <div className="mt-1.5 text-muted">
+          {t('scouting.support.culprit', {
+            filter: t(SUPPORT_FILTER_LABEL[culprit.filter]),
+            rounds: culprit.rounds_without,
+          })}
+        </div>
+      )}
     </div>
   )
 }

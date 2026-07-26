@@ -2,23 +2,30 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, PlayerStat, Round, User, UtilityEvent
 from app.domain.schemas import (
+    FilterSupportOut,
     RosterEntry,
     SiteDistributionOut,
     SiteStat,
+    SupportDrop,
     TeamRef,
     TeamRostersOut,
     ZoneUtilStat,
 )
+from app.domain.weapons import WEAPON_IDS
 
 _UTIL_TYPES = ("smoke", "flash", "molotov", "he")
 
 # Canonical plant-site order so the chart stays stable even when a site is unused.
 _SITE_ORDER = ("A", "B", "NoPlant")
+_PLANT_SITES = tuple(s for s in _SITE_ORDER if s != "NoPlant")
+
+SUPPORT_LOW_ROUNDS = 20
+SUPPORT_LOW_PLANTS = 10
 
 
 def _base_conditions(session: Session, user: User, map_id: str):
@@ -46,6 +53,106 @@ def _date_conditions(date_from: date | None, date_to: date | None) -> list:
     if date_to:
         conds.append(Demo.match_date <= date_to)
     return conds
+
+
+def _weapons_condition(column, weapons: list[str]):
+    """All of weapons present in the CSV column"""
+    delimited = literal(",") + column + literal(",")
+    return and_(*[delimited.like(f"%,{w},%") for w in weapons])
+
+
+def _round_counts(session: Session, conds: list) -> tuple[int, int]:
+    """(rounds, rounds that ended in a plant) matching conds"""
+    total, plants = session.execute(
+        select(
+            func.count(),
+            func.sum(case((Round.target_site.in_(_PLANT_SITES), 1), else_=0)),
+        )
+        .select_from(Round)
+        .join(Demo, Demo.id == Round.demo_id)
+        .where(*conds)
+    ).one()
+    return int(total or 0), int(plants or 0)
+
+
+def filter_support(
+        session: Session,
+        user: User,
+        *,
+        map_id: str,
+        teams: list[str] | None = None,
+        buy_type: str | None = None,
+        opponent_buy_type: str | None = None,
+        team_weapons: list[str] | None = None,
+        opponent_weapons: list[str] | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+) -> FilterSupportOut:
+    base = _base_conditions(session, user, map_id)
+    team_weapons = [w for w in (team_weapons or []) if w in WEAPON_IDS]
+    opponent_weapons = [w for w in (opponent_weapons or []) if w in WEAPON_IDS]
+
+    # (UI filter key, its conditions) — the key names the culprit in the warning.
+    parts: list[tuple[str, list]] = []
+    if teams:
+        parts.append(("team", [_teams_filter(teams)]))
+    if buy_type:
+        parts.append(("buy", [Round.buy_type == buy_type]))
+    if opponent_buy_type:
+        parts.append(("opp_buy", [Round.opponent_buy_type == opponent_buy_type]))
+    if team_weapons:
+        parts.append(("team_weapons", [_weapons_condition(Round.team_weapons, team_weapons)]))
+    if opponent_weapons:
+        parts.append(
+            ("opp_weapons", [_weapons_condition(Round.opponent_weapons, opponent_weapons)])
+        )
+    date_conds = _date_conditions(date_from, date_to)
+    if date_conds:
+        parts.append(("period", date_conds))
+
+    model_conds = base + [c for k, cs in parts if k != "period" for c in cs]
+    model_rounds, model_plants = _round_counts(session, model_conds)
+    if date_conds:
+        rounds, plants = _round_counts(session, model_conds + date_conds)
+    else:
+        rounds, plants = model_rounds, model_plants
+    total_rounds, _ = _round_counts(session, base)
+
+    def _thin(n_rounds: int, n_plants: int) -> bool:
+        return n_rounds < SUPPORT_LOW_ROUNDS or n_plants < SUPPORT_LOW_PLANTS
+
+    level, scope = "ok", None
+    if model_rounds == 0:
+        level, scope = "none", "model"
+    elif _thin(model_rounds, model_plants):
+        level, scope = "low", "model"
+    elif rounds == 0:
+        level, scope = "none", "period"
+    elif _thin(rounds, plants):
+        level, scope = "low", "period"
+
+    # Leave-one-out: dropping which filter gives the most rounds back.
+    drops: list[SupportDrop] = []
+    if level != "ok":
+        for key, _cs in parts:
+            without = base + [c for k, cs in parts if k != key for c in cs]
+            n, _ = _round_counts(session, without)
+            if n > rounds:
+                drops.append(SupportDrop(filter=key, rounds_without=n))
+        drops.sort(key=lambda d: d.rounds_without, reverse=True)
+
+    return FilterSupportOut(
+        map_id=map_id,
+        rounds=rounds,
+        plant_rounds=plants,
+        model_rounds=model_rounds,
+        model_plant_rounds=model_plants,
+        total_rounds=total_rounds,
+        level=level,
+        scope=scope,
+        filters=[k for k, _ in parts],
+        drops=drops,
+    )
 
 
 def teams_for_map(session: Session, user: User, map_id: str) -> list[TeamRef]:

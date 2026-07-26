@@ -10,6 +10,7 @@ from app.auth.deps import get_current_user, require_admin
 from app.db import get_session
 from app.domain.models import User
 from app.domain.schemas import (
+    FilterSupportOut,
     ModelStatusOut,
     PerMapMetric,
     PredictIn,
@@ -159,4 +160,31 @@ def tendencies(
         total_rounds=dist.total_rounds,
         sites=dist.sites,
         heatmap=heatmap,
+    )
+
+
+@router.get("/support", response_model=FilterSupportOut)
+def support(
+    map_id: str,
+    team: list[str] | None = Query(None),
+    buy_type: str | None = None,
+    opponent_buy_type: str | None = None,
+    team_weapons: list[str] | None = Query(None),
+    opponent_weapons: list[str] | None = Query(None),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> FilterSupportOut:
+    """rounds backing the selected filters"""
+    return aggregate.filter_support(
+        session, user,
+        map_id=map_id,
+        teams=team,
+        buy_type=buy_type,
+        opponent_buy_type=opponent_buy_type,
+        team_weapons=team_weapons,
+        opponent_weapons=opponent_weapons,
+        date_from=date_from,
+        date_to=date_to,
     )

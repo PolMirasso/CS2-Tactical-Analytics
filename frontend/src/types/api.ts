@@ -291,6 +291,35 @@ export interface TendenciesOut {
   heatmap: ZoneUtilStat[]
 }
 
+export type SupportFilter = 'team' | 'buy' | 'opp_buy' | 'team_weapons' | 'opp_weapons' | 'period'
+
+export interface SupportDrop {
+  filter: SupportFilter
+  rounds_without: number
+}
+
+export interface FilterSupportOut {
+  map_id: string
+  rounds: number
+  plant_rounds: number
+  model_rounds: number
+  model_plant_rounds: number
+  total_rounds: number
+  level: 'ok' | 'low' | 'none'
+  scope: 'model' | 'period' | null
+  filters: SupportFilter[]
+  drops: SupportDrop[]
+}
+
+export interface FilterSupportParams extends DateWindowParams {
+  map_id: string
+  team?: string[]
+  buy_type?: BuyType
+  opponent_buy_type?: BuyType
+  team_weapons?: string[]
+  opponent_weapons?: string[]
+}
+
 export interface ReliabilityBin {
   confidence: number
   accuracy: number

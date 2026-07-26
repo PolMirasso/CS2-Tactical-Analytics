@@ -348,6 +348,25 @@ class TendenciesOut(BaseModel):
     heatmap: list[ZoneUtilStat]
 
 
+class SupportDrop(BaseModel):
+    # team / buy / opp_buy / team_weapons / opp_weapons / period
+    filter: str
+    rounds_without: int  # rounds left with every other filter still applied
+
+
+class FilterSupportOut(BaseModel):
+    map_id: str
+    rounds: int 
+    plant_rounds: int
+    model_rounds: int
+    model_plant_rounds: int
+    total_rounds: int
+    level: str  # ok / low / none
+    scope: str | None = None
+    filters: list[str] = []
+    drops: list[SupportDrop] = []
+
+
 class ReliabilityBin(BaseModel):
     confidence: float
     accuracy: float

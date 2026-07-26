@@ -225,6 +225,16 @@
     "periodFrom": "From",
     "periodTo": "To",
     "periodHint": "Scopes the tendencies and the baseline by match date, not the model. Demos without a date fall outside any window.",
+    "support": {
+      "title": "Thin data for these filters",
+      "noneModel": "No historical round matches these filters: the model has never seen this combination, so the prediction is pure extrapolation.",
+      "lowModel": "Only {{rounds}} rounds ({{plants}} with a plant) match these filters. That is very little to go on — lean on the historical tendencies rather than the prediction.",
+      "nonePeriod": "No rounds in the selected period: the baseline falls back to an even split and the tendencies come up empty. The prediction is unchanged — the model is never scoped by date.",
+      "lowPeriod": "Only {{rounds}} rounds ({{plants}} with a plant) in the selected period: the baseline and the tendencies rest on very little. The prediction is unchanged — the model is never scoped by date.",
+      "noneMap": "There is not a single {{map}} round in the database: the model has never seen this map.",
+      "lowMap": "{{map}} only has {{rounds}} rounds ({{plants}} with a plant) in the database: the model has barely seen this map.",
+      "culprit": "The filter cutting the most is “{{filter}}”: without it, {{rounds}} rounds would be left."
+    },
     "weaponCategories": {
       "pistols": "Pistols",
       "smgs": "SMGs",

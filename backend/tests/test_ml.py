@@ -647,6 +647,72 @@ def test_tendencies_filters_by_match_date(client):
     assert 0 < sum(z["total"] for z in recent["heatmap"]) < sum(z["total"] for z in both["heatmap"])
 
 
+def test_support_flags_a_thin_filter_combination(client):
+    """A filter combination no round matches must come back as unsupported."""
+    token = register_and_login(client, "mlsupport@example.com")
+    team = "SupportFC"
+    for i in range(2):
+        _upload(client, token, content=f"support-{i}".encode(), map_id="de_mirage",
+                team=team, visibility="private")
+
+    def support(**params):
+        resp = client.get(
+            "/scouting/support",
+            params={"map_id": "de_mirage", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    plain = support()
+    assert plain["filters"] == ["team"]
+    assert plain["rounds"] == plain["model_rounds"] > 0
+    assert 0 < plain["plant_rounds"] <= plain["rounds"]
+    assert plain["rounds"] <= plain["total_rounds"]
+    assert plain["level"] == "ok" and plain["scope"] is None
+    assert plain["drops"] == []
+
+    # The sample only buys an AWP on full buys and an SSG on ecos: never together.
+    both = support(team_weapons=["awp", "ssg08"])
+    assert both["rounds"] == 0
+    assert both["level"] == "none" and both["scope"] == "model"
+    assert both["filters"] == ["team", "team_weapons"]
+    drops = {d["filter"]: d["rounds_without"] for d in both["drops"]}
+    assert drops["team_weapons"] == plain["rounds"]
+
+    # A weapon that does occur narrows the slice without emptying it.
+    awp = support(team_weapons=["awp"])
+    assert 0 < awp["rounds"] < plain["rounds"]
+
+
+def test_support_separates_the_period_from_the_model(client):
+    """The window starves the baseline, not the net — the scope says which."""
+    token = register_and_login(client, "mlsupportdate@example.com")
+    team = "SupportDateFC"
+    for tag, day in (("old", "2026-01-15"), ("new", "2026-07-20")):
+        _upload(client, token, content=f"support-date-{tag}".encode(), map_id="de_ancient",
+                team=team, visibility="private", match_date=day)
+
+    def support(**params):
+        resp = client.get(
+            "/scouting/support",
+            params={"map_id": "de_ancient", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    empty = support(date_from="2026-03-01", date_to="2026-04-01")
+    assert empty["rounds"] == 0 and empty["plant_rounds"] == 0
+    assert empty["model_rounds"] > 0  # the net is trained on the whole history
+    assert empty["level"] == "none" and empty["scope"] == "period"
+    drops = {d["filter"]: d["rounds_without"] for d in empty["drops"]}
+    assert drops["period"] == empty["model_rounds"]
+
+    half = support(date_from="2026-07-01")
+    assert 0 < half["rounds"] < half["model_rounds"]
+
+
 def test_predict_baseline_honours_date_window(client):
     """The window scopes the historical baseline; the model itself is untouched."""
     token = register_and_login(client, "mlpredictdate@example.com")
