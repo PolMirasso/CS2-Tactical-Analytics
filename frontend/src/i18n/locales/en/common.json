@@ -220,6 +220,7 @@
     "weaponMinHint": "The team carries these weapons, at least the number shown (≥).",
     "removeWeapon": "Remove weapon",
     "filters": "Filters",
+    "clearFilters": "Clear filters",
     "anyFilter": "Any",
     "period": "Period",
     "periods": {
@@ -283,6 +284,7 @@
     "heatmap": "Utility heatmap (T side)",
     "noTendencies": "No historical rounds for this team on this map.",
     "noTendenciesPeriod": "No rounds in the selected period. Widen it or clear the date filter.",
+    "model": "Model",
     "train": "Train model",
     "trained": "Model trained · {{rounds}} rounds · accuracy {{acc}}",
     "untrained": "Model not trained (using historical base rate)",

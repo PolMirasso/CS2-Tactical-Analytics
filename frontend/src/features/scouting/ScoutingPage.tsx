@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BuyType, FilterSupportOut, FilterSupportParams, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, SupportFilter, Timing, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -71,13 +71,11 @@ function WeaponSelect(props: {
 // Growing list of weapons a side carries: a new empty selector shows up only
 function WeaponPicker(props: {
   idPrefix: string
-  label: string
   picks: WeaponPick[]
   onChange: (picks: WeaponPick[]) => void
   addLabel: string
   countLabel: string
   removeLabel: string
-  hint: string
   catLabel: (id: string) => string
 }) {
   const used = new Set(props.picks.map((p) => p.weapon))
@@ -90,60 +88,56 @@ function WeaponPicker(props: {
   const setCount = (id: string, count: number) =>
     props.onChange(props.picks.map((p) => (p.id === id ? { ...p, count: clampCount(count) } : p)))
   return (
-    <div>
-      <label>{props.label}</label>
-      <p className="mt-0.5 mb-1 text-xs text-muted">{props.hint}</p>
-      <div className="flex flex-col gap-2">
-        {props.picks.map((p) => (
-          <div key={p.id} className="flex items-center gap-2">
-            <WeaponSelect
-              id={`${props.idPrefix}-${p.id}`}
-              value={p.weapon}
-              onChange={(w) => setWeapon(p.id, w)}
-              placeholder={props.removeLabel}
-              exclude={used}
-              catLabel={props.catLabel}
-              className="min-w-0 flex-1"
+    <div className="flex flex-col gap-2">
+      {props.picks.map((p) => (
+        <div key={p.id} className="flex items-center gap-2">
+          <WeaponSelect
+            id={`${props.idPrefix}-${p.id}`}
+            value={p.weapon}
+            onChange={(w) => setWeapon(p.id, w)}
+            placeholder={props.removeLabel}
+            exclude={used}
+            catLabel={props.catLabel}
+            className="!mb-0 min-w-0 flex-1"
+          />
+          <span className="flex shrink-0 items-center gap-1 text-sm text-muted" title={props.countLabel}>
+            <span aria-hidden="true">≥</span>
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={p.count}
+              aria-label={props.countLabel}
+              onChange={(e) => setCount(p.id, parseInt(e.target.value, 10))}
+              className="!mb-0 w-12"
             />
-            <span className="flex shrink-0 items-center gap-1 text-sm text-muted" title={props.countLabel}>
-              <span aria-hidden="true">≥</span>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={p.count}
-                aria-label={props.countLabel}
-                onChange={(e) => setCount(p.id, parseInt(e.target.value, 10))}
-                className="w-12"
-              />
-            </span>
-            <button
-              type="button"
-              className="shrink-0 px-1 text-muted hover:text-text"
-              aria-label={props.removeLabel}
-              onClick={() => setWeapon(p.id, '')}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <WeaponSelect
-          id={`${props.idPrefix}-add`}
-          value=""
-          onChange={(w) => w && props.onChange([...props.picks, { id: makeId(), weapon: w, count: 1 }])}
-          placeholder={props.addLabel}
-          ariaLabel={props.addLabel}
-          exclude={used}
-          catLabel={props.catLabel}
-        />
-      </div>
+          </span>
+          <button
+            type="button"
+            className="shrink-0 bg-transparent px-1 text-muted hover:text-text"
+            aria-label={props.removeLabel}
+            onClick={() => setWeapon(p.id, '')}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <WeaponSelect
+        id={`${props.idPrefix}-add`}
+        value=""
+        onChange={(w) => w && props.onChange([...props.picks, { id: makeId(), weapon: w, count: 1 }])}
+        placeholder={props.addLabel}
+        ariaLabel={props.addLabel}
+        exclude={used}
+        catLabel={props.catLabel}
+        className="!mb-0"
+      />
     </div>
   )
 }
 
 function BuySelect(props: {
   id: string
-  label: string
   value: BuyFilter
   onValue: (v: BuyFilter) => void
   range: EquipRange
@@ -152,9 +146,9 @@ function BuySelect(props: {
   const { t } = useTranslation()
   return (
     <div>
-      <label htmlFor={props.id}>{props.label}</label>
       <select
         id={props.id}
+        className="!mb-0"
         value={props.value}
         onChange={(e) => props.onValue(e.target.value as BuyFilter)}
       >
@@ -165,7 +159,7 @@ function BuySelect(props: {
         <option value="range">{t('scouting.buyRange')}</option>
       </select>
       {props.value === 'range' && (
-        <>
+        <div className="mt-3">
           <p className="mt-0 mb-2 text-sm tabular-nums">{equipSummary(props.range)}</p>
           <RangeSlider
             id={props.id}
@@ -178,9 +172,21 @@ function BuySelect(props: {
             maxLabel={t('scouting.equipMax')}
             format={fmtMoney}
           />
-          <p className="mt-2 mb-0 text-xs text-muted">{t('scouting.equipHint')}</p>
-        </>
+          <p className="mt-2.5 mb-0 text-xs text-muted">{t('scouting.equipHint')}</p>
+        </div>
       )}
+    </div>
+  )
+}
+
+function FilterRow(props: { label: string; htmlFor: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start gap-x-5 gap-y-1.5 py-3.5">
+      <div className="max-w-[240px] min-w-[140px] flex-[1_1_150px]">
+        <label htmlFor={props.htmlFor} className="mb-0">{props.label}</label>
+        {props.hint && <p className="mt-1 mb-0 text-xs text-muted">{props.hint}</p>}
+      </div>
+      <div className="max-w-[440px] min-w-[220px] flex-[2_1_240px]">{props.children}</div>
     </div>
   )
 }
@@ -227,6 +233,7 @@ export function ScoutingPage() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [showModel, setShowModel] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [activeUtil, setActiveUtil] = useState<UtilityType>('smoke')
   const [activeFrom, setActiveFrom] = useState(5)
@@ -482,11 +489,29 @@ export function ScoutingPage() {
   const buyReport = (label: string, buy: BuyFilter, range: EquipRange) =>
     isBuyFiltered(buy, range)
     && `${label}: ${buy === 'range' ? equipSummary(range) : t(`demos.buyTypes.${buy}`)}`
+  const filterSummary = [
+    buyReport(t('scouting.teamBuy'), buyType, teamEquip),
+    buyReport(t('scouting.oppBuy'), oppBuyType, oppEquip),
+    teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
+    oppWeapons.length > 0 && `${t('scouting.oppWeapon')}: ${weaponSummary(oppWeapons)}`,
+  ].filter(Boolean).join(' · ')
+  const clearFilters = () => {
+    setBuyType(''); setTeamEquip(EQUIP_ANY)
+    setOppBuyType(''); setOppEquip(EQUIP_ANY)
+    setTeamWeapons([]); setOppWeapons([])
+  }
 
   return (
     <div>
-      <h1>{t('scouting.title')}</h1>
-      <p className="text-muted">{t('scouting.subtitle')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
+        <div className="min-w-[280px] flex-1">
+          <h1 className="mb-1">{t('scouting.title')}</h1>
+          <p className="mt-0 text-muted">{t('scouting.subtitle')}</p>
+        </div>
+        <button className="border border-border bg-transparent text-text" onClick={() => window.print()}>
+          {t('scouting.exportPdf')}
+        </button>
+      </div>
 
       {soloTeam && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
@@ -497,10 +522,7 @@ export function ScoutingPage() {
         <p className="text-muted">
           {[
             periodLabel && `${t('scouting.period')}: ${t(`scouting.periods.${period}`)} (${periodLabel})`,
-            buyReport(t('scouting.teamBuy'), buyType, teamEquip),
-            buyReport(t('scouting.oppBuy'), oppBuyType, oppEquip),
-            teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
-            oppWeapons.length > 0 && `${t('scouting.oppWeapon')}: ${weaponSummary(oppWeapons)}`,
+            filterSummary,
           ].filter(Boolean).join(' · ') || t('scouting.anyFilter')}
         </p>
       </div>
@@ -567,122 +589,99 @@ export function ScoutingPage() {
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-1">
           <button
             type="button"
-            className="text-sm text-muted hover:text-text"
+            className="flex w-full items-center gap-2 rounded-lg border border-border bg-transparent px-3 py-2 text-left text-text hover:border-accent"
             aria-expanded={showFilters}
+            aria-controls="sc-filters"
             onClick={() => setShowFilters((v) => !v)}
           >
-            {showFilters ? '▾' : '▸'} {t('scouting.filters')}
+            <span
+              aria-hidden="true"
+              className={`text-muted transition-transform ${showFilters ? 'rotate-90' : ''}`}
+            >
+              ▸
+            </span>
+            <span className="text-sm font-semibold">{t('scouting.filters')}</span>
             {activeFilterCount > 0 && (
-              <span className="ml-1 rounded bg-accent px-1.5 text-xs text-accent-text">
+              <span className="rounded-full bg-accent px-1.5 text-xs text-accent-text">
                 {activeFilterCount}
+              </span>
+            )}
+            {!showFilters && filterSummary && (
+              <span className="ml-auto min-w-0 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+                {filterSummary}
               </span>
             )}
           </button>
           {showFilters && (
-            <div className="mt-2 flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
-              <BuySelect
-                id="sc-buy"
-                label={t('scouting.teamBuy')}
-                value={buyType}
-                onValue={setBuyType}
-                range={teamEquip}
-                onRange={setTeamEquip}
-              />
-              <BuySelect
-                id="sc-opp-buy"
-                label={t('scouting.oppBuy')}
-                value={oppBuyType}
-                onValue={setOppBuyType}
-                range={oppEquip}
-                onRange={setOppEquip}
-              />
-              <WeaponPicker
-                idPrefix="sc-team-weapon"
+            <div
+              id="sc-filters"
+              className="mt-2 divide-y divide-border rounded-lg border border-border bg-surface-2/30 px-4"
+            >
+              <FilterRow label={t('scouting.teamBuy')} htmlFor="sc-buy">
+                <BuySelect
+                  id="sc-buy"
+                  value={buyType}
+                  onValue={setBuyType}
+                  range={teamEquip}
+                  onRange={setTeamEquip}
+                />
+              </FilterRow>
+              <FilterRow label={t('scouting.oppBuy')} htmlFor="sc-opp-buy">
+                <BuySelect
+                  id="sc-opp-buy"
+                  value={oppBuyType}
+                  onValue={setOppBuyType}
+                  range={oppEquip}
+                  onRange={setOppEquip}
+                />
+              </FilterRow>
+              <FilterRow
                 label={t('scouting.teamWeapon')}
-                picks={teamWeapons}
-                onChange={setTeamWeapons}
-                addLabel={t('scouting.addWeapon')}
-                countLabel={t('scouting.weaponCount')}
-                removeLabel={t('scouting.removeWeapon')}
+                htmlFor="sc-team-weapon-add"
                 hint={t('scouting.weaponMinHint')}
-                catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
-              />
-              <WeaponPicker
-                idPrefix="sc-opp-weapon"
+              >
+                <WeaponPicker
+                  idPrefix="sc-team-weapon"
+                  picks={teamWeapons}
+                  onChange={setTeamWeapons}
+                  addLabel={t('scouting.addWeapon')}
+                  countLabel={t('scouting.weaponCount')}
+                  removeLabel={t('scouting.removeWeapon')}
+                  catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
+                />
+              </FilterRow>
+              <FilterRow
                 label={t('scouting.oppWeapon')}
-                picks={oppWeapons}
-                onChange={setOppWeapons}
-                addLabel={t('scouting.addWeapon')}
-                countLabel={t('scouting.weaponCount')}
-                removeLabel={t('scouting.removeWeapon')}
+                htmlFor="sc-opp-weapon-add"
                 hint={t('scouting.weaponMinHint')}
-                catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
-              />
+              >
+                <WeaponPicker
+                  idPrefix="sc-opp-weapon"
+                  picks={oppWeapons}
+                  onChange={setOppWeapons}
+                  addLabel={t('scouting.addWeapon')}
+                  countLabel={t('scouting.weaponCount')}
+                  removeLabel={t('scouting.removeWeapon')}
+                  catLabel={(c) => t(`scouting.weaponCategories.${c}`)}
+                />
+              </FilterRow>
+              {activeFilterCount > 0 && (
+                <div className="flex justify-end py-2">
+                  <button
+                    type="button"
+                    className="bg-transparent px-0 py-0 text-xs text-muted hover:text-text"
+                    onClick={clearFilters}
+                  >
+                    {t('scouting.clearFilters')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <ModelChip
-            trained={!!ms?.trained}
-            label={
-              ms?.trained
-                ? t('scouting.trained', { rounds: ms.n_rounds, acc: ms.accuracy != null ? pct(ms.accuracy) : '—' })
-                : t('scouting.untrained')
-            }
-          />
-          {ms?.trained && ms.site_accuracy != null && (
-            <span className="text-muted text-xs">
-              {t('scouting.siteAccuracy')}: {pct(ms.site_accuracy)}
-            </span>
-          )}
-          {ms?.trained && ms.timing_accuracy != null && (
-            <span className="text-muted text-xs">
-              {t('scouting.timingAccuracy')}: {pct(ms.timing_accuracy)}
-              {ms.timing_baseline_accuracy != null && (
-                <span className="text-muted"> ({pct(ms.timing_baseline_accuracy)})</span>
-              )}
-            </span>
-          )}
-          {ms?.trained && ms.baseline_accuracy != null && (
-            <span className="text-muted text-xs">
-              {t('scouting.baselineAccuracy')}: {pct(ms.baseline_accuracy)}
-            </span>
-          )}
-          {ms?.trained && ms.params?.site && (
-            <span className="text-muted text-xs">
-              {t('scouting.network')}: gate {ms.params.gate} · site {ms.params.site} · α {ms.params.alpha}
-            </span>
-          )}
-          {ms?.trained && ms.ece != null && (
-            <span className="text-muted text-xs">
-              {t('scouting.calibration')}: ECE {pct(ms.ece_uncalibrated ?? ms.ece)} → {pct(ms.ece)}
-              {ms.params?.gate_T && ` · T ${ms.params.gate_T}/${ms.params.site_T}`}
-            </span>
-          )}
-          {isAdmin && (
-            <button className="border border-border bg-transparent text-text" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
-              {trainModel.isPending ? t('common.loading') : t('scouting.train')}
-            </button>
-          )}
-          {isAdmin && (
-            <button className="border border-border bg-transparent text-text" onClick={() => evaluateMaps.mutate()} disabled={evaluateMaps.isPending}>
-              {evaluateMaps.isPending ? t('common.loading') : t('scouting.testMaps')}
-            </button>
-          )}
-        </div>
-        {perMap && perMap.length > 0 && (
-          <PerMapTable rows={perMap} maps={maps} tested={!!evaluateMaps.data} />
-        )}
-        {isAdmin && evaluateMaps.data && (!perMap || perMap.length === 0) && (
-          <div className="text-muted mt-2 text-xs">{t('scouting.mapTestEmpty')}</div>
-        )}
-        {ms?.trained && ms.reliability && ms.reliability.length > 0 && (
-          <ReliabilityDiagram bins={ms.reliability} />
-        )}
       </div>
 
       {support && support.level !== 'ok' && (
@@ -738,8 +737,9 @@ export function ScoutingPage() {
             )}
           </div>
 
-          {/* Setup list + prediction */}
-          <div className="flex min-w-[280px] flex-[1_1_320px] flex-col gap-3.5">
+          {/* Prediction + setup list */}
+          <div className="sticky top-4 flex min-w-[280px] flex-[1_1_320px] flex-col gap-3.5 self-start print:static">
+            {result && <Prediction result={result} />}
             <div className="print:hidden">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="m-0">{t('scouting.placed')} ({tokens.length})</h2>
@@ -797,8 +797,6 @@ export function ScoutingPage() {
                 <p className="mt-1.5 mb-0 text-xs text-muted">{t('scouting.multiTeamHint')}</p>
               )}
             </div>
-
-            {result && <Prediction result={result} />}
           </div>
         </div>
       </div>
@@ -836,7 +834,83 @@ export function ScoutingPage() {
       </div>
 
       <div className="mb-6 print:hidden">
-        <button className="border border-border bg-transparent text-text" onClick={() => window.print()}>{t('scouting.exportPdf')}</button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg border border-border bg-transparent px-3 py-2 text-left text-text hover:border-accent"
+          aria-expanded={showModel}
+          aria-controls="sc-model"
+          onClick={() => setShowModel((v) => !v)}
+        >
+          <span
+            aria-hidden="true"
+            className={`text-muted transition-transform ${showModel ? 'rotate-90' : ''}`}
+          >
+            ▸
+          </span>
+          <span className="text-sm font-semibold">{t('scouting.model')}</span>
+          <ModelChip
+            trained={!!ms?.trained}
+            label={
+              ms?.trained
+                ? t('scouting.trained', { rounds: ms.n_rounds, acc: ms.accuracy != null ? pct(ms.accuracy) : '—' })
+                : t('scouting.untrained')
+            }
+          />
+        </button>
+        {showModel && (
+          <div id="sc-model" className="mt-2 rounded-lg border border-border bg-surface-2/30 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {ms?.trained && ms.site_accuracy != null && (
+                <span className="text-muted text-xs">
+                  {t('scouting.siteAccuracy')}: {pct(ms.site_accuracy)}
+                </span>
+              )}
+              {ms?.trained && ms.timing_accuracy != null && (
+                <span className="text-muted text-xs">
+                  {t('scouting.timingAccuracy')}: {pct(ms.timing_accuracy)}
+                  {ms.timing_baseline_accuracy != null && (
+                    <span className="text-muted"> ({pct(ms.timing_baseline_accuracy)})</span>
+                  )}
+                </span>
+              )}
+              {ms?.trained && ms.baseline_accuracy != null && (
+                <span className="text-muted text-xs">
+                  {t('scouting.baselineAccuracy')}: {pct(ms.baseline_accuracy)}
+                </span>
+              )}
+              {ms?.trained && ms.params?.site && (
+                <span className="text-muted text-xs">
+                  {t('scouting.network')}: gate {ms.params.gate} · site {ms.params.site} · α {ms.params.alpha}
+                </span>
+              )}
+              {ms?.trained && ms.ece != null && (
+                <span className="text-muted text-xs">
+                  {t('scouting.calibration')}: ECE {pct(ms.ece_uncalibrated ?? ms.ece)} → {pct(ms.ece)}
+                  {ms.params?.gate_T && ` · T ${ms.params.gate_T}/${ms.params.site_T}`}
+                </span>
+              )}
+              {isAdmin && (
+                <button className="border border-border bg-transparent text-text" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
+                  {trainModel.isPending ? t('common.loading') : t('scouting.train')}
+                </button>
+              )}
+              {isAdmin && (
+                <button className="border border-border bg-transparent text-text" onClick={() => evaluateMaps.mutate()} disabled={evaluateMaps.isPending}>
+                  {evaluateMaps.isPending ? t('common.loading') : t('scouting.testMaps')}
+                </button>
+              )}
+          </div>
+          {perMap && perMap.length > 0 && (
+            <PerMapTable rows={perMap} maps={maps} tested={!!evaluateMaps.data} />
+          )}
+          {isAdmin && evaluateMaps.data && (!perMap || perMap.length === 0) && (
+            <div className="text-muted mt-2 text-xs">{t('scouting.mapTestEmpty')}</div>
+          )}
+          {ms?.trained && ms.reliability && ms.reliability.length > 0 && (
+            <ReliabilityDiagram bins={ms.reliability} />
+          )}
+          </div>
+        )}
       </div>
     </div>
   )

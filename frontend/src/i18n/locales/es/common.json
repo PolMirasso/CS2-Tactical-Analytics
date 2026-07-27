@@ -220,6 +220,7 @@
     "weaponMinHint": "El equipo lleva estas armas, al menos las veces indicadas (≥).",
     "removeWeapon": "Quitar arma",
     "filters": "Filtros",
+    "clearFilters": "Limpiar filtros",
     "anyFilter": "Cualquiera",
     "period": "Periodo",
     "periods": {
@@ -283,6 +284,7 @@
     "heatmap": "Mapa de calor de utility (lado T)",
     "noTendencies": "No hay rondas históricas para este equipo en este mapa.",
     "noTendenciesPeriod": "No hay rondas en el periodo elegido. Prueba a ampliarlo o a quitar el filtro de fecha.",
+    "model": "Modelo",
     "train": "Entrenar modelo",
     "trained": "Modelo entrenado · {{rounds}} rondas · acierto {{acc}}",
     "untrained": "Modelo sin entrenar (se usa la base histórica)",
