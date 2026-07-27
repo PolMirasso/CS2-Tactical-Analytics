@@ -6,6 +6,7 @@ import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
 import { MultiSelect } from '@/components/MultiSelect'
+import { RangeSlider } from '@/components/RangeSlider'
 import { SITE_COLOR, TIMING_COLOR, UTIL_COLOR } from '@/lib/colors'
 import { WEAPON_CATEGORIES, WEAPON_IDS, WEAPON_LABELS } from '@/lib/weapons'
 import { ScoutingRadar, type DrawnRect, type Token } from './ScoutingRadar'
@@ -21,6 +22,11 @@ const TIMING_ORDER: Timing[] = ['rush', 'default', 'late']
 const BUY_EQUIP: Record<string, number> = {
   pistol: 4000, eco: 6000, force: 12000, full: 22000,
 }
+type BuyFilter = BuyType | '' | 'range'
+type EquipRange = [number, number]
+const EQUIP_MAX = 30000
+const EQUIP_STEP = 500
+const EQUIP_ANY: EquipRange = [0, EQUIP_MAX]
 
 interface WeaponPick {
   id: string
@@ -135,12 +141,73 @@ function WeaponPicker(props: {
   )
 }
 
+function BuySelect(props: {
+  id: string
+  label: string
+  value: BuyFilter
+  onValue: (v: BuyFilter) => void
+  range: EquipRange
+  onRange: (r: EquipRange) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <label htmlFor={props.id}>{props.label}</label>
+      <select
+        id={props.id}
+        value={props.value}
+        onChange={(e) => props.onValue(e.target.value as BuyFilter)}
+      >
+        <option value="">{t('scouting.anyFilter')}</option>
+        {BUY_TYPES.map((b) => (
+          <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
+        ))}
+        <option value="range">{t('scouting.buyRange')}</option>
+      </select>
+      {props.value === 'range' && (
+        <>
+          <p className="mt-0 mb-2 text-sm tabular-nums">{equipSummary(props.range)}</p>
+          <RangeSlider
+            id={props.id}
+            min={0}
+            max={EQUIP_MAX}
+            step={EQUIP_STEP}
+            value={props.range}
+            onChange={props.onRange}
+            minLabel={t('scouting.equipMin')}
+            maxLabel={t('scouting.equipMax')}
+            format={fmtMoney}
+          />
+          <p className="mt-2 mb-0 text-xs text-muted">{t('scouting.equipHint')}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`
 const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`
 const clampS = (v: number) => Math.max(0, Math.min(Math.round(v || 0), 115))
 const clampCount = (v: number) => Math.max(1, Math.min(5, Math.round(v) || 1))
 const weaponSummary = (picks: WeaponPick[]) =>
   picks.map((p) => `${WEAPON_LABELS[p.weapon]}${p.count > 1 ? ` ≥${p.count}` : ''}`).join(', ')
+
+const clampEquip = (v: number) =>
+  Math.max(0, Math.min(EQUIP_MAX, Math.round((v || 0) / EQUIP_STEP) * EQUIP_STEP))
+const isEquipFiltered = ([lo, hi]: EquipRange) => lo > 0 || hi < EQUIP_MAX
+const fmtMoney = (v: number) => `$${v.toLocaleString()}`
+const equipSummary = ([lo, hi]: EquipRange) =>
+  `${fmtMoney(lo)} – ${fmtMoney(hi)}${hi >= EQUIP_MAX ? '+' : ''}`
+const isBuyFiltered = (buy: BuyFilter, range: EquipRange) =>
+  buy === 'range' ? isEquipFiltered(range) : !!buy
+const equipBounds = (buy: BuyFilter, [lo, hi]: EquipRange): { min?: number; max?: number } =>
+  buy === 'range'
+    ? { min: lo > 0 ? lo : undefined, max: hi < EQUIP_MAX ? hi : undefined }
+    : {}
+const equipValue = (buy: BuyFilter, range: EquipRange) =>
+  buy === 'range'
+    ? (isEquipFiltered(range) ? Math.round((range[0] + range[1]) / 2) : null)
+    : (buy ? BUY_EQUIP[buy] ?? null : null)
 
 export function ScoutingPage() {
   const { t } = useTranslation()
@@ -150,8 +217,10 @@ export function ScoutingPage() {
   const { data: maps } = useMaps()
   const [mapId, setMapId] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [buyType, setBuyType] = useState<BuyType | ''>('')
-  const [oppBuyType, setOppBuyType] = useState<BuyType | ''>('')
+  const [buyType, setBuyType] = useState<BuyFilter>('')
+  const [teamEquip, setTeamEquip] = useState<EquipRange>(EQUIP_ANY)
+  const [oppBuyType, setOppBuyType] = useState<BuyFilter>('')
+  const [oppEquip, setOppEquip] = useState<EquipRange>(EQUIP_ANY)
   const [teamWeapons, setTeamWeapons] = useState<WeaponPick[]>([])
   const [oppWeapons, setOppWeapons] = useState<WeaponPick[]>([])
   const [period, setPeriod] = useState<PeriodPreset>('all')
@@ -192,20 +261,24 @@ export function ScoutingPage() {
     teamIds.length ? teamIds : undefined,
     dateWindow,
   )
-  const supportParams: FilterSupportParams | undefined = useMemo(
-    () => (mapId
-      ? {
-        map_id: mapId,
-        team: teamIds.length ? teamIds : undefined,
-        buy_type: buyType || undefined,
-        opponent_buy_type: oppBuyType || undefined,
-        team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : undefined,
-        opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : undefined,
-        ...dateWindow,
-      }
-      : undefined),
-    [mapId, teamIds, buyType, oppBuyType, teamWeapons, oppWeapons, dateWindow],
-  )
+  const supportParams: FilterSupportParams | undefined = useMemo(() => {
+    if (!mapId) return undefined
+    const teamBounds = equipBounds(buyType, teamEquip)
+    const oppBounds = equipBounds(oppBuyType, oppEquip)
+    return {
+      map_id: mapId,
+      team: teamIds.length ? teamIds : undefined,
+      buy_type: buyType === 'range' ? undefined : buyType || undefined,
+      equip_min: teamBounds.min,
+      equip_max: teamBounds.max,
+      opponent_buy_type: oppBuyType === 'range' ? undefined : oppBuyType || undefined,
+      opponent_equip_min: oppBounds.min,
+      opponent_equip_max: oppBounds.max,
+      team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : undefined,
+      opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : undefined,
+      ...dateWindow,
+    }
+  }, [mapId, teamIds, buyType, teamEquip, oppBuyType, oppEquip, teamWeapons, oppWeapons, dateWindow])
   const { data: support } = useFilterSupport(supportParams)
   const modelStatus = useModelStatus()
   const predict = usePredict()
@@ -253,7 +326,9 @@ export function ScoutingPage() {
       map_id: mapId,
       teams: teamIds,
       buy_type: buyType,
+      team_equip: teamEquip,
       opponent_buy_type: oppBuyType,
+      opponent_equip: oppEquip,
       team_weapons: teamWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       opponent_weapons: oppWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       period,
@@ -322,8 +397,9 @@ export function ScoutingPage() {
       skipResetRef.current = true
       setMapId(fileMap)
     }
-    const readBuy = (v: unknown): BuyType | '' | null =>
-      v === '' ? '' : (typeof v === 'string' && (BUY_TYPES as string[]).includes(v) ? (v as BuyType) : null)
+    const readBuy = (v: unknown): BuyFilter | null =>
+      v === '' || v === 'range' ? (v as BuyFilter)
+        : (typeof v === 'string' && (BUY_TYPES as string[]).includes(v) ? (v as BuyType) : null)
     // Accepts the new [{weapon, count}] shape or the legacy single-weapon string.
     const readWeapons = (v: unknown): WeaponPick[] | null => {
       if (v === undefined) return null
@@ -344,6 +420,14 @@ export function ScoutingPage() {
       }
       return out
     }
+    const readEquip = (v: unknown): EquipRange | null => {
+      if (!Array.isArray(v) || v.length !== 2) return null
+      const [lo, hi] = v
+      if (typeof lo !== 'number' || typeof hi !== 'number') return null
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null
+      const [a, b] = [clampEquip(lo), clampEquip(hi)]
+      return a <= b ? [a, b] : [b, a]
+    }
     const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
     if (typeof obj.period === 'string' && (PERIOD_PRESETS as string[]).includes(obj.period)) {
       setPeriod(obj.period as PeriodPreset)
@@ -352,7 +436,9 @@ export function ScoutingPage() {
       setCustomTo(isDay(obj.date_to) ? obj.date_to : '')
     }
     const b = readBuy(obj.buy_type); if (b !== null) setBuyType(b)
+    const te = readEquip(obj.team_equip); if (te !== null) setTeamEquip(te)
     const ob = readBuy(obj.opponent_buy_type); if (ob !== null) setOppBuyType(ob)
+    const oe = readEquip(obj.opponent_equip); if (oe !== null) setOppEquip(oe)
     const tw = readWeapons(obj.team_weapons ?? obj.team_weapon); if (tw !== null) setTeamWeapons(tw)
     const ow = readWeapons(obj.opponent_weapons ?? obj.opponent_weapon); if (ow !== null) setOppWeapons(ow)
     if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
@@ -366,10 +452,10 @@ export function ScoutingPage() {
     predict.mutate({
       map_id: mapId,
       team: soloTeam,
-      buy_type: buyType || null,
-      equip_value: buyType ? (BUY_EQUIP[buyType] ?? null) : null,
-      opponent_buy_type: oppBuyType || null,
-      opponent_equip_value: oppBuyType ? (BUY_EQUIP[oppBuyType] ?? null) : null,
+      buy_type: buyType === 'range' ? null : buyType || null,
+      equip_value: equipValue(buyType, teamEquip),
+      opponent_buy_type: oppBuyType === 'range' ? null : oppBuyType || null,
+      opponent_equip_value: equipValue(oppBuyType, oppEquip),
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : null,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : null,
       ...dateWindow,
@@ -391,7 +477,11 @@ export function ScoutingPage() {
   // test all maps
   const perMap = evaluateMaps.data?.per_map ?? (ms?.trained ? ms.per_map : null)
   const activeFilterCount =
-    [buyType, oppBuyType].filter(Boolean).length + teamWeapons.length + oppWeapons.length
+    [isBuyFiltered(buyType, teamEquip), isBuyFiltered(oppBuyType, oppEquip)].filter(Boolean).length
+    + teamWeapons.length + oppWeapons.length
+  const buyReport = (label: string, buy: BuyFilter, range: EquipRange) =>
+    isBuyFiltered(buy, range)
+    && `${label}: ${buy === 'range' ? equipSummary(range) : t(`demos.buyTypes.${buy}`)}`
 
   return (
     <div>
@@ -407,8 +497,8 @@ export function ScoutingPage() {
         <p className="text-muted">
           {[
             periodLabel && `${t('scouting.period')}: ${t(`scouting.periods.${period}`)} (${periodLabel})`,
-            buyType && `${t('scouting.teamBuy')}: ${t(`demos.buyTypes.${buyType}`)}`,
-            oppBuyType && `${t('scouting.oppBuy')}: ${t(`demos.buyTypes.${oppBuyType}`)}`,
+            buyReport(t('scouting.teamBuy'), buyType, teamEquip),
+            buyReport(t('scouting.oppBuy'), oppBuyType, oppEquip),
             teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
             oppWeapons.length > 0 && `${t('scouting.oppWeapon')}: ${weaponSummary(oppWeapons)}`,
           ].filter(Boolean).join(' · ') || t('scouting.anyFilter')}
@@ -493,24 +583,22 @@ export function ScoutingPage() {
           </button>
           {showFilters && (
             <div className="mt-2 flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
-              <div>
-                <label htmlFor="sc-buy">{t('scouting.teamBuy')}</label>
-                <select id="sc-buy" value={buyType} onChange={(e) => setBuyType(e.target.value as BuyType | '')}>
-                  <option value="">{t('scouting.anyFilter')}</option>
-                  {BUY_TYPES.map((b) => (
-                    <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="sc-opp-buy">{t('scouting.oppBuy')}</label>
-                <select id="sc-opp-buy" value={oppBuyType} onChange={(e) => setOppBuyType(e.target.value as BuyType | '')}>
-                  <option value="">{t('scouting.anyFilter')}</option>
-                  {BUY_TYPES.map((b) => (
-                    <option key={b} value={b}>{t(`demos.buyTypes.${b}`)}</option>
-                  ))}
-                </select>
-              </div>
+              <BuySelect
+                id="sc-buy"
+                label={t('scouting.teamBuy')}
+                value={buyType}
+                onValue={setBuyType}
+                range={teamEquip}
+                onRange={setTeamEquip}
+              />
+              <BuySelect
+                id="sc-opp-buy"
+                label={t('scouting.oppBuy')}
+                value={oppBuyType}
+                onValue={setOppBuyType}
+                range={oppEquip}
+                onRange={setOppEquip}
+              />
               <WeaponPicker
                 idPrefix="sc-team-weapon"
                 label={t('scouting.teamWeapon')}
@@ -757,7 +845,9 @@ export function ScoutingPage() {
 const SUPPORT_FILTER_LABEL: Record<SupportFilter, string> = {
   team: 'scouting.team',
   buy: 'scouting.teamBuy',
+  equip: 'scouting.teamEquip',
   opp_buy: 'scouting.oppBuy',
+  opp_equip: 'scouting.oppEquip',
   team_weapons: 'scouting.teamWeapon',
   opp_weapons: 'scouting.oppWeapon',
   period: 'scouting.period',

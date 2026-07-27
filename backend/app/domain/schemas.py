@@ -349,7 +349,7 @@ class TendenciesOut(BaseModel):
 
 
 class SupportDrop(BaseModel):
-    # team / buy / opp_buy / team_weapons / opp_weapons / period
+    # team / buy / equip / opp_buy / opp_equip / team_weapons / opp_weapons / period
     filter: str
     rounds_without: int  # rounds left with every other filter still applied
 

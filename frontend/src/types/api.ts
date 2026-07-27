@@ -291,7 +291,8 @@ export interface TendenciesOut {
   heatmap: ZoneUtilStat[]
 }
 
-export type SupportFilter = 'team' | 'buy' | 'opp_buy' | 'team_weapons' | 'opp_weapons' | 'period'
+export type SupportFilter =
+  | 'team' | 'buy' | 'equip' | 'opp_buy' | 'opp_equip' | 'team_weapons' | 'opp_weapons' | 'period'
 
 export interface SupportDrop {
   filter: SupportFilter
@@ -315,7 +316,11 @@ export interface FilterSupportParams extends DateWindowParams {
   map_id: string
   team?: string[]
   buy_type?: BuyType
+  equip_min?: number
+  equip_max?: number
   opponent_buy_type?: BuyType
+  opponent_equip_min?: number
+  opponent_equip_max?: number
   team_weapons?: string[]
   opponent_weapons?: string[]
 }

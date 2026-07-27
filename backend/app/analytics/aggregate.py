@@ -55,6 +55,18 @@ def _date_conditions(date_from: date | None, date_to: date | None) -> list:
     return conds
 
 
+def _equip_conditions(column, low: int | None, high: int | None) -> list:
+    """Equipment-value window; rounds without a value drop out."""
+    if low is not None and high is not None and low > high:
+        low, high = high, low
+    conds = []
+    if low is not None:
+        conds.append(column >= low)
+    if high is not None:
+        conds.append(column <= high)
+    return conds
+
+
 def _weapons_condition(column, weapons: list[str]):
     """All of weapons present in the CSV column"""
     delimited = literal(",") + column + literal(",")
@@ -82,7 +94,11 @@ def filter_support(
         map_id: str,
         teams: list[str] | None = None,
         buy_type: str | None = None,
+        equip_min: int | None = None,
+        equip_max: int | None = None,
         opponent_buy_type: str | None = None,
+        opponent_equip_min: int | None = None,
+        opponent_equip_max: int | None = None,
         team_weapons: list[str] | None = None,
         opponent_weapons: list[str] | None = None,
         date_from: date | None = None,
@@ -98,8 +114,16 @@ def filter_support(
         parts.append(("team", [_teams_filter(teams)]))
     if buy_type:
         parts.append(("buy", [Round.buy_type == buy_type]))
+    equip_conds = _equip_conditions(Round.equip_value, equip_min, equip_max)
+    if equip_conds:
+        parts.append(("equip", equip_conds))
     if opponent_buy_type:
         parts.append(("opp_buy", [Round.opponent_buy_type == opponent_buy_type]))
+    opp_equip_conds = _equip_conditions(
+        Round.opponent_equip_value, opponent_equip_min, opponent_equip_max
+    )
+    if opp_equip_conds:
+        parts.append(("opp_equip", opp_equip_conds))
     if team_weapons:
         parts.append(("team_weapons", [_weapons_condition(Round.team_weapons, team_weapons)]))
     if opponent_weapons:

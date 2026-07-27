@@ -685,6 +685,49 @@ def test_support_flags_a_thin_filter_combination(client):
     assert 0 < awp["rounds"] < plain["rounds"]
 
 
+def test_support_narrows_by_equip_window(client):
+    """The economy slider bounds the slice on either side; one bound alone is enough."""
+    token = register_and_login(client, "mlsupportequip@example.com")
+    team = "EquipFC"
+    for i in range(2):
+        _upload(client, token, content=f"support-equip-{i}".encode(), map_id="de_train",
+                team=team, visibility="private")
+
+    def support(**params):
+        resp = client.get(
+            "/scouting/support",
+            params={"map_id": "de_train", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    plain = support()
+    assert plain["rounds"] > 0
+
+    # Sample CT buys sit at 1500 / 4000 / 6000 / 12000 / 22000.
+    full_buys = support(opponent_equip_min=20000)
+    assert 0 < full_buys["rounds"] < plain["rounds"]
+    assert full_buys["filters"] == ["team", "opp_equip"]
+
+    ecos = support(opponent_equip_min=5000, opponent_equip_max=7000)
+    assert 0 < ecos["rounds"] < plain["rounds"]
+    assert ecos["rounds"] + full_buys["rounds"] < plain["rounds"]
+
+    empty = support(opponent_equip_max=1000)
+    assert empty["rounds"] == 0
+    assert empty["level"] == "none" and empty["scope"] == "model"
+    drops = {d["filter"]: d["rounds_without"] for d in empty["drops"]}
+    assert drops["opp_equip"] == plain["rounds"]
+
+    t_full = support(equip_min=20000)
+    assert 0 < t_full["rounds"] < plain["rounds"]
+    assert t_full["filters"] == ["team", "equip"]
+    both = support(equip_min=20000, opponent_equip_min=20000)
+    assert both["rounds"] <= t_full["rounds"]
+    assert both["filters"] == ["team", "equip", "opp_equip"]
+
+
 def test_support_separates_the_period_from_the_model(client):
     """The window starves the baseline, not the net — the scope says which."""
     token = register_and_login(client, "mlsupportdate@example.com")
