@@ -263,6 +263,14 @@ class RosterEntry(BaseModel):
     complete: bool = True 
 
 
+class RosterLineup(BaseModel):
+    id: str
+    players: list[str]
+    n_demos: int
+    first_date: date | None = None
+    last_date: date | None = None
+
+
 class TeamRostersOut(BaseModel):
     map_id: str
     team: str | None = None
@@ -270,6 +278,7 @@ class TeamRostersOut(BaseModel):
     n_demos: int = 0
     core: list[str] = []
     entries: list[RosterEntry] = []
+    lineups: list[RosterLineup] = []
 
 
 # scouting / site prediction (ML)
@@ -303,6 +312,8 @@ class PredictIn(BaseModel):
     # match-date window
     date_from: date | None = None
     date_to: date | None = None
+    # line-up id 
+    roster: str | None = None
     utility: list[UtilityInput] = []
 
 
@@ -349,7 +360,7 @@ class TendenciesOut(BaseModel):
 
 
 class SupportDrop(BaseModel):
-    # team / buy / equip / opp_buy / opp_equip / team_weapons / opp_weapons / period
+    # team / buy / equip / opp_buy / opp_equip / team_weapons / opp_weapons / period / roster
     filter: str
     rounds_without: int  # rounds left with every other filter still applied
 

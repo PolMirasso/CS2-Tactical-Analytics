@@ -198,7 +198,12 @@
       "body_other": "This team swapped players {{count}} times in the analysed demos — the aggregated tendencies below mix different line-ups.",
       "core": "Core (in every demo)",
       "details": "Show changes",
-      "hide": "Hide changes"
+      "hide": "Hide changes",
+      "filterLabel": "Analyse a single line-up",
+      "filterShort": "Line-up",
+      "allLineups": "All line-ups",
+      "pickHint": "Pick one so the tendencies and the baseline stop mixing them.",
+      "scopedHint": "Tendencies, heatmap and baseline scoped to this line-up. The prediction is unchanged: the model is trained on the whole history."
     }
   },
   "scouting": {
@@ -238,6 +243,8 @@
       "lowModel": "Only {{rounds}} rounds ({{plants}} with a plant) match these filters. That is very little to go on — lean on the historical tendencies rather than the prediction.",
       "nonePeriod": "No rounds in the selected period: the baseline falls back to an even split and the tendencies come up empty. The prediction is unchanged — the model is never scoped by date.",
       "lowPeriod": "Only {{rounds}} rounds ({{plants}} with a plant) in the selected period: the baseline and the tendencies rest on very little. The prediction is unchanged — the model is never scoped by date.",
+      "noneRoster": "No rounds with the selected line-up (and period): the baseline falls back to an even split and the tendencies come up empty. The prediction is unchanged — the model is never scoped by line-up.",
+      "lowRoster": "Only {{rounds}} rounds ({{plants}} with a plant) with the selected line-up: the baseline and the tendencies rest on very little. The prediction is unchanged — the model is never scoped by line-up.",
       "noneMap": "There is not a single {{map}} round in the database: the model has never seen this map.",
       "lowMap": "{{map}} only has {{rounds}} rounds ({{plants}} with a plant) in the database: the model has barely seen this map.",
       "culprit": "The filter cutting the most is “{{filter}}”: without it, {{rounds}} rounds would be left."

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
+from hashlib import sha1
 
 from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from app.domain.models import Demo, PlayerStat, Round, User, UtilityEvent
 from app.domain.schemas import (
     FilterSupportOut,
     RosterEntry,
+    RosterLineup,
     SiteDistributionOut,
     SiteStat,
     SupportDrop,
@@ -26,6 +29,8 @@ _PLANT_SITES = tuple(s for s in _SITE_ORDER if s != "NoPlant")
 
 SUPPORT_LOW_ROUNDS = 20
 SUPPORT_LOW_PLANTS = 10
+
+_BASELINE_ONLY = ("period", "roster")
 
 
 def _base_conditions(session: Session, user: User, map_id: str):
@@ -103,6 +108,7 @@ def filter_support(
         opponent_weapons: list[str] | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
+        roster: str | None = None,
 ) -> FilterSupportOut:
     base = _base_conditions(session, user, map_id)
     team_weapons = [w for w in (team_weapons or []) if w in WEAPON_IDS]
@@ -133,11 +139,15 @@ def filter_support(
     date_conds = _date_conditions(date_from, date_to)
     if date_conds:
         parts.append(("period", date_conds))
+    roster_conds = _roster_conditions(session, user, map_id=map_id, teams=teams, roster=roster)
+    if roster_conds:
+        parts.append(("roster", roster_conds))
 
-    model_conds = base + [c for k, cs in parts if k != "period" for c in cs]
+    model_conds = base + [c for k, cs in parts if k not in _BASELINE_ONLY for c in cs]
     model_rounds, model_plants = _round_counts(session, model_conds)
-    if date_conds:
-        rounds, plants = _round_counts(session, model_conds + date_conds)
+    scoped = [c for k, cs in parts if k in _BASELINE_ONLY for c in cs]
+    if scoped:
+        rounds, plants = _round_counts(session, model_conds + scoped)
     else:
         rounds, plants = model_rounds, model_plants
     total_rounds, _ = _round_counts(session, base)
@@ -213,6 +223,7 @@ def site_distribution(
         buy_types: list[str] | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
+        roster: str | None = None,
 ) -> SiteDistributionOut:
     """Historical plant-site split (and per-site win rate) over matching T rounds."""
 
@@ -222,6 +233,7 @@ def site_distribution(
     if buy_types:
         conds.append(Round.buy_type.in_(buy_types))
     conds += _date_conditions(date_from, date_to)
+    conds += _roster_conditions(session, user, map_id=map_id, teams=teams, roster=roster)
 
     # The executing team is on T, so a round was won iff its winner is "t".
     rows = session.execute(
@@ -270,23 +282,10 @@ def site_distribution(
 _ROSTER_SIZE = 5
 
 
-def team_rosters(
-        session: Session,
-        user: User,
-        *,
-        map_id: str,
-        team: str | None = None,
-        date_from: date | None = None,
-        date_to: date | None = None,
-) -> TeamRostersOut:
-    """Roster the analysed team fielded per demo, flagging line-up changes"""
-    if not team:
-        return TeamRostersOut(map_id=map_id, team=team)
-
-    conds = _base_conditions(session, user, map_id)
-    conds.append(_team_filter(team))
-    conds += _date_conditions(date_from, date_to)
-
+def _demo_rosters(
+        session: Session, conds: list
+) -> tuple[dict[int, dict], dict[int, dict[str, str]]]:
+    """per-demo match meta and the line-up fielded, as {player key: name}"""
     rows = session.execute(
         select(
             Round.demo_id,
@@ -308,31 +307,26 @@ def team_rosters(
             {"date": mdate, "match_id": match_id, "clan": clan,
              "opp_id": opp_id, "opp_clan": opp_clan},
         )
-    if not meta:
-        return TeamRostersOut(map_id=map_id, team=team)
 
-    # identify players by steamid 
-    roster_by_demo: dict[int, dict[str, str]] = {}  # demo_id -> {player_key: name}
-    prows = session.execute(
-        select(PlayerStat.demo_id, PlayerStat.steamid, PlayerStat.name, PlayerStat.team)
-        .where(PlayerStat.demo_id.in_(list(meta)))
-    ).all()
-    for demo_id, sid, name, pteam in prows:
-        if name and pteam is not None and pteam == meta[demo_id]["clan"]:
-            key = sid or f"name:{name}"
-            roster_by_demo.setdefault(demo_id, {})[key] = name
+    roster_by_demo: dict[int, dict[str, str]] = {}
+    if meta:
+        prows = session.execute(
+            select(PlayerStat.demo_id, PlayerStat.steamid, PlayerStat.name, PlayerStat.team)
+            .where(PlayerStat.demo_id.in_(list(meta)))
+        ).all()
+        for demo_id, sid, name, pteam in prows:
+            if name and pteam is not None and pteam == meta[demo_id]["clan"]:
+                key = sid or f"name:{name}"
+                roster_by_demo.setdefault(demo_id, {})[key] = name
+    return meta, roster_by_demo
 
-    from app.demos.service import resolve_team_names
 
-    opp_names = resolve_team_names(session, {m["opp_id"] for m in meta.values()})
-
+def _ordered_demos(meta: dict[int, dict]) -> list[int]:
+    """demo ids oldest first"""
     def _match_id_int(v: str | None) -> int:
         return int(v) if v and v.isdigit() else -1
 
-    # Oldest first. HLTV can stamp a whole download batch with the same date, so
-    # the monotonic hltv_match_id breaks ties; demo_id is a last resort — HLTV is
-    # ingested newest-first, so it runs opposite to chronology.
-    ordered = sorted(
+    return sorted(
         meta,
         key=lambda d: (
             meta[d]["date"] is None,
@@ -341,6 +335,85 @@ def team_rosters(
             d,
         ),
     )
+
+
+def _lineup_id(keys: Iterable[str]) -> str:
+    """stable id for a line-up: a hash of its player keys"""
+    return sha1("|".join(sorted(keys)).encode()).hexdigest()[:10]
+
+
+def _lineup_groups(
+        ordered: list[int], roster_by_demo: dict[int, dict[str, str]]
+) -> dict[str, dict]:
+    """{lineup id: {keys, names, demos}} over full line-ups, oldest first"""
+    groups: dict[str, dict] = {}
+    for demo_id in ordered:
+        roster = roster_by_demo.get(demo_id, {})
+        if len(roster) != _ROSTER_SIZE:
+            continue
+        g = groups.setdefault(_lineup_id(roster), {"keys": set(roster), "names": {}, "demos": []})
+        g["names"].update(roster)
+        g["demos"].append(demo_id)
+    for demo_id in ordered:
+        roster = roster_by_demo.get(demo_id, {})
+        if not roster or len(roster) == _ROSTER_SIZE:
+            continue
+        owners = [g for g in groups.values() if set(roster) <= g["keys"]]
+        if len(owners) == 1:
+            owners[0]["demos"].append(demo_id)
+    return groups
+
+
+def roster_demo_ids(
+        session: Session, user: User, *, map_id: str, team: str, roster: str
+) -> list[int]:
+    """demos where team fielded the line-up roster"""
+    conds = _base_conditions(session, user, map_id) + [_team_filter(team)]
+    meta, roster_by_demo = _demo_rosters(session, conds)
+    group = _lineup_groups(_ordered_demos(meta), roster_by_demo).get(roster)
+    return sorted(group["demos"]) if group else []
+
+
+def _roster_conditions(
+        session: Session,
+        user: User,
+        *,
+        map_id: str,
+        teams: list[str] | None,
+        roster: str | None,
+) -> list:
+    """restrict to one line-up's demos"""
+    if not roster or not teams or len(teams) != 1:
+        return []
+    ids = roster_demo_ids(session, user, map_id=map_id, team=teams[0], roster=roster)
+    return [Round.demo_id.in_(ids)]
+
+
+def team_rosters(
+        session: Session,
+        user: User,
+        *,
+        map_id: str,
+        team: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+) -> TeamRostersOut:
+    """roster the analysed team fielded per demo"""
+    if not team:
+        return TeamRostersOut(map_id=map_id, team=team)
+
+    conds = _base_conditions(session, user, map_id)
+    conds.append(_team_filter(team))
+    conds += _date_conditions(date_from, date_to)
+
+    meta, roster_by_demo = _demo_rosters(session, conds)
+    if not meta:
+        return TeamRostersOut(map_id=map_id, team=team)
+
+    from app.demos.service import resolve_team_names
+
+    opp_names = resolve_team_names(session, {m["opp_id"] for m in meta.values()})
+    ordered = _ordered_demos(meta)
 
     entries: list[RosterEntry] = []
     has_changes = False
@@ -378,6 +451,20 @@ def team_rosters(
 
     core_keys = set.intersection(*full_rosters) if full_rosters else set()
     core = sorted(name_of[k] for k in core_keys)
+
+    lineups: list[RosterLineup] = []
+    for lid, g in _lineup_groups(ordered, roster_by_demo).items():
+        dates = sorted(d for d in (meta[i]["date"] for i in g["demos"]) if d)
+        lineups.append(
+            RosterLineup(
+                id=lid,
+                players=sorted(g["names"].values()),
+                n_demos=len(g["demos"]),
+                first_date=dates[0] if dates else None,
+                last_date=dates[-1] if dates else None,
+            )
+        )
+
     return TeamRostersOut(
         map_id=map_id,
         team=team,
@@ -385,6 +472,7 @@ def team_rosters(
         n_demos=len(entries),
         core=core,
         entries=entries,
+        lineups=lineups,
     )
 
 
@@ -396,12 +484,14 @@ def utility_heatmap(
         teams: list[str] | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
+        roster: str | None = None,
 ) -> list[ZoneUtilStat]:
     """T-side utility counts per callout zone (and type), aggregated over ``teams``."""
     conds = _base_conditions(session, user, map_id)
     if teams:
         conds.append(_teams_filter(teams))
     conds += _date_conditions(date_from, date_to)
+    conds += _roster_conditions(session, user, map_id=map_id, teams=teams, roster=roster)
 
     rows = session.execute(
         select(UtilityEvent.zone, UtilityEvent.region, UtilityEvent.util_type, func.count())

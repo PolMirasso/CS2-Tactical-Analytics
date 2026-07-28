@@ -56,11 +56,12 @@ def _baseline_dist(
     team: str | None,
     date_from: date | None = None,
     date_to: date | None = None,
+    roster: str | None = None,
 ) -> dict[str, float]:
     dist = aggregate.site_distribution(
         session, user,
         map_id=map_id, teams=[team] if team else None,
-        date_from=date_from, date_to=date_to,
+        date_from=date_from, date_to=date_to, roster=roster,
     )
     if dist.total_rounds == 0:
         return {s: 1.0 / len(SITES) for s in SITES}
@@ -98,7 +99,7 @@ def predict(
     # The model is trained on the whole history
     baseline = _baseline_dist(
         session, user, payload.map_id, payload.team,
-        payload.date_from, payload.date_to,
+        payload.date_from, payload.date_to, payload.roster,
     )
     probs = predictor.model_proba(
         map_id=payload.map_id,
@@ -145,14 +146,17 @@ def tendencies(
     team: list[str] | None = Query(None),
     date_from: date | None = None,
     date_to: date | None = None,
+    roster: str | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> TendenciesOut:
     dist = aggregate.site_distribution(
-        session, user, map_id=map_id, teams=team, date_from=date_from, date_to=date_to,
+        session, user, map_id=map_id, teams=team,
+        date_from=date_from, date_to=date_to, roster=roster,
     )
     heatmap = aggregate.utility_heatmap(
-        session, user, map_id=map_id, teams=team, date_from=date_from, date_to=date_to,
+        session, user, map_id=map_id, teams=team,
+        date_from=date_from, date_to=date_to, roster=roster,
     )
     return TendenciesOut(
         map_id=map_id,
@@ -177,6 +181,7 @@ def support(
     opponent_weapons: list[str] | None = Query(None),
     date_from: date | None = None,
     date_to: date | None = None,
+    roster: str | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> FilterSupportOut:
@@ -195,4 +200,5 @@ def support(
         opponent_weapons=opponent_weapons,
         date_from=date_from,
         date_to=date_to,
+        roster=roster,
     )

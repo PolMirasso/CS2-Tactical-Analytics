@@ -207,6 +207,14 @@ export interface RosterEntry {
   complete: boolean
 }
 
+export interface RosterLineup {
+  id: string
+  players: string[]
+  n_demos: number
+  first_date: string | null
+  last_date: string | null
+}
+
 export interface TeamRostersOut {
   map_id: string
   team: string | null
@@ -214,6 +222,7 @@ export interface TeamRostersOut {
   n_demos: number
   core: string[]
   entries: RosterEntry[]
+  lineups: RosterLineup[]
 }
 
 // scouting / site prediction (ML)
@@ -245,6 +254,7 @@ export interface PredictIn {
   opponent_weapons?: string[] | null
   date_from?: string
   date_to?: string
+  roster?: string | null
   utility: UtilityInput[]
 }
 
@@ -292,7 +302,8 @@ export interface TendenciesOut {
 }
 
 export type SupportFilter =
-  | 'team' | 'buy' | 'equip' | 'opp_buy' | 'opp_equip' | 'team_weapons' | 'opp_weapons' | 'period'
+  | 'team' | 'buy' | 'equip' | 'opp_buy' | 'opp_equip' | 'team_weapons' | 'opp_weapons'
+  | 'period' | 'roster'
 
 export interface SupportDrop {
   filter: SupportFilter
@@ -323,6 +334,7 @@ export interface FilterSupportParams extends DateWindowParams {
   opponent_equip_max?: number
   team_weapons?: string[]
   opponent_weapons?: string[]
+  roster?: string
 }
 
 export interface ReliabilityBin {

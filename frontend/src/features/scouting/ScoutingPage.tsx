@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { BuyType, FilterSupportOut, FilterSupportParams, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, SupportFilter, Timing, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
-import { RosterChangeWarning } from '@/features/analytics/RosterChangeWarning'
+import { RosterChangeWarning, lineupLabel } from '@/features/analytics/RosterChangeWarning'
 import { useMaps } from '@/features/maps/hooks'
 import { MultiSelect } from '@/components/MultiSelect'
 import { RangeSlider } from '@/components/RangeSlider'
@@ -232,6 +232,7 @@ export function ScoutingPage() {
   const [period, setPeriod] = useState<PeriodPreset>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [rosterId, setRosterId] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [showModel, setShowModel] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
@@ -263,10 +264,18 @@ export function ScoutingPage() {
   const periodLabel = windowLabel(dateWindow)
 
   const { data: roster } = useTeamRoster(mapId || undefined, soloTeam, dateWindow)
+  // Line-up ids come from the data: drop the pick as soon as it stops existing
+  const rosterFilter = soloTeam && rosterId ? rosterId : undefined
+  useEffect(() => {
+    if (rosterId && (!soloTeam || (roster && !roster.lineups.some((l) => l.id === rosterId))))
+      setRosterId('')
+  }, [roster, rosterId, soloTeam])
+
   const tendencies = useTendencies(
     mapId || undefined,
     teamIds.length ? teamIds : undefined,
     dateWindow,
+    rosterFilter,
   )
   const supportParams: FilterSupportParams | undefined = useMemo(() => {
     if (!mapId) return undefined
@@ -284,8 +293,9 @@ export function ScoutingPage() {
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : undefined,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : undefined,
       ...dateWindow,
+      roster: rosterFilter,
     }
-  }, [mapId, teamIds, buyType, teamEquip, oppBuyType, oppEquip, teamWeapons, oppWeapons, dateWindow])
+  }, [mapId, teamIds, buyType, teamEquip, oppBuyType, oppEquip, teamWeapons, oppWeapons, dateWindow, rosterFilter])
   const { data: support } = useFilterSupport(supportParams)
   const modelStatus = useModelStatus()
   const predict = usePredict()
@@ -340,6 +350,7 @@ export function ScoutingPage() {
       opponent_weapons: oppWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       period,
       ...dateWindow,
+      roster: rosterFilter ?? '',
       tokens: tokens.map((tk) => ({
         util_type: tk.util_type,
         time_from: tk.time_from,
@@ -450,6 +461,7 @@ export function ScoutingPage() {
     const ow = readWeapons(obj.opponent_weapons ?? obj.opponent_weapon); if (ow !== null) setOppWeapons(ow)
     if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
     else if (typeof obj.team === 'string') setTeamIds([obj.team])
+    if (typeof obj.roster === 'string') setRosterId(obj.roster)
     setTokens(parsed)
     predict.reset()
   }
@@ -466,6 +478,7 @@ export function ScoutingPage() {
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : null,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : null,
       ...dateWindow,
+      roster: rosterFilter ?? null,
       utility: tokens.map((tk) => ({
         util_type: tk.util_type,
         x: tk.x,
@@ -489,6 +502,9 @@ export function ScoutingPage() {
   const buyReport = (label: string, buy: BuyFilter, range: EquipRange) =>
     isBuyFiltered(buy, range)
     && `${label}: ${buy === 'range' ? equipSummary(range) : t(`demos.buyTypes.${buy}`)}`
+  const lineup = roster?.lineups.find((l) => l.id === rosterFilter)
+  const lineupSummary = lineup
+    && `${t('analytics.roster.filterShort')}: ${lineupLabel(lineup, roster?.core ?? [])}`
   const filterSummary = [
     buyReport(t('scouting.teamBuy'), buyType, teamEquip),
     buyReport(t('scouting.oppBuy'), oppBuyType, oppEquip),
@@ -513,7 +529,9 @@ export function ScoutingPage() {
         </button>
       </div>
 
-      {soloTeam && roster?.has_changes && <RosterChangeWarning roster={roster} />}
+      {soloTeam && roster?.has_changes && (
+        <RosterChangeWarning roster={roster} selected={rosterId} onSelect={setRosterId} />
+      )}
 
       <div className="mb-3 hidden print:block">
         <h2 className="mb-1">
@@ -522,6 +540,7 @@ export function ScoutingPage() {
         <p className="text-muted">
           {[
             periodLabel && `${t('scouting.period')}: ${t(`scouting.periods.${period}`)} (${periodLabel})`,
+            lineupSummary,
             filterSummary,
           ].filter(Boolean).join(' · ') || t('scouting.anyFilter')}
         </p>
@@ -925,7 +944,10 @@ const SUPPORT_FILTER_LABEL: Record<SupportFilter, string> = {
   team_weapons: 'scouting.teamWeapon',
   opp_weapons: 'scouting.oppWeapon',
   period: 'scouting.period',
+  roster: 'analytics.roster.filterShort',
 }
+
+const BASELINE_ONLY: SupportFilter[] = ['period', 'roster']
 
 function SupportWarning({ support, mapName }: { support: FilterSupportOut; mapName: string }) {
   const { t } = useTranslation()
@@ -933,11 +955,12 @@ function SupportWarning({ support, mapName }: { support: FilterSupportOut; mapNa
   const model = support.scope === 'model'
   const rounds = model ? support.model_rounds : support.rounds
   const plants = model ? support.model_plant_rounds : support.plant_rounds
+  const scoped = support.filters.includes('roster') ? 'Roster' : 'Period'
   const key = model
-    ? support.filters.some((f) => f !== 'period')
+    ? support.filters.some((f) => !BASELINE_ONLY.includes(f))
       ? (empty ? 'noneModel' : 'lowModel')
       : (empty ? 'noneMap' : 'lowMap')
-    : (empty ? 'nonePeriod' : 'lowPeriod')
+    : (empty ? `none${scoped}` : `low${scoped}`)
   const culprit = support.drops[0]
   return (
     <div className="mb-5 rounded-lg border border-l-4 border-warn bg-warn/8 px-3.5 py-3 text-[0.9rem]">

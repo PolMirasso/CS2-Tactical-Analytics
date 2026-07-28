@@ -7,10 +7,11 @@ export function useTendencies(
   mapId: string | undefined,
   teams: string[] | undefined,
   dateWindow?: DateWindow,
+  roster?: string,
 ) {
   return useQuery({
-    queryKey: ['scouting', 'tendencies', mapId, teams, dateWindow],
-    queryFn: () => scoutingApi.tendencies(mapId!, teams, dateWindow),
+    queryKey: ['scouting', 'tendencies', mapId, teams, dateWindow, roster],
+    queryFn: () => scoutingApi.tendencies(mapId!, teams, dateWindow, roster),
     enabled: !!mapId,
     staleTime: 60_000,
   })

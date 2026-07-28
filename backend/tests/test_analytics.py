@@ -135,6 +135,23 @@ def test_roster_endpoint_stable_lineup(client):
     assert body["has_changes"] is False
     assert body["n_demos"] >= 1
 
+    # The line-up id it hands out is accepted (and applied) by the scouting endpoints.
+    lineup = body["lineups"][0]["id"]
+    params = {"map_id": "de_mirage", "team": "Falcons", "roster": lineup}
+    tend = client.get("/scouting/tendencies", params=params, headers=auth(token))
+    assert tend.status_code == 200, tend.text
+    assert tend.json()["total_rounds"] > 0
+    sup = client.get("/scouting/support", params=params, headers=auth(token))
+    assert sup.status_code == 200, sup.text
+    assert "roster" in sup.json()["filters"]
+    # An id that matches no line-up leaves nothing behind instead of falling back
+    empty = client.get(
+        "/scouting/tendencies",
+        params={**params, "roster": "deadbeef00"},
+        headers=auth(token),
+    )
+    assert empty.json()["total_rounds"] == 0
+
 
 def test_team_rosters_flags_lineup_change():
     """The swap is dated by hltv_match_id (not demo_id) so in/out isn't reversed.
@@ -238,6 +255,78 @@ def test_team_rosters_ignores_rename_same_steamid():
     assert all(not e.added and not e.removed for e in out.entries)
     # Core is the five stable steamids, labelled with the most recent nick.
     assert "guardiaN" in out.core and "guardian" not in out.core
+
+
+def test_roster_lineup_filter_scopes_aggregates():
+    """Picking a line-up scopes the baseline/tendencies, never the model's support"""
+    from datetime import date
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.analytics import aggregate
+    from app.db import Base
+    from app.domain.models import Demo, PlayerStat, Round, User
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    admin = User(email="rl@x.io", hashed_password="x", role="admin")
+    session.add(admin)
+    session.flush()
+
+    def make(did, match_id, day, roster, site):
+        session.add(
+            Demo(id=did, owner_id=admin.id, map_id="de_mirage", visibility="public",
+                 team_hltv_id="100", match_date=day, hltv_match_id=match_id)
+        )
+        for n in range(2):
+            session.add(
+                Round(demo_id=did, round_number=n + 1, map_id="de_mirage", team="TeamA",
+                      team_hltv_id="100", buy_type="full", equip_value=4000,
+                      target_site=site, winner="t")
+            )
+        for sid, name in roster:
+            session.add(PlayerStat(demo_id=did, steamid=sid, name=name, team="TeamA"))
+        session.flush()
+
+    core = [("1", "p1"), ("2", "p2"), ("3", "p3"), ("4", "p4")]
+    make(1, "300", date(2026, 1, 10), core + [("9", "old")], "A")
+    make(2, "301", date(2026, 2, 10), core + [("9", "old")], "A")
+    make(3, "302", date(2026, 6, 10), core + [("10", "new")], "B")
+
+    out = aggregate.team_rosters(session, admin, map_id="de_mirage", team="100")
+    assert out.has_changes is True
+    assert [lu.n_demos for lu in out.lineups] == [2, 1]  # oldest line-up first
+    old_id, new_id = (lu.id for lu in out.lineups)
+    assert out.lineups[0].first_date == date(2026, 1, 10)
+    assert out.lineups[0].last_date == date(2026, 2, 10)
+    assert "old" in out.lineups[0].players and "new" in out.lineups[1].players
+
+    unscoped = aggregate.site_distribution(session, admin, map_id="de_mirage", teams=["100"])
+    assert unscoped.total_rounds == 6
+    scoped = aggregate.site_distribution(
+        session, admin, map_id="de_mirage", teams=["100"], roster=new_id,
+    )
+    assert scoped.total_rounds == 2
+    assert next(s.rounds for s in scoped.sites if s.site == "B") == 2
+
+    sup = aggregate.filter_support(session, admin, map_id="de_mirage", teams=["100"], roster=old_id)
+    assert "roster" in sup.filters
+    assert sup.rounds == 4 and sup.model_rounds == 6
+
+    # Line-up and period compose: only the January demo of the old line-up is left
+    windowed = aggregate.filter_support(
+        session, admin, map_id="de_mirage", teams=["100"], roster=old_id,
+        date_from=date(2026, 1, 1), date_to=date(2026, 1, 31),
+    )
+    assert windowed.rounds == 2
+
+    # A line-up belongs to one team, so with several selected it means nothing
+    multi = aggregate.site_distribution(
+        session, admin, map_id="de_mirage", teams=["100", "200"], roster=new_id,
+    )
+    assert multi.total_rounds == 6
 
 
 def test_site_distribution_respects_visibility(client):

@@ -198,7 +198,12 @@
       "body_other": "Este equipo cambió de jugadores {{count}} veces en las demos analizadas: las tendencias agregadas de abajo mezclan formaciones distintas.",
       "core": "Base (en todas las demos)",
       "details": "Ver cambios",
-      "hide": "Ocultar cambios"
+      "hide": "Ocultar cambios",
+      "filterLabel": "Analizar solo una alineación",
+      "filterShort": "Alineación",
+      "allLineups": "Todas las alineaciones",
+      "pickHint": "Elige una para que las tendencias y el baseline dejen de mezclarlas.",
+      "scopedHint": "Tendencias, heatmap y baseline acotados a esta alineación. La predicción no cambia: el modelo está entrenado con todo el histórico."
     }
   },
   "scouting": {
@@ -238,6 +243,8 @@
       "lowModel": "Solo {{rounds}} rondas ({{plants}} con plant) encajan con estos filtros. Son muy pocos ejemplos: fíate más de las tendencias históricas que de la predicción.",
       "nonePeriod": "No hay rondas en el periodo elegido: el baseline cae al reparto uniforme y las tendencias se quedan vacías. La predicción no cambia, el modelo no se acota por fecha.",
       "lowPeriod": "Solo {{rounds}} rondas ({{plants}} con plant) en el periodo elegido: el baseline y las tendencias se apoyan en muy poco. La predicción no cambia, el modelo no se acota por fecha.",
+      "noneRoster": "No hay rondas con la alineación elegida (y el periodo elegido): el baseline cae al reparto uniforme y las tendencias se quedan vacías. La predicción no cambia, el modelo no se acota por alineación.",
+      "lowRoster": "Solo {{rounds}} rondas ({{plants}} con plant) con la alineación elegida: el baseline y las tendencias se apoyan en muy poco. La predicción no cambia, el modelo no se acota por alineación.",
       "noneMap": "No hay ninguna ronda de {{map}} en la base de datos: el modelo no ha visto este mapa nunca.",
       "lowMap": "{{map}} solo tiene {{rounds}} rondas ({{plants}} con plant) en la base de datos: el modelo apenas ha visto este mapa.",
       "culprit": "El filtro que más recorta es «{{filter}}»: sin él quedarían {{rounds}} rondas."
