@@ -12,6 +12,7 @@ import { MapsPage } from '@/features/maps/MapsPage'
 import { MapEditorPage } from '@/features/maps/MapEditorPage'
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage'
 import { ScoutingPage } from '@/features/scouting/ScoutingPage'
+import { PlayersPage } from '@/features/players/PlayersPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -28,6 +29,8 @@ export const router = createBrowserRouter([
       { path: 'demos/:id/replay', element: <ReplayPage /> },
       { path: 'analytics', element: <AnalyticsPage /> },
       { path: 'scouting', element: <ScoutingPage /> },
+      { path: 'players', element: <PlayersPage /> },
+      { path: 'players/:id', element: <PlayersPage /> },
       { path: 'hltv', element: <HltvPage /> },
       { path: 'groups', element: <GroupsPage /> },
       { path: 'maps', element: <MapsPage /> },

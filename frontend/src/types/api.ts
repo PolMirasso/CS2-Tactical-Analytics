@@ -406,6 +406,70 @@ export interface TeamRef {
   name: string
 }
 
+// HLTV players
+export interface PlayerHit {
+  id: string
+  nick: string
+  name: string | null
+  image: string | null
+  country: string | null
+  team_id: string | null
+  team_name: string | null
+  retired: boolean
+}
+
+export interface StatItem {
+  label: string
+  value: string
+}
+
+export interface RoleScore {
+  role: string
+  score: number
+}
+
+export interface PlayerMapStat {
+  map_id: string
+  code: string
+  maps_played: number
+  kills: number
+  deaths: number
+  plus_minus: number
+  rating: number | null
+}
+
+export interface PlayerMatch {
+  match_date: string | null
+  team: string | null
+  opponent: string | null
+  map_id: string
+  kills: number | null
+  deaths: number | null
+  plus_minus: number | null
+  rating: number | null
+  url: string | null
+}
+
+export interface PlayerProfile {
+  id: string
+  nick: string
+  name: string | null
+  country: string | null
+  image: string | null
+  team_id: string | null
+  team_name: string | null
+  rating: string | null
+  rating_label: string | null
+  ct_rating: string | null
+  t_rating: string | null
+  summary: StatItem[]
+  career: StatItem[]
+  roles: RoleScore[]
+  maps: PlayerMapStat[]
+  matches: PlayerMatch[]
+  fetched_at: string | null
+}
+
 // 2D replay
 export interface ReplayRoundMeta {
   round_number: number

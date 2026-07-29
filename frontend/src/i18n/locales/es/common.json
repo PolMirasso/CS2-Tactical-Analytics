@@ -6,6 +6,7 @@
     "demos": "Demos",
     "analytics": "Análisis",
     "scouting": "Scouting",
+    "players": "Jugadores",
     "hltv": "HLTV",
     "groups": "Grupos",
     "maps": "Mapas",
@@ -160,6 +161,38 @@
       "last_3_months": "Últimos 3 meses",
       "last_6_months": "Últimos 6 meses",
       "last_12_months": "Últimos 12 meses"
+    }
+  },
+  "players": {
+    "title": "Jugadores",
+    "subtitle": "Busca un jugador profesional y consulta sus estadísticas de HLTV.",
+    "search": "Buscar jugador",
+    "searchPlaceholder": "Nick del jugador (mín. 2 letras)…",
+    "retired": "Retirado",
+    "viewOnHltv": "Ver en HLTV",
+    "slowHint": "La primera consulta va a HLTV y puede tardar cerca de un minuto; después queda en caché y es instantánea.",
+    "updated": "Datos de HLTV del {{when}}.",
+    "refresh": "Actualizar",
+    "summary": "Resumen",
+    "rolesTitle": "Perfil de rol",
+    "rolesHint": "Puntuación de HLTV de 0 a 100 frente al resto de profesionales.",
+    "career": "Carrera",
+    "maps": "Por mapa",
+    "mapsHint": "Agregado de sus últimas {{n}} partidas (HLTV ya no publica una tabla por mapa).",
+    "matches": "Últimas partidas",
+    "mapsPlayed": "Partidas",
+    "kd": "K - D",
+    "plusMinus": "+/-",
+    "rating": "Rating",
+    "date": "Fecha",
+    "roles": {
+      "firepower": "Potencia de fuego",
+      "entrying": "Entrada",
+      "trading": "Trades",
+      "opening": "Duelos de apertura",
+      "clutching": "Clutches",
+      "sniping": "Francotirador",
+      "utility": "Utilidad"
     }
   },
   "groups": {

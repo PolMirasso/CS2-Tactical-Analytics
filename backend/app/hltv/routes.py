@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -11,10 +13,16 @@ from app.config import get_settings
 from app.db import get_session, session_scope
 from app.demos import service as demo_service
 from app.domain.enums import DateRange, DemoSource, DemoStatus, JobStatus, Visibility
-from app.domain.models import DownloadJob, User
-from app.domain.schemas import BackfillStatusOut, DownloadDemosIn, DownloadJobOut
+from app.domain.models import DownloadJob, HltvPlayer, User
+from app.domain.schemas import (
+    BackfillStatusOut,
+    DownloadDemosIn,
+    DownloadJobOut,
+    PlayerHitOut,
+    PlayerProfileOut,
+)
 from app.domain.schemas import TeamHit as TeamHitOut
-from app.hltv import backfill, client, jobs
+from app.hltv import backfill, client, jobs, players
 
 router = APIRouter(prefix="/hltv", tags=["hltv"])
 
@@ -166,6 +174,53 @@ def search_teams(
     except client.HLTVError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return [TeamHitOut(id=h.id, name=h.name, url=h.url, logo=h.logo) for h in hits]
+
+
+@router.get("/players/search", response_model=list[PlayerHitOut])
+def search_players(
+        term: str = Query(min_length=2),
+        _user: User = Depends(get_current_user),
+) -> list[PlayerHitOut]:
+    try:
+        hits = players.search_players(term)
+    except client.HLTVError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return [PlayerHitOut(**asdict(h)) for h in hits]
+
+
+def _cached_profile(row: HltvPlayer) -> PlayerProfileOut:
+    return PlayerProfileOut.model_validate_json(row.payload)
+
+
+@router.get("/players/{player_id}", response_model=PlayerProfileOut)
+def player_profile(
+        player_id: str,
+        refresh: bool = False,
+        _user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> PlayerProfileOut:
+    """HLTV career stats for one player"""
+    cached = session.get(HltvPlayer, player_id)
+    ttl = timedelta(hours=get_settings().hltv_player_cache_hours)
+    now = datetime.now(UTC).replace(tzinfo=None)  # the column is naive UTC
+    if cached is not None and not refresh and now - cached.updated_at < ttl:
+        return _cached_profile(cached)
+
+    try:
+        profile = players.fetch_player_profile(player_id)
+    except client.HLTVError as exc:
+        if cached is not None:
+            return _cached_profile(cached)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    out = PlayerProfileOut(**asdict(profile), fetched_at=now)
+    payload = out.model_dump_json()
+    if cached is None:
+        session.add(HltvPlayer(id=out.id, nick=out.nick, payload=payload))
+    else:
+        cached.nick, cached.payload, cached.updated_at = out.nick, payload, now
+    session.commit()
+    return out
 
 
 @router.post("/download", response_model=DownloadJobOut, status_code=202)

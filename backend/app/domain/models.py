@@ -103,6 +103,17 @@ class HltvTeam(Base):
     )
 
 
+class HltvPlayer(Base):
+    __tablename__ = "hltv_players"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    nick: Mapped[str] = mapped_column(String, index=True)
+    payload: Mapped[str] = mapped_column(String)  # PlayerProfileOut as JSON
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class DownloadJob(Base):
     # Tracks an async HLTV demo-download/ingest run started via the API
 

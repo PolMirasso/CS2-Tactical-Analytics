@@ -6,6 +6,7 @@
     "demos": "Demos",
     "analytics": "Analysis",
     "scouting": "Scouting",
+    "players": "Players",
     "hltv": "HLTV",
     "groups": "Groups",
     "maps": "Maps",
@@ -160,6 +161,38 @@
       "last_3_months": "Last 3 months",
       "last_6_months": "Last 6 months",
       "last_12_months": "Last 12 months"
+    }
+  },
+  "players": {
+    "title": "Players",
+    "subtitle": "Search a professional player and review their HLTV statistics.",
+    "search": "Search player",
+    "searchPlaceholder": "Player nick (min. 2 letters)…",
+    "retired": "Retired",
+    "viewOnHltv": "View on HLTV",
+    "slowHint": "The first lookup goes out to HLTV and can take up to a minute; after that it is cached and instant.",
+    "updated": "HLTV data from {{when}}.",
+    "refresh": "Refresh",
+    "summary": "Summary",
+    "rolesTitle": "Role profile",
+    "rolesHint": "HLTV's 0-100 score against the rest of the pro scene.",
+    "career": "Career",
+    "maps": "Per map",
+    "mapsHint": "Aggregated from their last {{n}} matches (HLTV no longer publishes a per-map table).",
+    "matches": "Recent matches",
+    "mapsPlayed": "Matches",
+    "kd": "K - D",
+    "plusMinus": "+/-",
+    "rating": "Rating",
+    "date": "Date",
+    "roles": {
+      "firepower": "Firepower",
+      "entrying": "Entrying",
+      "trading": "Trading",
+      "opening": "Opening",
+      "clutching": "Clutching",
+      "sniping": "Sniping",
+      "utility": "Utility"
     }
   },
   "groups": {

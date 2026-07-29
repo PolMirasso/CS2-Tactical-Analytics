@@ -207,6 +207,70 @@ class TeamHit(BaseModel):
     logo: str | None = None
 
 
+class PlayerHitOut(BaseModel):
+    id: str
+    nick: str
+    name: str | None = None
+    image: str | None = None
+    country: str | None = None
+    team_id: str | None = None
+    team_name: str | None = None
+    retired: bool = False
+
+
+class StatItemOut(BaseModel):
+    label: str
+    value: str
+
+
+class RoleScoreOut(BaseModel):
+    role: str
+    score: int
+
+
+class PlayerMapStatOut(BaseModel):
+    map_id: str
+    code: str
+    maps_played: int
+    kills: int
+    deaths: int
+    plus_minus: int
+    rating: float | None = None
+
+
+class PlayerMatchOut(BaseModel):
+    match_date: date | None = None
+    team: str | None = None
+    opponent: str | None = None
+    map_id: str
+    kills: int | None = None
+    deaths: int | None = None
+    plus_minus: int | None = None
+    rating: float | None = None
+    url: str | None = None
+
+
+class PlayerProfileOut(BaseModel):
+    id: str
+    nick: str
+    name: str | None = None
+    country: str | None = None
+    image: str | None = None
+    team_id: str | None = None
+    team_name: str | None = None
+    rating: str | None = None
+    rating_label: str | None = None
+    ct_rating: str | None = None
+    t_rating: str | None = None
+    summary: list[StatItemOut] = []
+    career: list[StatItemOut] = []
+    roles: list[RoleScoreOut] = []
+    maps: list[PlayerMapStatOut] = []
+    matches: list[PlayerMatchOut] = []
+    # When the cached copy was scraped
+    fetched_at: datetime | None = None
+
+
 class DownloadJobOut(BaseModel):
     id: str
     status: str
