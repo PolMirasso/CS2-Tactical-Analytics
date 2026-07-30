@@ -7,25 +7,9 @@ from datetime import date, datetime
 from app.config import get_settings
 from app.hltv.client import HLTVError, _flaresolverr_get, _impersonated_session
 
-_MAP_CODES = {
-    "d2": "de_dust2",
-    "mrg": "de_mirage",
-    "inf": "de_inferno",
-    "nuke": "de_nuke",
-    "ovp": "de_overpass",
-    "anc": "de_ancient",
-    "anb": "de_anubis",
-    "trn": "de_train",
-    "vtg": "de_vertigo",
-    "cch": "de_cache",
-    "cbl": "de_cobblestone",
-    "tcn": "de_tuscan",
-}
-
 _TAGS = re.compile(r"<[^>]+>")
 _NOISE = re.compile(r"<script.*?</script>|<style.*?</style>|<svg.*?</svg>", re.S)
-_TITLE = re.compile(r"<title>\s*(.*?)\s*</title>", re.S)
-_TITLE_NAME = re.compile(r"^(?P<first>.+?) '(?P<nick>.+?)' (?P<last>.+?) Counter-Strike")
+_SPACES = re.compile(r"\s+")
 
 
 @dataclass
@@ -53,14 +37,11 @@ class RoleScore:
 
 
 @dataclass
-class MapStat:
-    map_id: str 
-    code: str
-    maps_played: int
-    kills: int
-    deaths: int
-    plus_minus: int
-    rating: float | None
+class TeamSpell:
+    team_id: str | None
+    team_name: str
+    start: date | None
+    end: date | None  # None while the player is still on the team
 
 
 @dataclass
@@ -68,11 +49,9 @@ class MatchRow:
     match_date: date | None
     team: str | None
     opponent: str | None
-    map_id: str
-    kills: int | None
-    deaths: int | None
-    plus_minus: int | None
-    rating: float | None
+    score: str | None
+    won: bool | None
+    event: str | None
     url: str | None
 
 
@@ -85,23 +64,30 @@ class PlayerProfile:
     image: str | None = None
     team_id: str | None = None
     team_name: str | None = None
+    age: int | None = None
+    role: str | None = None  # awper, rifle etc...
     rating: str | None = None
     rating_label: str | None = None
-    ct_rating: str | None = None
-    t_rating: str | None = None
+    rating_note: str | None = None  # HLTV's percentile blurb
+    stats_window: str | None = None  # the period the rating and roles cover
     summary: list[StatItem] = field(default_factory=list)
-    career: list[StatItem] = field(default_factory=list)
     roles: list[RoleScore] = field(default_factory=list)
-    maps: list[MapStat] = field(default_factory=list)
+    teams: list[TeamSpell] = field(default_factory=list)
     matches: list[MatchRow] = field(default_factory=list)
 
 
 def _text(fragment: str) -> str:
-    return _TAGS.sub("", fragment).replace("&nbsp;", " ").strip()
+    plain = _TAGS.sub(" ", fragment).replace("&nbsp;", " ").replace("&amp;", "&")
+    return _SPACES.sub(" ", plain).strip()
 
 
-def _strip_noise(html: str) -> str:
-    return _NOISE.sub("", html)
+def _section(body: str, start_marker: str, end_marker: str) -> str:
+    """The slice between two markers, so a regex only sees the block it belongs to"""
+    start = body.find(start_marker)
+    if start < 0:
+        return ""
+    end = body.find(end_marker, start)
+    return body[start:end] if end > 0 else body[start:]
 
 
 def search_players(query: str, *, limit: int = 10) -> list[PlayerHit]:
@@ -167,204 +153,179 @@ def _id_from_location(location: object) -> str | None:
 
 
 def fetch_player_profile(player_id: str) -> PlayerProfile:
-    """Scrape a player's stats: the overview page plus the match history"""
+    """Scrape a player's HLTV profile page"""
     base = get_settings().hltv_base_url
     # The URL slug is cosmetic; HLTV resolves the player by id alone.
-    overview = _flaresolverr_get(f"{base}/stats/players/{player_id}/-")
-    profile = _parse_overview(overview, player_id)
-    matches = _flaresolverr_get(f"{base}/stats/players/matches/{player_id}/-")
-    _apply_match_history(profile, matches)
-    return profile
+    return _parse_profile(_flaresolverr_get(f"{base}/player/{player_id}/-"), player_id)
 
 
-def _parse_overview(html: str, player_id: str) -> PlayerProfile:
-    body = _strip_noise(html)
+def _parse_profile(html: str, player_id: str) -> PlayerProfile:
+    body = _NOISE.sub("", html)
     profile = PlayerProfile(id=str(player_id), nick=str(player_id))
 
-    title = _TITLE.search(html)
-    if title:
-        named = _TITLE_NAME.match(_text(title.group(1)))
-        if named:
-            profile.nick = named.group("nick")
-            profile.name = f"{named.group('first')} {named.group('last')}".strip()
-
-    nick = re.search(r'class="context-item-name">(?:<[^>]+>)*\s*([^<]+)', body)
-    if nick and nick.group(1).strip():
+    nick = re.search(r'class="playerNickname"[^>]*>([^<]+)', body)
+    if nick:
         profile.nick = nick.group(1).strip()
 
-    flag = re.search(r'<img alt="([^"]*)"[^>]*class="context-item-flag', body)
-    if flag:
-        profile.country = flag.group(1) or None
+    real = re.search(r'class="playerRealname"[^>]*>(.*?)</div>', body, re.S)
+    if real:
+        profile.name = _text(real.group(1)) or None
+        flag = re.search(r'<img alt="([^"]*)"', real.group(1))
+        if flag:
+            profile.country = flag.group(1) or None
 
-    image = re.search(r'<meta property="og:image" content="([^"]+)"', html)
-    if image:
-        profile.image = image.group(1).replace("&amp;", "&")
+    shot = re.search(r'class="player-summary-stat-box-left-bodyshot"[^>]*\ssrc="([^"]+)"', body)
+    if shot:
+        profile.image = shot.group(1).replace("&amp;", "&")
 
-    rating = re.search(r'player-summary-stat-box-rating-data-text">\s*([^<]+)', body)
-    if rating:
-        profile.rating = rating.group(1).strip()
-    label = re.search(r'player-summary-stat-box-data-description-text[^"]*">\s*([^<]+)', body)
-    if label:
-        profile.rating_label = label.group(1).strip()
+    pills = re.findall(r'class="role-pill[^"]*"[^>]*title="([^"]+)"', body)
+    profile.role = ", ".join(pills) or None
 
-    for value, side in re.findall(
-        r'player-summary-stat-box-side-rating-background"></div>\s*([\d.]+)\s*'
-        r'<div class="player-summary-stat-box-side-rating-text">\s*([^<]+)',
-        body,
-    ):
-        if side.strip().upper().startswith("CT"):
-            profile.ct_rating = value
-        elif side.strip().upper().startswith("T"):
-            profile.t_rating = value
-
-    profile.summary = _parse_summary_box(body)
-    profile.career = [
-        StatItem(label=lbl.strip(), value=val.strip())
-        for lbl, val in re.findall(
-            r'<div class="stats-row"[^>]*><span[^>]*>([^<]+)</span><span[^>]*>([^<]+)</span>',
-            body,
-        )
-    ]
-    profile.roles = _parse_roles(body)
+    info = _section(body, '<div class="playerInfo"', '<div class="trophySection"')
+    _apply_info_rows(profile, info)
+    _apply_stats_box(profile, body)
+    profile.teams = _parse_teams(body)
+    profile.matches = _parse_results(body)
+    _apply_team_totals(profile, body)
     return profile
 
 
-def _parse_summary_box(body: str) -> list[StatItem]:
-    # Each stat is a value div followed by a label div
-    items: list[StatItem] = []
-    blocks = re.findall(
-        r'<div class="player-summary-stat-box-data-wrapper[^"]*">(.*?)'
-        r'<div class="player-summary-stat-box-breakdown-bar">',
-        body,
-        re.S,
+def _apply_info_rows(profile: PlayerProfile, info: str) -> None:
+    # The fact list next to the bodyshot: one "playerInfoRow player<Name>" per fact
+    rows = dict(
+        re.findall(
+            r'playerInfoRow player(\w+)[^>]*>(.*?)(?=<div class="playerInfoRow|\Z)', info, re.S
+        )
     )
-    for block in blocks:
-        value = re.search(r'player-summary-stat-box-data[^"]*">(.*?)</div>', block, re.S)
-        label = re.search(r'player-summary-stat-box-data-text[^"]*">\s*([^<]+)', block, re.S)
-        if not value or not label:
+
+    age = re.search(r"(\d+)\s*years", rows.get("Age", ""))
+    if age:
+        profile.age = int(age.group(1))
+
+    team = re.search(r'href="/team/(\d+)/[^"]*"[^>]*>([^<]+)</a>', rows.get("Team", ""))
+    if team:
+        profile.team_id, profile.team_name = team.group(1), team.group(2).strip()
+
+    money = re.search(r'class="listRight">\s*(\$[\d,]+)', rows.get("PrizeMoney", ""))
+    if money:
+        profile.summary.append(StatItem(label="Prize money", value=money.group(1)))
+
+    achievements = rows.get("Achievement", "")
+    for css, label in (("majorWinner", "Majors won"), ("majorMVP", "Major MVPs")):
+        m = re.search(rf'class="{css}"><b>(\d+)</b>', achievements)
+        if m:
+            profile.summary.append(StatItem(label=label, value=m.group(1)))
+
+    top20 = re.findall(r'>#(\d+)</a><span class="top-20-year">\(\'(\d+)\)', rows.get("Top20", ""))
+    if top20:
+        rank, year = min(top20, key=lambda t: int(t[0]))
+        profile.summary.append(StatItem(label="Top 20 appearances", value=str(len(top20))))
+        profile.summary.append(StatItem(label="Best Top 20", value=f"#{rank} ('{year})"))
+
+
+def _apply_stats_box(profile: PlayerProfile, body: str) -> None:
+    # statistics column: overall rating plus the 0-100 role scores
+    box = _section(body, 'class="standard-headline text-ellipsis">', '"moreButton-container"')
+    window = re.search(r'class="stats-window">\(([^)]+)\)', box)
+    if window:
+        profile.stats_window = _text(window.group(1))
+
+    rating = re.search(
+        r'<div class="player-stat"><b>([^<]+)</b>.*?<p>\s*([\d.]+)\s*</p>(.*?)</div>', box, re.S
+    )
+    if rating:
+        profile.rating_label = rating.group(1).strip()
+        profile.rating = rating.group(2)
+        note = re.search(r'class="statsImg" title="([^"]+)"', rating.group(3))
+        profile.rating_note = note.group(1) if note else None
+
+    profile.roles = [
+        RoleScore(role=name.strip().lower(), score=int(score))
+        for name, score in re.findall(
+            r'<div class="player-stat-top"><b>([^<]+)</b>.*?<p><b>(\d+)</b>', box, re.S
+        )
+    ]
+
+
+def _parse_teams(body: str) -> list[TeamSpell]:
+    # team-detail rows expand a spell into lineups
+    table = _section(body, 'class="table-container team-breakdown"', "</table>")
+    spells: list[TeamSpell] = []
+    for row in re.findall(r'<tr class="team(?:\s+past-team)?\s*">(.*?)</tr>', table, re.S):
+        name = re.search(r'class="team-name[^"]*">([^<]+)</span>', row)
+        if not name:
             continue
-        text = _text(value.group(1))
-        if text and text != "-":
-            items.append(StatItem(label=label.group(1).strip(), value=text))
-    return items
+        team_id = re.search(r'href="/team/(\d+)/[^"]*"', row)
+        period = re.search(r'<td class="time-period-cell"[^>]*>(.*?)</td>', row, re.S)
+        dates = _unix_dates(period.group(1) if period else "")
+        spells.append(
+            TeamSpell(
+                team_id=team_id.group(1) if team_id else None,
+                team_name=name.group(1).strip(),
+                start=dates[0] if dates else None,
+                end=dates[1] if len(dates) > 1 else None,
+            )
+        )
+    return spells
 
 
-def _parse_roles(body: str) -> list[RoleScore]:
-    # One section per role
-    roles: list[RoleScore] = []
-    sections = list(re.finditer(r'<div class="role-stats-section role-([a-z]+)"', body))
-    for i, section in enumerate(sections):
-        end = sections[i + 1].start() if i + 1 < len(sections) else len(body)
-        score = re.search(r'<div class="row-stats-section-score">(\d+)', body[section.start():end])
-        if score:
-            roles.append(RoleScore(role=section.group(1), score=int(score.group(1))))
-    return roles
-
-
-def _apply_match_history(profile: PlayerProfile, html: str) -> None:
-    rows = _parse_match_rows(html)
-    profile.matches = rows
-    profile.maps = _aggregate_maps(rows)
-    # The most recent match names the player's current team
-    for row in rows:
-        if row.team:
-            profile.team_name = row.team
-            break
-
-
-def _parse_match_rows(html: str) -> list[MatchRow]:
-    body = _strip_noise(html)
-    start = body.find("stats-matches-table")
-    if start < 0:
-        return []
-    table = body[start:body.find("</table>", start)]
+def _parse_results(body: str) -> list[MatchRow]:
+    # The results table groups rows under an event header row
+    table = _section(body, "Latest results for", "</table>")
     rows: list[MatchRow] = []
-    for raw in re.findall(r"<tr[^>]*>(.*?)</tr>", table, re.S):
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", raw, re.S)
-        if len(cells) < 7:
+    event: str | None = None
+    for block in re.finditer(
+        r'<tr class="event-header-cell">(?P<head>.*?)</tr>|<tr class="team-row">(?P<row>.*?)</tr>',
+        table,
+        re.S,
+    ):
+        if block.group("head") is not None:
+            event = _text(block.group("head")) or None
             continue
-        code = _text(cells[3]).lower()
-        kills, deaths = _split_kd(_text(cells[4]))
+        row = block.group("row")
+        # HLTV lists the players own team first
+        teams = re.findall(r'class="team-name team-\d">([^<]+)</a>', row)
+        raw = re.findall(r'<span class="score(?:\s[^"]*)?">([^<]+)</span>', row)
+        scores = [s.strip() for s in raw]
+        url = re.search(r'href="(/stats/matches/[^"?]+)', row)
+        dates = _unix_dates(row)
         rows.append(
             MatchRow(
-                match_date=_row_date(cells[0]),
-                team=_row_team(cells[1]),
-                opponent=_row_team(cells[2]),
-                map_id=_MAP_CODES.get(code, code),
-                kills=kills,
-                deaths=deaths,
-                plus_minus=_to_int(_text(cells[5])),
-                rating=_to_float(_text(cells[6])),
-                url=_row_url(cells[0]),
+                match_date=dates[0] if dates else None,
+                team=teams[0].strip() if teams else None,
+                opponent=teams[1].strip() if len(teams) > 1 else None,
+                score=" - ".join(scores[:2]) if len(scores) > 1 else None,
+                won=_won(scores),
+                event=event,
+                url=url.group(1) if url else None,
             )
         )
     return rows
 
 
-def _row_date(cell: str) -> date | None:
-    # HLTV renders the date client-side from a unix-ms attribute.
-    m = re.search(r'data-unix="(\d+)"', cell)
-    if not m:
+def _won(scores: list[str]) -> bool | None:
+    if len(scores) < 2 or not all(s.isdigit() for s in scores[:2]):
         return None
-    try:
-        return datetime.fromtimestamp(int(m.group(1)) / 1000).date()
-    except (OverflowError, OSError, ValueError):
-        return None
+    ours, theirs = int(scores[0]), int(scores[1])
+    return None if ours == theirs else ours > theirs
 
 
-def _row_team(cell: str) -> str | None:
-    # The cell repeats the team for desktop and mobile
-    m = re.search(r'<a href="/stats/teams/\d+/[^"]*"[^>]*>(.*?)</a>', cell, re.S)
-    name = _text(m.group(1)) if m else ""
-    return name or None
+def _apply_team_totals(profile: PlayerProfile, body: str) -> None:
+    box = _section(body, "Team stats for", '<div class="section-spacer">')
+    wanted = ("Teams", "Days in current team")
+    for value, label in re.findall(
+        r'<div class="stat">([^<]*)</div>\s*<div class="description">([^<]*)</div>', box
+    ):
+        if label.strip() in wanted and value.strip() not in ("", "-"):
+            profile.summary.append(StatItem(label=label.strip(), value=value.strip()))
 
 
-def _row_url(cell: str) -> str | None:
-    m = re.search(r'href="(/stats/matches/[^"?]+)', cell)
-    return m.group(1) if m else None
-
-
-def _split_kd(text: str) -> tuple[int | None, int | None]:
-    m = re.match(r"\s*(\d+)\s*-\s*(\d+)", text)
-    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
-
-
-def _to_int(text: str) -> int | None:
-    m = re.match(r"\s*([+-]?\d+)", text)
-    return int(m.group(1)) if m else None
-
-
-def _to_float(text: str) -> float | None:
-    m = re.match(r"\s*(\d+(?:\.\d+)?)", text)
-    return float(m.group(1)) if m else None
-
-
-def _aggregate_maps(rows: list[MatchRow]) -> list[MapStat]:
-    agg: dict[str, dict] = {}
-    for row in rows:
-        if not row.map_id:
+def _unix_dates(fragment: str) -> list[date]:
+    # HLTV renders dates client-side
+    dates: list[date] = []
+    for stamp in re.findall(r'data-unix="(\d+)"', fragment):
+        try:
+            dates.append(datetime.fromtimestamp(int(stamp) / 1000).date())
+        except (OverflowError, OSError, ValueError):
             continue
-        bucket = agg.setdefault(
-            row.map_id,
-            {"maps": 0, "kills": 0, "deaths": 0, "plus_minus": 0, "ratings": []},
-        )
-        bucket["maps"] += 1
-        bucket["kills"] += row.kills or 0
-        bucket["deaths"] += row.deaths or 0
-        bucket["plus_minus"] += row.plus_minus or 0
-        if row.rating is not None:
-            bucket["ratings"].append(row.rating)
-
-    stats = [
-        MapStat(
-            map_id=map_id,
-            code=next((c for c, m in _MAP_CODES.items() if m == map_id), map_id),
-            maps_played=b["maps"],
-            kills=b["kills"],
-            deaths=b["deaths"],
-            plus_minus=b["plus_minus"],
-            rating=round(sum(b["ratings"]) / len(b["ratings"]), 2) if b["ratings"] else None,
-        )
-        for map_id, b in agg.items()
-    ]
-    return sorted(stats, key=lambda s: s.maps_played, reverse=True)
+    return dates

@@ -3,16 +3,39 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { formatDate, formatDay } from '@/lib/format'
 import type { PlayerHit, PlayerProfile } from '@/types/api'
-import { useMaps } from '@/features/maps/hooks'
 import { usePlayerProfile, usePlayerSearch, useRefreshPlayer } from './hooks'
 
 const CARD = 'mb-5 rounded-[10px] border border-border bg-surface p-4'
 const HLTV = 'https://www.hltv.org'
 
-function PlayerSearch({ onSelect }: { onSelect: (p: PlayerHit) => void }) {
+function PlayerSearch({
+  collapsed,
+  onSelect,
+}: {
+  collapsed: boolean
+  onSelect: (p: PlayerHit) => void
+}) {
   const { t } = useTranslation()
   const [term, setTerm] = useState('')
+  const [open, setOpen] = useState(false)
   const { data, isFetching } = usePlayerSearch(term)
+
+  const select = (p: PlayerHit) => {
+    setTerm('')
+    setOpen(false)
+    onSelect(p)
+  }
+
+  if (collapsed && !open) {
+    return (
+      <button
+        className="mb-5 w-full rounded-[10px] border border-border bg-surface px-4 py-2 text-left text-muted"
+        onClick={() => setOpen(true)}
+      >
+        {t('players.searchAnother')}
+      </button>
+    )
+  }
 
   return (
     <div className={CARD}>
@@ -20,6 +43,7 @@ function PlayerSearch({ onSelect }: { onSelect: (p: PlayerHit) => void }) {
       <input
         id="player-search"
         value={term}
+        autoFocus={collapsed}
         placeholder={t('players.searchPlaceholder')}
         onChange={(e) => setTerm(e.target.value)}
       />
@@ -36,7 +60,7 @@ function PlayerSearch({ onSelect }: { onSelect: (p: PlayerHit) => void }) {
                 <td>
                   <button
                     className="border-0 bg-transparent p-0 font-semibold text-accent"
-                    onClick={() => onSelect(p)}
+                    onClick={() => select(p)}
                   >
                     {p.nick}
                   </button>
@@ -92,12 +116,15 @@ function RoleBars({ roles }: { roles: PlayerProfile['roles'] }) {
 
 function Profile({ profile }: { profile: PlayerProfile }) {
   const { t } = useTranslation()
-  const { data: maps } = useMaps()
   const refresh = useRefreshPlayer()
 
-  // Our own map names when we know the map
-  const mapName = (id: string) =>
-    maps?.find((m) => m.id === id)?.name ?? id.replace(/^de_/, '')
+  const subtitle = [
+    profile.name,
+    profile.country,
+    profile.team_name,
+    profile.age ? t('players.years', { n: profile.age }) : null,
+    profile.role,
+  ].filter(Boolean)
 
   return (
     <>
@@ -108,10 +135,8 @@ function Profile({ profile }: { profile: PlayerProfile }) {
           )}
           <div className="flex-1">
             <h2 className="mb-0">{profile.nick}</h2>
-            <p className="text-muted">
-              {[profile.name, profile.country, profile.team_name].filter(Boolean).join(' · ')}
-            </p>
-            <a href={`${HLTV}/stats/players/${profile.id}/-`} target="_blank" rel="noreferrer">
+            <p className="text-muted">{subtitle.join(' · ')}</p>
+            <a href={`${HLTV}/player/${profile.id}/-`} target="_blank" rel="noreferrer">
               {t('players.viewOnHltv')}
             </a>
           </div>
@@ -119,13 +144,18 @@ function Profile({ profile }: { profile: PlayerProfile }) {
             <div className="text-center">
               <div className="text-3xl font-bold">{profile.rating}</div>
               <div className="text-xs text-muted">{profile.rating_label}</div>
-              <div className="mt-1 text-xs text-muted">
-                CT {profile.ct_rating ?? '-'} · T {profile.t_rating ?? '-'}
-              </div>
+              {profile.rating_note && (
+                <div className="mt-1 text-xs text-muted">{profile.rating_note}</div>
+              )}
             </div>
           )}
         </div>
-        <p className="mt-3 text-xs text-muted">
+        {profile.stats_window && (
+          <p className="mt-3 text-xs text-muted">
+            {t('players.statsWindow', { window: profile.stats_window })}
+          </p>
+        )}
+        <p className="mt-1 text-xs text-muted">
           {t('players.updated', { when: formatDate(profile.fetched_at) })}{' '}
           <button
             className="ml-2 border border-border bg-transparent text-text"
@@ -152,51 +182,6 @@ function Profile({ profile }: { profile: PlayerProfile }) {
         </div>
       )}
 
-      {profile.career.length > 0 && (
-        <div className={CARD}>
-          <h2>{t('players.career')}</h2>
-          <table>
-            <tbody>
-              {profile.career.map((s) => (
-                <tr key={s.label}>
-                  <td className="text-muted">{s.label}</td>
-                  <td className="text-right">{s.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {profile.maps.length > 0 && (
-        <div className={CARD}>
-          <h2>{t('players.maps')}</h2>
-          <p className="text-muted">{t('players.mapsHint', { n: profile.matches.length })}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>{t('demos.map')}</th>
-                <th className="text-right">{t('players.mapsPlayed')}</th>
-                <th className="text-right">{t('players.kd')}</th>
-                <th className="text-right">{t('players.plusMinus')}</th>
-                <th className="text-right">{t('players.rating')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.maps.map((m) => (
-                <tr key={m.map_id}>
-                  <td>{mapName(m.map_id)}</td>
-                  <td className="text-right">{m.maps_played}</td>
-                  <td className="text-right">{m.kills} - {m.deaths}</td>
-                  <td className="text-right">{m.plus_minus > 0 ? `+${m.plus_minus}` : m.plus_minus}</td>
-                  <td className="text-right">{m.rating?.toFixed(2) ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {profile.matches.length > 0 && (
         <div className={CARD}>
           <h2>{t('players.matches')}</h2>
@@ -204,16 +189,16 @@ function Profile({ profile }: { profile: PlayerProfile }) {
             <thead>
               <tr>
                 <th>{t('players.date')}</th>
+                <th>{t('players.event')}</th>
                 <th>{t('demos.opponent')}</th>
-                <th>{t('demos.map')}</th>
-                <th className="text-right">{t('players.kd')}</th>
-                <th className="text-right">{t('players.rating')}</th>
+                <th className="text-right">{t('players.score')}</th>
               </tr>
             </thead>
             <tbody>
-              {profile.matches.slice(0, 20).map((m, i) => (
+              {profile.matches.map((m, i) => (
                 <tr key={`${m.url ?? i}`}>
                   <td className="text-muted">{formatDay(m.match_date)}</td>
+                  <td className="text-muted">{m.event ?? '-'}</td>
                   <td>
                     {m.url ? (
                       <a href={`${HLTV}${m.url}`} target="_blank" rel="noreferrer">
@@ -223,9 +208,45 @@ function Profile({ profile }: { profile: PlayerProfile }) {
                       m.opponent ?? '-'
                     )}
                   </td>
-                  <td>{mapName(m.map_id)}</td>
-                  <td className="text-right">{m.kills} - {m.deaths}</td>
-                  <td className="text-right">{m.rating?.toFixed(2) ?? '-'}</td>
+                  <td
+                    className={`text-right ${
+                      m.won === null ? '' : m.won ? 'text-ok' : 'text-danger'
+                    }`}
+                  >
+                    {m.score ?? '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {profile.teams.length > 0 && (
+        <div className={CARD}>
+          <h2>{t('players.teams')}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>{t('players.team')}</th>
+                <th>{t('players.from')}</th>
+                <th>{t('players.to')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {profile.teams.map((s, i) => (
+                <tr key={`${s.team_id ?? s.team_name}-${i}`}>
+                  <td>
+                    {s.team_id ? (
+                      <a href={`${HLTV}/team/${s.team_id}/-`} target="_blank" rel="noreferrer">
+                        {s.team_name}
+                      </a>
+                    ) : (
+                      s.team_name
+                    )}
+                  </td>
+                  <td className="text-muted">{formatDay(s.start)}</td>
+                  <td className="text-muted">{s.end ? formatDay(s.end) : t('players.present')}</td>
                 </tr>
               ))}
             </tbody>
@@ -247,7 +268,7 @@ export function PlayersPage() {
       <h1>{t('players.title')}</h1>
       <p className="text-muted">{t('players.subtitle')}</p>
 
-      <PlayerSearch onSelect={(p) => navigate(`/players/${p.id}`)} />
+      <PlayerSearch collapsed={Boolean(id)} onSelect={(p) => navigate(`/players/${p.id}`)} />
 
       {isLoading && (
         <div className={CARD}>

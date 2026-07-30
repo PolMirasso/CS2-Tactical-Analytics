@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
@@ -8,91 +9,107 @@ from app.hltv import players
 from app.hltv.client import HLTVError
 from tests.conftest import auth, register_and_login
 
-# Trimmed from a real HLTV player page (donk, 2026-07-29): the markup patterns
-# the parsers key on, with the 5 MB of scripts/SVG that surrounds them removed.
-OVERVIEW = """
-<html><head>
-<title>Danil 'donk' Kryshkovets Counter-Strike Statistics | HLTV.org</title>
-<meta property="og:image" content="https://img-cdn.hltv.org/playerbodyshot/x.png?bg=3e4c54&amp;w=800">
+# Trimmed from a real HLTV player page (s1mple, 2026-07-30): the markup patterns
+# the parser keys on, with the 7 MB of scripts/SVG that surrounds them removed.
+PROFILE = """
+<html><head><title>Oleksandr 's1mple' Kostyliev's Counter-Strike Player Profile | HLTV.org</title>
 </head><body>
-<script>var junk = "<div class='stats-row'><span>fake</span><span>0</span></div>";</script>
-<div class="context-item">
-  <span class="context-item-name"><img alt="Russia" src="/img/static/flags/30x20/RU.gif"
-   class="context-item-flag flag" title="Russia">donk</span></div>
-<div class="player-summary-stat-box compact">
-  <div class="player-summary-stat-box-side-rating t-rating">
-    <div class="player-summary-stat-box-side-rating-background-wrapper">
-      <div class="player-summary-stat-box-side-rating-background"></div> 1.34
-      <div class="player-summary-stat-box-side-rating-text">T Rating</div></div></div>
-  <div class="player-summary-stat-box-rating-wrapper aboveAverage">
-    <div class="player-summary-stat-box-rating-text">Good</div>
-    <div class="player-summary-stat-box-rating-data-text">1.32</div>
-    <div class="player-summary-stat-box-data-description-text player-summary-stat-box-data-text">
-      Rating 2.0 <div class="player-summary-tooltip hiddenTooltip"><b>Rating 2.0</b></div></div></div>
-  <div class="player-summary-stat-box-side-rating ct-rating">
-    <div class="player-summary-stat-box-side-rating-background-wrapper">
-      <div class="player-summary-stat-box-side-rating-background"></div> 1.30
-      <div class="player-summary-stat-box-side-rating-text">CT Rating</div></div></div>
-  <div class="player-summary-stat-box-right-bottom">
-    <div class="player-summary-stat-box-data-wrapper ">
-      <div class="player-summary-stat-box-data">-</div>
-      <div class="player-summary-stat-box-data-text">Round swing</div>
-      <div class="player-summary-stat-box-breakdown-bar"></div></div>
-    <div class="player-summary-stat-box-data-wrapper average">
-      <div class="player-summary-stat-box-data traditionalData">0.67</div>
-      <div class="player-summary-stat-box-data-text traditionalData">DPR</div>
-      <div class="player-summary-stat-box-breakdown-bar"></div></div>
-    <div class="player-summary-stat-box-data-wrapper aboveAverage">
-      <div class="player-summary-stat-box-data traditionalData">75.1<span
-        class="player-summary-stat-box-percentage">%</span></div>
-      <div class="player-summary-stat-box-data-text traditionalData">KAST</div>
-      <div class="player-summary-stat-box-breakdown-bar"></div></div></div></div>
-<div class="role-stats-section role-firepower">
-  <div class="role-stats-section-title-wrapper stats-side-combined">
-    <div class="role-stats-section-title">Firepower</div>
-    <div class="row-stats-section-score">99<span class="row-stats-section-score-100">/100</span></div></div>
-  <div class="role-stats-section-title-wrapper stats-side-ct hidden">
-    <div class="row-stats-section-score">98<span class="row-stats-section-score-100">/100</span></div></div></div>
-<div class="role-stats-section role-sniping">
-  <div class="role-stats-section-title-wrapper stats-side-combined">
-    <div class="role-stats-section-title">Sniping</div>
-    <div class="row-stats-section-score">1<span class="row-stats-section-score-100">/100</span></div></div></div>
-<div class="statistics"><div class="col stats-rows standard-box">
-  <div class="stats-row"><span>Total kills</span><span>15736</span></div>
-  <div class="stats-row"><span>Headshot %</span><span>61.0%</span></div>
-  <div class="stats-row" title="Data from 2016 onward."><span>Damage / Round</span><span>91.2</span></div>
-  <div class="stats-row"><span>Maps played</span><span>763</span></div>
-</div></div>
+<script>var junk = '<div class="player-stat"><b>Fake</b><p>9.99</p></div>';</script>
+<div class="playerContainer">
+  <div class="player-summary-stat-box-left"><div class="player-summary-stat-box-left-banner-wrapper">
+    <div class="role-pills"><span class="role-pill role-pill--awp" title="Main AWPer"></span></div>
+    <div class="player-summary-stat-box-left-flag"><img alt="Ukraine" class="flag"></div>
+    <a href="/team/12878/bcgame" class="player-summary-stat-box-left-team-logo-wrapper"></a></div>
+    <div class="player-summary-stat-box-left-bodyshot-wrapper"><img alt="Image of s1mple"
+      class="player-summary-stat-box-left-bodyshot" src="https://img-cdn.hltv.org/x.png?w=400&amp;s=abc"></div>
+  </div>
+  <div class="playerInfoWrapper"><div class="playerNameWrapper"><div class="playerName">
+    <h1 class="playerNickname" itemprop="alternateName">s1mple</h1>
+    <div class="playerRealname" itemprop="name"><img alt="Ukraine" class="flag"> Oleksandr Kostyliev</div>
+  </div></div>
+  <div class="playerInfo">
+    <div class="playerInfoRow playerAge"><span class="listLeft">Age</span>
+      <span class="listRight"><span itemprop="text">28 years</span></span></div>
+    <div class="playerInfoRow playerTeam"><span class="listLeft">Current team</span>
+      <span class="listRight text-ellipsis"><img alt="BC.Game"><span>
+      <a href="/team/12878/bcgame" itemprop="text">BC.Game</a></span></span></div>
+    <div class="playerInfoRow playerPrizeMoney"><span class="listLeft "><span>Prize money</span>
+      <span><span class="popup-text"> (?)</span></span></span><span class="listRight">$1,549,315</span></div>
+    <div class="playerInfoRow playerTop20 top-grid-box"><span class="listLeft top20ListLeft">Top 20</span>
+      <span class="listRight top20ListRight"><a href="/news/1">#4</a><span class="top-20-year">('16)</span>,
+      <a href="/news/2">#1</a><span class="top-20-year">('18)</span></span></div>
+    <div class="playerInfoRow playerAchievement"><span class="listLeft">Player achievements</span>
+      <span class="listRight"><div class="majorSection">
+        <div class="majorWinner"><b>1</b> x Major winner</div>
+        <div class="majorMVP"><b>1</b> x Major MVP</div></div></span></div>
+  </div></div>
+</div>
+<div class="trophySection"><div class="trophyRow"><a href="/team/9999/decoy" class="trophy"></a></div></div>
+<div class="tab-content" id="infoBox"><div class="g-grid stats-matches"><div class="col-6 text-ellipsis">
+  <h2 class="standard-headline text-ellipsis">s1mple statistics<span class="stats-window">(Past 3 months
+    • 7 maps)</span></h2>
+  <div class="playerpage-container playerpage-container-attributes">
+    <div class="player-stat"><b>Rating 3.0</b><span class="statsVal">
+      <p>0.98</p>
+      <div class="statsImgContainer"><img class="statsImg" title="Bottom 40% (34th percentile)"></div>
+    </span></div>
+    <div class="player-stat"><div class="player-stat-top"><b>Firepower</b><span class="statsVal">
+      <p><b>73</b><span class="row-stats-section-score-100">/100</span></p></span></div></div>
+    <div class="player-stat"><div class="player-stat-top"><b>Sniping</b><span class="statsVal">
+      <p><b>79</b><span class="row-stats-section-score-100">/100</span></p></span></div></div>
+  </div>
+  <div class="moreButton-container"><a href="/stats/players/7998/s1mple">Complete statistics</a></div>
+</div></div></div>
+<div class="tab-content hidden" id="teamsBox">
+  <h2 class="standard-headline">Team stats for s1mple</h2>
+  <div class="highlighted-stats-box">
+    <div class="highlighted-stat"><div class="stat">8</div><div class="description">Teams</div></div>
+    <div class="highlighted-stat"><div class="stat">367</div>
+      <div class="description">Days in current team</div></div>
+    <div class="highlighted-stat"><div class="stat">4,243</div>
+      <div class="description">Days in teams</div></div>
+  </div>
+  <div class="section-spacer"></div>
+  <table class="table-container team-breakdown"><tbody>
+    <tr class="team ">
+      <td class="time-period-cell"><span data-unix="1753653600000">Jul 2025</span> - Present</td>
+      <td class="team-name-cell"><a href="/team/12878/bcgame">
+        <span class="team-name gtSmartphone-only">BC.Game</span></a></td></tr>
+    <tr class="team past-team">
+      <td class="time-period-cell" data-player-team-period-toggle=""><span data-unix="1732143600000">Nov 2024</span>
+        - <span data-unix="1746396000000">May 2025</span></td>
+      <td class="team-name-cell"><a href="/team/4608/natus-vincere">
+        <span class="team-name gtSmartphone-only">Natus Vincere</span></a></td></tr>
+    <tr class="team-detail hidden"><td class="time-period-cell"><span data-unix="1641164400000">Jan 2022</span></td>
+      <td><span class="team-name">lineup decoy</span></td></tr>
+  </tbody></table>
+</div>
+<div class="tab-content hidden" id="matchesBox">
+  <h2 class="standard-headline">Latest results for s1mple</h2>
+  <table class="table-container match-table">
+    <thead><tr class="event-header-cell">
+      <th colspan="3"><a href="/events/8263/cs-asia">CS Asia Championships 2026 - 13-16th</a></th></tr></thead>
+    <tbody>
+      <tr class="team-row">
+        <td class="date-cell"><span data-unix="1779353853000">21/05/2026</span></td>
+        <td class="team-center-cell">
+          <div class="team-flex lost"><a href="/team/12878/bcgame" class="team-name team-1">BC.Game</a></div>
+          <div class="score-cell"><span class="score lost">0</span>
+            <span class="score-divider">:</span><span class="score ">2</span></div>
+          <div class="team-flex "><a href="/team/4773/pain" class="team-name team-2">paiN</a></div></td>
+        <td class="stats-button-cell"><a href="/stats/matches/127097/bcgame-vs-pain">Stats</a></td></tr>
+      <tr class="team-row">
+        <td class="date-cell"><span data-unix="1779262232000">20/05/2026</span></td>
+        <td class="team-center-cell">
+          <div class="team-flex "><a href="/team/12878/bcgame" class="team-name team-1">BC.Game</a></div>
+          <div class="score-cell"><span class="score ">2</span>
+            <span class="score-divider">:</span><span class="score lost">1</span></div>
+          <div class="team-flex lost"><a href="/team/6667/faze" class="team-name team-2">FaZe</a></div></td>
+        <td class="stats-button-cell"><a href="/stats/matches/127059/bcgame-vs-faze?foo=1">Stats</a></td></tr>
+    </tbody>
+  </table>
+</div>
 </body></html>
-"""
-
-MATCHES = """
-<html><body><table class="stats-table sortable-table stats-matches-table">
-<thead><tr><th>Date</th><th>Player team</th><th>Opponent</th><th>Map</th>
-<th>K - D</th><th>+/-</th><th>Rating</th></tr></thead>
-<tbody>
-<tr class="group-2 first">
-  <td><a href="/stats/matches/mapstatsid/233697/100-thieves-vs-spirit?contextIds=21167">
-    <div class="time" data-unix="1785083700000">26/07/26</div></a></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/7020/spirit" class="inline-block">
-    <span><img alt="Russia" class="flag">Spirit</span></a><span> (13)</span></div>
-    <div class="smartphone-only"><a href="/stats/teams/7020/spirit"><img alt="Spirit"></a></div></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/8474/100-thieves">
-    <span>100 Thieves</span></a><span> (0)</span></div></td>
-  <td class="statsCenterText">d2</td><td>20 - 7</td><td>+13</td><td>2.84</td></tr>
-<tr class="group-2">
-  <td><a href="/stats/matches/mapstatsid/233698/100-thieves-vs-spirit">
-    <div class="time" data-unix="1785083700000">26/07/26</div></a></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/7020/spirit"><span>Spirit</span></a></div></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/8474/100-thieves"><span>100 Thieves</span></a></div></td>
-  <td class="statsCenterText">mrg</td><td>14 - 15</td><td>-1</td><td>0.86</td></tr>
-<tr class="group-1">
-  <td><a href="/stats/matches/mapstatsid/233611/faze-vs-spirit">
-    <div class="time" data-unix="1784997300000">25/07/26</div></a></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/7020/spirit"><span>Spirit</span></a></div></td>
-  <td><div class="gtSmartphone-only"><a href="/stats/teams/6667/faze"><span>FaZe</span></a></div></td>
-  <td class="statsCenterText">d2</td><td>18 - 13</td><td>+5</td><td>1.22</td></tr>
-</tbody></table></body></html>
 """
 
 SEARCH_PAYLOAD = [
@@ -135,57 +152,77 @@ def test_search_hits_carry_identity_and_team():
     assert hits[1].retired and hits[1].team_id is None
 
 
-def test_overview_parses_identity_and_ratings():
-    p = players._parse_overview(OVERVIEW, "21167")
-    assert (p.nick, p.name, p.country) == ("donk", "Danil Kryshkovets", "Russia")
-    assert p.image is not None and p.image.endswith("w=800")  # &amp; unescaped
-    assert (p.rating, p.rating_label) == ("1.32", "Rating 2.0")
-    assert (p.ct_rating, p.t_rating) == ("1.30", "1.34")
+def test_profile_parses_identity_and_current_team():
+    p = players._parse_profile(PROFILE, "7998")
+    assert (p.nick, p.name, p.country) == ("s1mple", "Oleksandr Kostyliev", "Ukraine")
+    assert (p.age, p.role) == (28, "Main AWPer")
+    assert (p.team_id, p.team_name) == ("12878", "BC.Game")
+    assert p.image == "https://img-cdn.hltv.org/x.png?w=400&s=abc"  # &amp; unescaped
 
 
-def test_overview_parses_summary_career_and_roles():
-    p = players._parse_overview(OVERVIEW, "21167")
-    # "Round swing" has no data ("-") and is dropped rather than shown empty.
-    assert [(s.label, s.value) for s in p.summary] == [("DPR", "0.67"), ("KAST", "75.1%")]
-    career = {s.label: s.value for s in p.career}
-    assert career["Total kills"] == "15736" and career["Maps played"] == "763"
-    assert "fake" not in career  # the <script> decoy never reaches the parser
-    # Only the combined-sides score, not the per-side duplicates.
-    assert [(r.role, r.score) for r in p.roles] == [("firepower", 99), ("sniping", 1)]
+def test_profile_parses_the_statistics_box():
+    p = players._parse_profile(PROFILE, "7998")
+    assert (p.rating_label, p.rating) == ("Rating 3.0", "0.98")
+    assert p.rating_note == "Bottom 40% (34th percentile)"
+    assert p.stats_window == "Past 3 months • 7 maps"
+    assert [(r.role, r.score) for r in p.roles] == [("firepower", 73), ("sniping", 79)]
+    assert "fake" not in {r.role for r in p.roles}  # the <script> decoy never reaches the parser
 
 
-def test_match_rows_map_hltv_codes_to_our_map_ids():
-    rows = players._parse_match_rows(MATCHES)
-    assert len(rows) == 3
-    first = rows[0]
-    assert first.map_id == "de_dust2"
-    assert (first.kills, first.deaths, first.plus_minus, first.rating) == (20, 7, 13, 2.84)
-    assert (first.team, first.opponent) == ("Spirit", "100 Thieves")
-    assert first.match_date == date(2026, 7, 26)
-    assert first.url == "/stats/matches/mapstatsid/233697/100-thieves-vs-spirit"
-    assert rows[1].plus_minus == -1  # negative +/- keeps its sign
+def test_profile_summary_collects_the_career_facts():
+    p = players._parse_profile(PROFILE, "7998")
+    assert [(s.label, s.value) for s in p.summary] == [
+        ("Prize money", "$1,549,315"),
+        ("Majors won", "1"),
+        ("Major MVPs", "1"),
+        ("Top 20 appearances", "2"),
+        ("Best Top 20", "#1 ('18)"),
+        ("Teams", "8"),
+        ("Days in current team", "367"),
+    ]
 
 
-def test_map_breakdown_aggregates_the_match_history():
-    rows = players._parse_match_rows(MATCHES)
-    stats = players._aggregate_maps(rows)
-    assert [s.map_id for s in stats] == ["de_dust2", "de_mirage"]  # most played first
-    d2 = stats[0]
-    assert (d2.maps_played, d2.kills, d2.deaths, d2.plus_minus) == (2, 38, 20, 18)
-    assert d2.rating == 2.03  # mean of 2.84 and 1.22
-    assert d2.code == "d2"
+def test_profile_parses_the_team_history():
+    p = players._parse_profile(PROFILE, "7998")
+    assert [(t.team_id, t.team_name) for t in p.teams] == [
+        ("12878", "BC.Game"),
+        ("4608", "Natus Vincere"),
+    ]  # the expandable lineup row is not a spell
+    assert (p.teams[0].start, p.teams[0].end) == (date(2025, 7, 28), None)  # None = still there
+    assert p.teams[1].end == date(2025, 5, 5)
 
 
-def test_unknown_map_code_passes_through():
-    html = MATCHES.replace(">d2<", ">zzz<")
-    stats = players._aggregate_maps(players._parse_match_rows(html))
-    assert {s.map_id for s in stats} == {"zzz", "de_mirage"}
+def test_profile_parses_the_latest_results():
+    p = players._parse_profile(PROFILE, "7998")
+    assert len(p.matches) == 2
+    first = p.matches[0]
+    assert (first.team, first.opponent) == ("BC.Game", "paiN")
+    assert (first.score, first.won) == ("0 - 2", False)
+    assert first.match_date == date(2026, 5, 21)
+    assert first.event == "CS Asia Championships 2026 - 13-16th"
+    assert first.url == "/stats/matches/127097/bcgame-vs-pain"
+    assert p.matches[1].won is True  # the divider is not read as a score
+    assert p.matches[1].url == "/stats/matches/127059/bcgame-vs-faze"  # query string dropped
+
+
+def test_profile_survives_a_page_without_recent_stats():
+    # Inactive players get an empty state where the rating and role bars would be
+    stripped = re.sub(
+        r'<div class="playerpage-container playerpage-container-attributes">.*?'
+        r'(?=<div class="moreButton-container">)',
+        '<div class="playerpage-container empty-state">No stats from past 3 months</div>',
+        PROFILE,
+        flags=re.S,
+    )
+    p = players._parse_profile(stripped, "885")
+    assert p.nick == "s1mple" and p.roles == [] and p.rating is None
+    assert p.matches  # the results table is independent of the stats box
 
 
 def _stub_fetch(monkeypatch, calls: list[str]) -> None:
     def fake(url: str, *, attempts: int = 3) -> str:
         calls.append(url)
-        return MATCHES if "/matches/" in url else OVERVIEW
+        return PROFILE
 
     monkeypatch.setattr(players, "_flaresolverr_get", fake)
 
@@ -195,37 +232,54 @@ def test_profile_endpoint_serves_and_then_caches(client, monkeypatch):
     calls: list[str] = []
     _stub_fetch(monkeypatch, calls)
 
-    resp = client.get("/hltv/players/21167", headers=auth(token))
+    resp = client.get("/hltv/players/7998", headers=auth(token))
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["nick"] == "donk"
-    assert body["team_name"] == "Spirit"  # taken from the most recent match row
-    assert body["maps"][0]["map_id"] == "de_dust2"
+    assert body["nick"] == "s1mple"
+    assert body["team_name"] == "BC.Game"
+    assert body["matches"][0]["opponent"] == "paiN"
     assert body["fetched_at"] is not None
-    assert len(calls) == 2  # overview + match history
+    assert calls == ["https://www.hltv.org/player/7998/-"]  # one solve, not one per section
 
-    again = client.get("/hltv/players/21167", headers=auth(token))
+    again = client.get("/hltv/players/7998", headers=auth(token))
     assert again.status_code == 200
-    assert again.json()["nick"] == "donk"
-    assert len(calls) == 2  # served from the cache
+    assert again.json()["nick"] == "s1mple"
+    assert len(calls) == 1  # served from the cache
 
-    client.get("/hltv/players/21167?refresh=true", headers=auth(token))
-    assert len(calls) == 4
+    client.get("/hltv/players/7998?refresh=true", headers=auth(token))
+    assert len(calls) == 2
+
+
+def test_profile_refetches_a_cache_row_from_an_older_scrape(client, monkeypatch):
+    from app.db import session_scope
+    from app.domain.models import HltvPlayer
+
+    token = register_and_login(client, "players5@example.com")
+    calls: list[str] = []
+    _stub_fetch(monkeypatch, calls)
+    assert client.get("/hltv/players/8000", headers=auth(token)).status_code == 200
+
+    with session_scope() as session:
+        row = session.get(HltvPlayer, "8000")
+        row.payload = row.payload.replace('"payload_version":1', '"payload_version":0')
+
+    assert client.get("/hltv/players/8000", headers=auth(token)).status_code == 200
+    assert len(calls) == 2  # the stale shape is scraped again instead of being served
 
 
 def test_profile_falls_back_to_stale_cache_when_hltv_is_down(client, monkeypatch):
     token = register_and_login(client, "players2@example.com")
     calls: list[str] = []
     _stub_fetch(monkeypatch, calls)
-    assert client.get("/hltv/players/21167", headers=auth(token)).status_code == 200
+    assert client.get("/hltv/players/7998", headers=auth(token)).status_code == 200
 
     def boom(url: str, *, attempts: int = 3) -> str:
         raise HLTVError("FlareSolverr is not configured")
 
     monkeypatch.setattr(players, "_flaresolverr_get", boom)
-    resp = client.get("/hltv/players/21167?refresh=true", headers=auth(token))
+    resp = client.get("/hltv/players/7998?refresh=true", headers=auth(token))
     assert resp.status_code == 200
-    assert resp.json()["nick"] == "donk"
+    assert resp.json()["nick"] == "s1mple"
 
 
 def test_profile_without_cache_reports_the_scrape_failure(client, monkeypatch):

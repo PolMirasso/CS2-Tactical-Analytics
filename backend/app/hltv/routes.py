@@ -188,6 +188,9 @@ def search_players(
     return [PlayerHitOut(**asdict(h)) for h in hits]
 
 
+PLAYER_PAYLOAD_VERSION = 1
+
+
 def _cached_profile(row: HltvPlayer) -> PlayerProfileOut:
     return PlayerProfileOut.model_validate_json(row.payload)
 
@@ -199,21 +202,26 @@ def player_profile(
         _user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
 ) -> PlayerProfileOut:
-    """HLTV career stats for one player"""
+    """HLTV profile and recent form for one player"""
     cached = session.get(HltvPlayer, player_id)
+    usable = _cached_profile(cached) if cached is not None else None
+    if usable is not None and usable.payload_version != PLAYER_PAYLOAD_VERSION:
+        usable = None
     ttl = timedelta(hours=get_settings().hltv_player_cache_hours)
     now = datetime.now(UTC).replace(tzinfo=None)  # the column is naive UTC
-    if cached is not None and not refresh and now - cached.updated_at < ttl:
-        return _cached_profile(cached)
+    if cached is not None and usable is not None and not refresh and now - cached.updated_at < ttl:
+        return usable
 
     try:
         profile = players.fetch_player_profile(player_id)
     except client.HLTVError as exc:
-        if cached is not None:
-            return _cached_profile(cached)
+        if usable is not None:
+            return usable
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    out = PlayerProfileOut(**asdict(profile), fetched_at=now)
+    out = PlayerProfileOut(
+        **asdict(profile), fetched_at=now, payload_version=PLAYER_PAYLOAD_VERSION
+    )
     payload = out.model_dump_json()
     if cached is None:
         session.add(HltvPlayer(id=out.id, nick=out.nick, payload=payload))

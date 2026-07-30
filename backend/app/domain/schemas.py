@@ -228,25 +228,20 @@ class RoleScoreOut(BaseModel):
     score: int
 
 
-class PlayerMapStatOut(BaseModel):
-    map_id: str
-    code: str
-    maps_played: int
-    kills: int
-    deaths: int
-    plus_minus: int
-    rating: float | None = None
+class TeamSpellOut(BaseModel):
+    team_id: str | None = None
+    team_name: str
+    start: date | None = None
+    end: date | None = None
 
 
 class PlayerMatchOut(BaseModel):
     match_date: date | None = None
     team: str | None = None
     opponent: str | None = None
-    map_id: str
-    kills: int | None = None
-    deaths: int | None = None
-    plus_minus: int | None = None
-    rating: float | None = None
+    score: str | None = None
+    won: bool | None = None
+    event: str | None = None
     url: str | None = None
 
 
@@ -258,17 +253,19 @@ class PlayerProfileOut(BaseModel):
     image: str | None = None
     team_id: str | None = None
     team_name: str | None = None
+    age: int | None = None
+    role: str | None = None
     rating: str | None = None
     rating_label: str | None = None
-    ct_rating: str | None = None
-    t_rating: str | None = None
+    rating_note: str | None = None
+    stats_window: str | None = None
     summary: list[StatItemOut] = []
-    career: list[StatItemOut] = []
     roles: list[RoleScoreOut] = []
-    maps: list[PlayerMapStatOut] = []
+    teams: list[TeamSpellOut] = []
     matches: list[PlayerMatchOut] = []
     # When the cached copy was scraped
     fetched_at: datetime | None = None
+    payload_version: int = 0
 
 
 class DownloadJobOut(BaseModel):

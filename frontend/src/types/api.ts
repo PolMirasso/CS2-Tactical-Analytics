@@ -428,25 +428,20 @@ export interface RoleScore {
   score: number
 }
 
-export interface PlayerMapStat {
-  map_id: string
-  code: string
-  maps_played: number
-  kills: number
-  deaths: number
-  plus_minus: number
-  rating: number | null
+export interface TeamSpell {
+  team_id: string | null
+  team_name: string
+  start: string | null
+  end: string | null 
 }
 
 export interface PlayerMatch {
   match_date: string | null
   team: string | null
   opponent: string | null
-  map_id: string
-  kills: number | null
-  deaths: number | null
-  plus_minus: number | null
-  rating: number | null
+  score: string | null
+  won: boolean | null
+  event: string | null
   url: string | null
 }
 
@@ -458,14 +453,15 @@ export interface PlayerProfile {
   image: string | null
   team_id: string | null
   team_name: string | null
+  age: number | null
+  role: string | null
   rating: string | null
   rating_label: string | null
-  ct_rating: string | null
-  t_rating: string | null
+  rating_note: string | null
+  stats_window: string | null
   summary: StatItem[]
-  career: StatItem[]
   roles: RoleScore[]
-  maps: PlayerMapStat[]
+  teams: TeamSpell[]
   matches: PlayerMatch[]
   fetched_at: string | null
 }
