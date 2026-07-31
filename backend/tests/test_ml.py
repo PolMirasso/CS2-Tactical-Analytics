@@ -647,6 +647,91 @@ def test_tendencies_filters_by_match_date(client):
     assert 0 < sum(z["total"] for z in recent["heatmap"]) < sum(z["total"] for z in both["heatmap"])
 
 
+def test_tendencies_filters_by_match_phase(client):
+    """The four phases partition the rounds: pistols are not counted inside a half."""
+    token = register_and_login(client, "mlphase@example.com")
+    team = "PhaseFC"
+    _upload(client, token, content=b"tend-phase", map_id="de_anubis", team=team,
+            visibility="private")
+
+    def tend(**params):
+        resp = client.get(
+            "/scouting/tendencies",
+            params={"map_id": "de_anubis", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()["total_rounds"]
+
+    total = tend()
+    parts = {p: tend(phase=p) for p in ("pistol", "first_half", "second_half", "overtime")}
+    assert sum(parts.values()) == total
+    # A sample demo is 24 regulation rounds: pistols 1 and 13, no overtime.
+    assert parts["pistol"] == 2
+    assert parts["first_half"] == parts["second_half"] == 11
+    assert parts["overtime"] == 0
+    assert tend(phase="bogus") == total
+
+
+def test_support_counts_the_phase_against_the_model(client):
+    """Unlike the period, the phase is a model feature — it narrows the model count too."""
+    token = register_and_login(client, "mlsupportphase@example.com")
+    team = "PhaseSupportFC"
+    _upload(client, token, content=b"support-phase", map_id="de_vertigo", team=team,
+            visibility="private")
+
+    def support(**params):
+        resp = client.get(
+            "/scouting/support",
+            params={"map_id": "de_vertigo", "team": team, **params},
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    plain = support()
+    pistol = support(phase="pistol")
+    assert pistol["filters"] == ["team", "phase"]
+    assert 0 < pistol["rounds"] < plain["rounds"]
+    assert pistol["rounds"] == pistol["model_rounds"]
+    assert pistol["level"] == "low" and pistol["scope"] == "model"
+    drops = {d["filter"]: d["rounds_without"] for d in pistol["drops"]}
+    assert drops["phase"] == plain["rounds"]
+
+
+def test_predict_baseline_honours_match_phase(client):
+    """Phase scopes the historical baseline, like the date window."""
+    token = register_and_login(client, "mlpredictphase@example.com")
+    team = "PhaseBaselineFC"
+    _upload(client, token, content=b"predict-phase", map_id="de_anubis", team=team,
+            visibility="private")
+
+    def predict(**extra):
+        resp = client.post(
+            "/scouting/predict",
+            json={
+                "map_id": "de_anubis",
+                "team": team,
+                "buy_type": "full",
+                "utility": [{
+                    "util_type": "smoke", "x": 300.0, "y": 400.0,
+                    "w": 60.0, "h": 60.0, "time_from": 4.0, "time_to": 8.0, "side": "t",
+                }],
+                **extra,
+            },
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    # Sample demos never reach overtime ⇒ no rounds back it ⇒ uniform fallback.
+    assert all(abs(b["prob"] - 1 / len(SITES)) < 1e-9 for b in predict(phase="overtime")["baseline"])
+    # Two pistol rounds per demo can never split three ways evenly.
+    pistol = predict(phase="pistol")
+    assert any(abs(b["prob"] - 1 / len(SITES)) > 1e-9 for b in pistol["baseline"])
+    assert abs(sum(b["prob"] for b in pistol["baseline"]) - 1.0) < 1e-9
+
+
 def test_support_flags_a_thin_filter_combination(client):
     """A filter combination no round matches must come back as unsupported."""
     token = register_and_login(client, "mlsupport@example.com")

@@ -260,6 +260,14 @@
     "weaponCount": "Minimum count",
     "weaponMinHint": "The team carries these weapons, at least the number shown (≥).",
     "removeWeapon": "Remove weapon",
+    "phase": "Match phase",
+    "phaseHint": "Halves exclude the pistol round, which is its own bucket.",
+    "phases": {
+      "pistol": "Pistol",
+      "first_half": "1st half",
+      "second_half": "2nd half",
+      "overtime": "Overtime"
+    },
     "filters": "Filters",
     "clearFilters": "Clear filters",
     "anyFilter": "Any",

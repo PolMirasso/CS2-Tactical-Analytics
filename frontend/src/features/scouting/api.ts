@@ -3,6 +3,7 @@ import type {
   FilterSupportOut,
   FilterSupportParams,
   ModelStatusOut,
+  Phase,
   PredictIn,
   PredictOut,
   TendenciesOut,
@@ -11,9 +12,15 @@ import type { DateWindow } from './period'
 
 export const scoutingApi = {
   predict: (payload: PredictIn) => api.post<PredictOut>('/scouting/predict', payload),
-  tendencies: (mapId: string, team?: string[], dateWindow?: DateWindow, roster?: string) =>
+  tendencies: (
+    mapId: string,
+    team?: string[],
+    dateWindow?: DateWindow,
+    roster?: string,
+    phase?: Phase,
+  ) =>
     api.get<TendenciesOut>(
-      `/scouting/tendencies${qs({ map_id: mapId, team, ...dateWindow, roster })}`,
+      `/scouting/tendencies${qs({ map_id: mapId, team, ...dateWindow, roster, phase })}`,
     ),
   support: (params: FilterSupportParams) =>
     api.get<FilterSupportOut>(`/scouting/support${qs(params)}`),

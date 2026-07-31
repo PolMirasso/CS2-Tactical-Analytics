@@ -80,3 +80,13 @@ def test_is_pistol_round_regulation_halves_only():
     assert is_pistol_round(13)
     # Overtime rounds start with money, never as pistol rounds.
     assert not any(is_pistol_round(n) for n in (2, 12, 24, 25, 28, 31))
+
+
+def test_round_phase_partitions_the_match():
+    from app.domain.phases import PHASES, round_phase
+
+    assert round_phase(1) == round_phase(13) == "pistol"
+    assert round_phase(2) == round_phase(12) == "first_half"
+    assert round_phase(14) == round_phase(24) == "second_half"
+    assert round_phase(25) == round_phase(31) == "overtime"
+    assert {round_phase(n) for n in range(1, 40)} == set(PHASES)

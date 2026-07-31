@@ -348,6 +348,7 @@ class SitePredictor:
         opponent_equip_value: float | int | None = None,
         team_weapon: str | Iterable[str] | None = None,
         opponent_weapon: str | Iterable[str] | None = None,
+        phase: str | None = None,
     ) -> dict[str, float] | None:
         """Per-site probabilities P = [gate·site, gate·site, 1-gate], or None untrained"""
         if self.gate_net is None or self.site_net is None or self.gate_vec is None:
@@ -372,6 +373,7 @@ class SitePredictor:
                 opponent_equip_value=opponent_equip_value,
                 team_weapon=team_weapon,
                 opponent_weapon=opponent_weapon,
+                phase=phase,
             )
             x_ctx = np.asarray(self.gate_vec.transform([ctx_dict])[0], dtype=float)
             tokens = _to_array(round_tokens(map_id, sampled))

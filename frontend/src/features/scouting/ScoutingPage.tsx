@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BuyType, FilterSupportOut, FilterSupportParams, MapOut, PerMapMetric, PredictOut, ReliabilityBin, Site, SupportFilter, Timing, UtilityType, ZoneOut } from '@/types/api'
+import type { BuyType, FilterSupportOut, FilterSupportParams, MapOut, PerMapMetric, Phase, PredictOut, ReliabilityBin, Site, SupportFilter, Timing, UtilityType, ZoneOut } from '@/types/api'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTeamRoster, useTeams } from '@/features/analytics/hooks'
 import { RosterChangeWarning, lineupLabel } from '@/features/analytics/RosterChangeWarning'
@@ -17,6 +17,7 @@ import { PERIOD_PRESETS, periodWindow, windowLabel, type PeriodPreset } from './
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
+const PHASES: Phase[] = ['pistol', 'first_half', 'second_half', 'overtime']
 const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
 const TIMING_ORDER: Timing[] = ['rush', 'default', 'late']
 const BUY_EQUIP: Record<string, number> = {
@@ -229,6 +230,7 @@ export function ScoutingPage() {
   const [oppEquip, setOppEquip] = useState<EquipRange>(EQUIP_ANY)
   const [teamWeapons, setTeamWeapons] = useState<WeaponPick[]>([])
   const [oppWeapons, setOppWeapons] = useState<WeaponPick[]>([])
+  const [phase, setPhase] = useState<Phase | ''>('')
   const [period, setPeriod] = useState<PeriodPreset>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -276,6 +278,7 @@ export function ScoutingPage() {
     teamIds.length ? teamIds : undefined,
     dateWindow,
     rosterFilter,
+    phase || undefined,
   )
   const supportParams: FilterSupportParams | undefined = useMemo(() => {
     if (!mapId) return undefined
@@ -292,10 +295,11 @@ export function ScoutingPage() {
       opponent_equip_max: oppBounds.max,
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : undefined,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : undefined,
+      phase: phase || undefined,
       ...dateWindow,
       roster: rosterFilter,
     }
-  }, [mapId, teamIds, buyType, teamEquip, oppBuyType, oppEquip, teamWeapons, oppWeapons, dateWindow, rosterFilter])
+  }, [mapId, teamIds, buyType, teamEquip, oppBuyType, oppEquip, teamWeapons, oppWeapons, phase, dateWindow, rosterFilter])
   const { data: support } = useFilterSupport(supportParams)
   const modelStatus = useModelStatus()
   const predict = usePredict()
@@ -348,6 +352,7 @@ export function ScoutingPage() {
       opponent_equip: oppEquip,
       team_weapons: teamWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
       opponent_weapons: oppWeapons.map((p) => ({ weapon: p.weapon, count: p.count })),
+      phase,
       period,
       ...dateWindow,
       roster: rosterFilter ?? '',
@@ -459,6 +464,8 @@ export function ScoutingPage() {
     const oe = readEquip(obj.opponent_equip); if (oe !== null) setOppEquip(oe)
     const tw = readWeapons(obj.team_weapons ?? obj.team_weapon); if (tw !== null) setTeamWeapons(tw)
     const ow = readWeapons(obj.opponent_weapons ?? obj.opponent_weapon); if (ow !== null) setOppWeapons(ow)
+    if (obj.phase === '' || (typeof obj.phase === 'string' && (PHASES as string[]).includes(obj.phase)))
+      setPhase(obj.phase as Phase | '')
     if (Array.isArray(obj.teams)) setTeamIds(obj.teams.filter((v): v is string => typeof v === 'string'))
     else if (typeof obj.team === 'string') setTeamIds([obj.team])
     if (typeof obj.roster === 'string') setRosterId(obj.roster)
@@ -477,6 +484,7 @@ export function ScoutingPage() {
       opponent_equip_value: equipValue(oppBuyType, oppEquip),
       team_weapons: teamWeapons.length ? teamWeapons.map((p) => p.weapon) : null,
       opponent_weapons: oppWeapons.length ? oppWeapons.map((p) => p.weapon) : null,
+      phase: phase || null,
       ...dateWindow,
       roster: rosterFilter ?? null,
       utility: tokens.map((tk) => ({
@@ -497,7 +505,8 @@ export function ScoutingPage() {
   // test all maps
   const perMap = evaluateMaps.data?.per_map ?? (ms?.trained ? ms.per_map : null)
   const activeFilterCount =
-    [isBuyFiltered(buyType, teamEquip), isBuyFiltered(oppBuyType, oppEquip)].filter(Boolean).length
+    [isBuyFiltered(buyType, teamEquip), isBuyFiltered(oppBuyType, oppEquip), !!phase]
+      .filter(Boolean).length
     + teamWeapons.length + oppWeapons.length
   const buyReport = (label: string, buy: BuyFilter, range: EquipRange) =>
     isBuyFiltered(buy, range)
@@ -506,6 +515,7 @@ export function ScoutingPage() {
   const lineupSummary = lineup
     && `${t('analytics.roster.filterShort')}: ${lineupLabel(lineup, roster?.core ?? [])}`
   const filterSummary = [
+    phase && `${t('scouting.phase')}: ${t(`scouting.phases.${phase}`)}`,
     buyReport(t('scouting.teamBuy'), buyType, teamEquip),
     buyReport(t('scouting.oppBuy'), oppBuyType, oppEquip),
     teamWeapons.length > 0 && `${t('scouting.teamWeapon')}: ${weaponSummary(teamWeapons)}`,
@@ -515,6 +525,7 @@ export function ScoutingPage() {
     setBuyType(''); setTeamEquip(EQUIP_ANY)
     setOppBuyType(''); setOppEquip(EQUIP_ANY)
     setTeamWeapons([]); setOppWeapons([])
+    setPhase('')
   }
 
   return (
@@ -639,6 +650,23 @@ export function ScoutingPage() {
               id="sc-filters"
               className="mt-2 divide-y divide-border rounded-lg border border-border bg-surface-2/30 px-4"
             >
+              <FilterRow
+                label={t('scouting.phase')}
+                htmlFor="sc-phase"
+                hint={t('scouting.phaseHint')}
+              >
+                <select
+                  id="sc-phase"
+                  className="!mb-0"
+                  value={phase}
+                  onChange={(e) => setPhase(e.target.value as Phase | '')}
+                >
+                  <option value="">{t('scouting.anyFilter')}</option>
+                  {PHASES.map((p) => (
+                    <option key={p} value={p}>{t(`scouting.phases.${p}`)}</option>
+                  ))}
+                </select>
+              </FilterRow>
               <FilterRow label={t('scouting.teamBuy')} htmlFor="sc-buy">
                 <BuySelect
                   id="sc-buy"
@@ -943,6 +971,7 @@ const SUPPORT_FILTER_LABEL: Record<SupportFilter, string> = {
   opp_equip: 'scouting.oppEquip',
   team_weapons: 'scouting.teamWeapon',
   opp_weapons: 'scouting.oppWeapon',
+  phase: 'scouting.phase',
   period: 'scouting.period',
   roster: 'analytics.roster.filterShort',
 }

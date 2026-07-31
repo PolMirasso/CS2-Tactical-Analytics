@@ -7,6 +7,7 @@ from pathlib import Path
 from app.analytics.maps import classify_point, get_map, list_maps, to_radar_pixel
 from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
+from app.domain.phases import REGULATION_HALF, is_pistol_round
 from app.domain.weapons import weapons_present
 from app.parsing.replay import ReplayData, build_replay, build_sample_replay
 
@@ -17,10 +18,6 @@ _FULL_ECO_MAX = 4_000
 _ECO_MAX = 9_000
 _FORCE_MAX = 18_000
 
-# Match structure: MR12 regulation (24 rounds, half at 12), MR3 overtime halves.
-_REGULATION_ROUNDS = 24
-_REGULATION_HALF = 12
-
 # Hero weapon → buy type, ordered by precedence (AWP outranks rifles).
 _HERO_BUYS: tuple[tuple[str, tuple[str, ...], BuyType], ...] = (
     ("awp", ("awp",), BuyType.AWP_HERO),
@@ -28,12 +25,6 @@ _HERO_BUYS: tuple[tuple[str, tuple[str, ...], BuyType], ...] = (
     ("m4", ("m4a1", "m4a4", "m4a1-s", "m4"), BuyType.M4_HERO),
 )
 
-
-def is_pistol_round(round_number: int) -> bool:
-    """First round of each regulation half (1, 13); overtime starts with money."""
-    if round_number > _REGULATION_ROUNDS:
-        return False
-    return round_number % _REGULATION_HALF == 1
 
 # demoparser2 grenade_type strings
 _GRENADE_MAP = {
@@ -410,7 +401,7 @@ def _assign_player_teams(
             for p in r.players:
                 # steamid is stable across halves
                 id_of.setdefault(p.name, p.steamid)
-                if r.round_number <= _REGULATION_HALF:
+                if r.round_number <= REGULATION_HALF:
                     side_of.setdefault(p.name, p.side)  # sides are stable pre-half
     for s in stats:
         side = side_of.get(s.name)

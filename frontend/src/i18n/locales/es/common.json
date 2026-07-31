@@ -260,6 +260,14 @@
     "weaponCount": "Cantidad mínima",
     "weaponMinHint": "El equipo lleva estas armas, al menos las veces indicadas (≥).",
     "removeWeapon": "Quitar arma",
+    "phase": "Fase del partido",
+    "phaseHint": "Las mitades excluyen la ronda de pistola, que va en su propio grupo.",
+    "phases": {
+      "pistol": "Pistola",
+      "first_half": "1ª mitad",
+      "second_half": "2ª mitad",
+      "overtime": "Prórroga"
+    },
     "filters": "Filtros",
     "clearFilters": "Limpiar filtros",
     "anyFilter": "Cualquiera",

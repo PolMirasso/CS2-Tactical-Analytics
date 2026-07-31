@@ -8,6 +8,7 @@ from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, PlayerStat, Round, User, UtilityEvent
+from app.domain.phases import PHASES, PISTOL_ROUNDS, REGULATION_ROUNDS, phase_bounds
 from app.domain.schemas import (
     FilterSupportOut,
     RosterEntry,
@@ -60,6 +61,17 @@ def _date_conditions(date_from: date | None, date_to: date | None) -> list:
     return conds
 
 
+def _phase_conditions(phase: str | None) -> list:
+    """Match phase, from the round number alone (mirrors domain.phases.round_phase)"""
+    if phase not in PHASES:
+        return []
+    if phase == "pistol":
+        return [Round.round_number.in_(PISTOL_ROUNDS)]
+    if phase == "overtime":
+        return [Round.round_number > REGULATION_ROUNDS]
+    return [Round.round_number.between(*phase_bounds(phase))]
+
+
 def _equip_conditions(column, low: int | None, high: int | None) -> list:
     """Equipment-value window; rounds without a value drop out."""
     if low is not None and high is not None and low > high:
@@ -106,6 +118,7 @@ def filter_support(
         opponent_equip_max: int | None = None,
         team_weapons: list[str] | None = None,
         opponent_weapons: list[str] | None = None,
+        phase: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
         roster: str | None = None,
@@ -136,6 +149,9 @@ def filter_support(
         parts.append(
             ("opp_weapons", [_weapons_condition(Round.opponent_weapons, opponent_weapons)])
         )
+    phase_conds = _phase_conditions(phase)
+    if phase_conds:
+        parts.append(("phase", phase_conds))
     date_conds = _date_conditions(date_from, date_to)
     if date_conds:
         parts.append(("period", date_conds))
@@ -221,6 +237,7 @@ def site_distribution(
         map_id: str,
         teams: list[str] | None = None,
         buy_types: list[str] | None = None,
+        phase: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
         roster: str | None = None,
@@ -232,6 +249,7 @@ def site_distribution(
         conds.append(_teams_filter(teams))
     if buy_types:
         conds.append(Round.buy_type.in_(buy_types))
+    conds += _phase_conditions(phase)
     conds += _date_conditions(date_from, date_to)
     conds += _roster_conditions(session, user, map_id=map_id, teams=teams, roster=roster)
 
@@ -482,6 +500,7 @@ def utility_heatmap(
         *,
         map_id: str,
         teams: list[str] | None = None,
+        phase: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
         roster: str | None = None,
@@ -490,6 +509,7 @@ def utility_heatmap(
     conds = _base_conditions(session, user, map_id)
     if teams:
         conds.append(_teams_filter(teams))
+    conds += _phase_conditions(phase)
     conds += _date_conditions(date_from, date_to)
     conds += _roster_conditions(session, user, map_id=map_id, teams=teams, roster=roster)
 

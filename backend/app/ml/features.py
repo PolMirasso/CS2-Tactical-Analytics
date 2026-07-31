@@ -171,9 +171,10 @@ def round_context(
     opponent_weapons: str | None = None,
     team_weapon: str | Iterable[str] | None = None,
     opponent_weapon: str | Iterable[str] | None = None,
+    phase: str | None = None,
 ) -> dict[str, float | str]:
     """Round-level context fed to the DeepSets head alongside the pooled set.
-    Categorical keys (map/team/opponent/buy/opp_buy) stay strings for the
+    Categorical keys (map/team/opponent/buy/opp_buy/phase) stay strings for the
     DictVectorizer to one-hot; the rest are normalised scalars
     """
     ctx: dict[str, float | str] = {
@@ -184,6 +185,7 @@ def round_context(
         "equip": _equip_scalar(equip_value),
         "opp_buy": opponent_buy_type or "?",
         "opp_equip": _equip_scalar(opponent_equip_value),
+        "phase": phase or "?",
     }
     _emit_weapons(ctx, "t", team_weapons, team_weapon)
     _emit_weapons(ctx, "ct", opponent_weapons, opponent_weapon)

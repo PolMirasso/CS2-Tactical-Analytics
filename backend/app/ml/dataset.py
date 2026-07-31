@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
+from app.domain.phases import round_phase
 from app.ml.features import round_context, round_tokens, timing_label
 
 
@@ -54,6 +55,7 @@ def build_dataset(
                     opponent_equip_value=r.opponent_equip_value,
                     team_weapons=r.team_weapons,
                     opponent_weapons=r.opponent_weapons,
+                    phase=round_phase(r.round_number),
                 ),
             }
         )

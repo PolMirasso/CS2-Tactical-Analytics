@@ -57,11 +57,12 @@ def _baseline_dist(
     date_from: date | None = None,
     date_to: date | None = None,
     roster: str | None = None,
+    phase: str | None = None,
 ) -> dict[str, float]:
     dist = aggregate.site_distribution(
         session, user,
         map_id=map_id, teams=[team] if team else None,
-        date_from=date_from, date_to=date_to, roster=roster,
+        phase=phase, date_from=date_from, date_to=date_to, roster=roster,
     )
     if dist.total_rounds == 0:
         return {s: 1.0 / len(SITES) for s in SITES}
@@ -99,7 +100,7 @@ def predict(
     # The model is trained on the whole history
     baseline = _baseline_dist(
         session, user, payload.map_id, payload.team,
-        payload.date_from, payload.date_to, payload.roster,
+        payload.date_from, payload.date_to, payload.roster, payload.phase,
     )
     probs = predictor.model_proba(
         map_id=payload.map_id,
@@ -112,6 +113,7 @@ def predict(
         opponent_equip_value=payload.opponent_equip_value,
         team_weapon=payload.team_weapons,
         opponent_weapon=payload.opponent_weapons,
+        phase=payload.phase,
     )
     source = "model" if probs is not None else "baseline"
     dist = probs if probs is not None else baseline
@@ -144,6 +146,7 @@ def predict(
 def tendencies(
     map_id: str,
     team: list[str] | None = Query(None),
+    phase: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     roster: str | None = None,
@@ -151,11 +154,11 @@ def tendencies(
     session: Session = Depends(get_session),
 ) -> TendenciesOut:
     dist = aggregate.site_distribution(
-        session, user, map_id=map_id, teams=team,
+        session, user, map_id=map_id, teams=team, phase=phase,
         date_from=date_from, date_to=date_to, roster=roster,
     )
     heatmap = aggregate.utility_heatmap(
-        session, user, map_id=map_id, teams=team,
+        session, user, map_id=map_id, teams=team, phase=phase,
         date_from=date_from, date_to=date_to, roster=roster,
     )
     return TendenciesOut(
@@ -179,6 +182,7 @@ def support(
     opponent_equip_max: int | None = None,
     team_weapons: list[str] | None = Query(None),
     opponent_weapons: list[str] | None = Query(None),
+    phase: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     roster: str | None = None,
@@ -198,6 +202,7 @@ def support(
         opponent_equip_max=opponent_equip_max,
         team_weapons=team_weapons,
         opponent_weapons=opponent_weapons,
+        phase=phase,
         date_from=date_from,
         date_to=date_to,
         roster=roster,

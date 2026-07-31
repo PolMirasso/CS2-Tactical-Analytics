@@ -242,6 +242,8 @@ export interface UtilityInput {
   side: string
 }
 
+export type Phase = 'pistol' | 'first_half' | 'second_half' | 'overtime'
+
 export interface PredictIn {
   map_id: string
   team?: string | null
@@ -252,6 +254,7 @@ export interface PredictIn {
   opponent_equip_value?: number | null
   team_weapons?: string[] | null
   opponent_weapons?: string[] | null
+  phase?: Phase | null
   date_from?: string
   date_to?: string
   roster?: string | null
@@ -303,7 +306,7 @@ export interface TendenciesOut {
 
 export type SupportFilter =
   | 'team' | 'buy' | 'equip' | 'opp_buy' | 'opp_equip' | 'team_weapons' | 'opp_weapons'
-  | 'period' | 'roster'
+  | 'phase' | 'period' | 'roster'
 
 export interface SupportDrop {
   filter: SupportFilter
@@ -334,6 +337,7 @@ export interface FilterSupportParams extends DateWindowParams {
   opponent_equip_max?: number
   team_weapons?: string[]
   opponent_weapons?: string[]
+  phase?: Phase
   roster?: string
 }
 

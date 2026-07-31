@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { FilterSupportParams, PredictIn } from '@/types/api'
+import type { FilterSupportParams, Phase, PredictIn } from '@/types/api'
 import { scoutingApi } from './api'
 import type { DateWindow } from './period'
 
@@ -8,10 +8,11 @@ export function useTendencies(
   teams: string[] | undefined,
   dateWindow?: DateWindow,
   roster?: string,
+  phase?: Phase,
 ) {
   return useQuery({
-    queryKey: ['scouting', 'tendencies', mapId, teams, dateWindow, roster],
-    queryFn: () => scoutingApi.tendencies(mapId!, teams, dateWindow, roster),
+    queryKey: ['scouting', 'tendencies', mapId, teams, dateWindow, roster, phase],
+    queryFn: () => scoutingApi.tendencies(mapId!, teams, dateWindow, roster, phase),
     enabled: !!mapId,
     staleTime: 60_000,
   })
