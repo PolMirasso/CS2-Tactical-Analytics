@@ -1,0 +1,331 @@
+{
+ "kind": "cs2ta.scouting.presets.v1",
+ "generated_at": "2026-08-01",
+ "presets": {
+  "de_dust2": [
+   {
+    "id": "de_dust2-b-2",
+    "map_id": "de_dust2",
+    "site": "B",
+    "label": "B Doors + Scaffolding",
+    "n_rounds": 31,
+    "n_demos": 19,
+    "share": 0.767,
+    "lift": 3.55,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 269.0,
+      "y": 224.1,
+      "w": 151.6,
+      "h": 108.7,
+      "time_from": 9.5,
+      "time_to": 43.0,
+      "support": 0.97,
+      "zone": "dust2_b_doors"
+     },
+     {
+      "util_type": "flash",
+      "x": 146.4,
+      "y": 321.6,
+      "w": 88.2,
+      "h": 77.4,
+      "time_from": 7.0,
+      "time_to": 29.8,
+      "support": 0.81,
+      "zone": "dust2_close"
+     },
+     {
+      "util_type": "molotov",
+      "x": 301.8,
+      "y": 135.9,
+      "w": 123.8,
+      "h": 56.8,
+      "time_from": 14.7,
+      "time_to": 35.9,
+      "support": 0.81,
+      "zone": "dust2_scaffolding"
+     },
+     {
+      "util_type": "flash",
+      "x": 70.0,
+      "y": 200.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 7.0,
+      "time_to": 20.5,
+      "support": 0.68,
+      "zone": "dust2_fence"
+     },
+     {
+      "util_type": "smoke",
+      "x": 460.9,
+      "y": 364.3,
+      "w": 40.0,
+      "h": 49.3,
+      "time_from": 0.0,
+      "time_to": 5.4,
+      "support": 0.48,
+      "zone": "dust2_mid_doors"
+     },
+     {
+      "util_type": "molotov",
+      "x": 327.0,
+      "y": 435.6,
+      "w": 183.7,
+      "h": 84.0,
+      "time_from": 3.1,
+      "time_to": 30.0,
+      "support": 0.45,
+      "zone": "dust2_lower_b_tunnels"
+     }
+    ]
+   },
+   {
+    "id": "de_dust2-b-0",
+    "map_id": "de_dust2",
+    "site": "B",
+    "label": "A Short + Mid Doors",
+    "n_rounds": 70,
+    "n_demos": 31,
+    "share": 0.4,
+    "lift": 1.85,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 460.2,
+      "y": 371.5,
+      "w": 40.0,
+      "h": 47.6,
+      "time_from": 0.0,
+      "time_to": 21.2,
+      "support": 0.93,
+      "zone": "dust2_mid_doors"
+     },
+     {
+      "util_type": "flash",
+      "x": 447.1,
+      "y": 410.3,
+      "w": 164.2,
+      "h": 124.6,
+      "time_from": 10.3,
+      "time_to": 35.7,
+      "support": 0.76,
+      "zone": "dust2_lower_b_tunnels"
+     },
+     {
+      "util_type": "molotov",
+      "x": 653.6,
+      "y": 363.1,
+      "w": 42.5,
+      "h": 104.2,
+      "time_from": 21.0,
+      "time_to": 42.9,
+      "support": 0.63,
+      "zone": "dust2_a_short"
+     },
+     {
+      "util_type": "molotov",
+      "x": 497.7,
+      "y": 409.3,
+      "w": 120.7,
+      "h": 52.7,
+      "time_from": 3.2,
+      "time_to": 23.7,
+      "support": 0.57,
+      "zone": "dust2_lower_b_tunnels"
+     },
+     {
+      "util_type": "flash",
+      "x": 810.7,
+      "y": 604.4,
+      "w": 145.3,
+      "h": 108.6,
+      "time_from": 0.0,
+      "time_to": 14.8,
+      "support": 0.46,
+      "zone": "dust2_side_pit"
+     },
+     {
+      "util_type": "smoke",
+      "x": 526.5,
+      "y": 233.8,
+      "w": 84.6,
+      "h": 40.0,
+      "time_from": 28.9,
+      "time_to": 43.3,
+      "support": 0.44,
+      "zone": "dust2_ct_mid"
+     }
+    ]
+   },
+   {
+    "id": "de_dust2-a-2",
+    "map_id": "de_dust2",
+    "site": "A",
+    "label": "Side Pit + Elevator",
+    "n_rounds": 66,
+    "n_demos": 29,
+    "share": 0.533,
+    "lift": 1.57,
+    "tokens": [
+     {
+      "util_type": "flash",
+      "x": 805.2,
+      "y": 609.0,
+      "w": 102.4,
+      "h": 90.1,
+      "time_from": 2.6,
+      "time_to": 11.3,
+      "support": 1.0,
+      "zone": "dust2_side_pit"
+     },
+     {
+      "util_type": "smoke",
+      "x": 462.9,
+      "y": 363.7,
+      "w": 69.6,
+      "h": 139.1,
+      "time_from": 0.0,
+      "time_to": 32.1,
+      "support": 0.91,
+      "zone": "dust2_mid_doors"
+     },
+     {
+      "util_type": "molotov",
+      "x": 525.2,
+      "y": 408.3,
+      "w": 114.2,
+      "h": 44.3,
+      "time_from": 0.0,
+      "time_to": 28.2,
+      "support": 0.56,
+      "zone": "dust2_catwalk"
+     },
+     {
+      "util_type": "smoke",
+      "x": 855.4,
+      "y": 480.8,
+      "w": 169.6,
+      "h": 140.3,
+      "time_from": 0.0,
+      "time_to": 3.6,
+      "support": 0.48,
+      "zone": "dust2_long_corner"
+     },
+     {
+      "util_type": "smoke",
+      "x": 818.0,
+      "y": 248.4,
+      "w": 178.1,
+      "h": 62.9,
+      "time_from": 12.6,
+      "time_to": 37.3,
+      "support": 0.42,
+      "zone": "dust2_elevator"
+     }
+    ]
+   },
+   {
+    "id": "de_dust2-a-0",
+    "map_id": "de_dust2",
+    "site": "A",
+    "label": "Long Doors + Elevator",
+    "n_rounds": 39,
+    "n_demos": 25,
+    "share": 0.5,
+    "lift": 1.47,
+    "tokens": [
+     {
+      "util_type": "flash",
+      "x": 780.4,
+      "y": 624.4,
+      "w": 56.9,
+      "h": 40.0,
+      "time_from": 4.7,
+      "time_to": 13.4,
+      "support": 0.92,
+      "zone": "dust2_side_pit"
+     },
+     {
+      "util_type": "flash",
+      "x": 675.6,
+      "y": 534.9,
+      "w": 48.3,
+      "h": 40.0,
+      "time_from": 4.7,
+      "time_to": 17.1,
+      "support": 0.77,
+      "zone": "dust2_long_doors"
+     },
+     {
+      "util_type": "smoke",
+      "x": 472.8,
+      "y": 363.3,
+      "w": 178.8,
+      "h": 84.0,
+      "time_from": 0.0,
+      "time_to": 27.3,
+      "support": 0.72,
+      "zone": "dust2_mid_doors"
+     },
+     {
+      "util_type": "smoke",
+      "x": 851.9,
+      "y": 482.6,
+      "w": 162.1,
+      "h": 158.0,
+      "time_from": 0.0,
+      "time_to": 7.6,
+      "support": 0.72,
+      "zone": "dust2_long_corner"
+     },
+     {
+      "util_type": "flash",
+      "x": 849.0,
+      "y": 594.5,
+      "w": 51.5,
+      "h": 64.6,
+      "time_from": 4.0,
+      "time_to": 8.0,
+      "support": 0.67,
+      "zone": "dust2_side_pit"
+     },
+     {
+      "util_type": "smoke",
+      "x": 819.7,
+      "y": 246.1,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 18.0,
+      "time_to": 39.5,
+      "support": 0.64,
+      "zone": "dust2_elevator"
+     },
+     {
+      "util_type": "molotov",
+      "x": 955.9,
+      "y": 298.5,
+      "w": 82.6,
+      "h": 165.8,
+      "time_from": 14.2,
+      "time_to": 31.0,
+      "support": 0.59,
+      "zone": "dust2_a_car"
+     },
+     {
+      "util_type": "flash",
+      "x": 888.7,
+      "y": 337.1,
+      "w": 160.1,
+      "h": 197.0,
+      "time_from": 22.4,
+      "time_to": 41.7,
+      "support": 0.41,
+      "zone": "dust2_a_long"
+     }
+    ]
+   }
+  ]
+ }
+}

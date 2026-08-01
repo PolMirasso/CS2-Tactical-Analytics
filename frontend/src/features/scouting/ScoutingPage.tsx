@@ -14,6 +14,7 @@ import { ScoutingTimeline } from './ScoutingTimeline'
 import { fmtClock } from './clock'
 import { useEvaluateMaps, useFilterSupport, useModelStatus, usePredict, useTendencies, useTrainModel } from './hooks'
 import { PERIOD_PRESETS, periodWindow, windowLabel, type PeriodPreset } from './period'
+import { presetTokens, presetsForMap, type ScoutingPreset } from './presets'
 
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
@@ -335,6 +336,16 @@ export function ScoutingPage() {
     setTokens((ts) => ts.map((tk) =>
       tk.id === id ? { ...tk, time_from: clampS(from), time_to: clampS(to) } : tk,
     ))
+
+
+  const [showPresets, setShowPresets] = useState(false)
+  const presets = useMemo(() => presetsForMap(mapId), [mapId])
+  useEffect(() => setShowPresets(false), [mapId])
+  const loadPreset = (preset: ScoutingPreset) => {
+    setTokens(presetTokens(preset, makeId))
+    setShowPresets(false)
+    predict.reset()
+  }
 
   // Save/load the whole board as a JSON file
   const fileRef = useRef<HTMLInputElement>(null)
@@ -791,6 +802,15 @@ export function ScoutingPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="m-0">{t('scouting.placed')} ({tokens.length})</h2>
                 <div className="flex flex-wrap gap-1.5">
+                  {presets.length > 0 && (
+                    <button
+                      className="border border-border bg-transparent text-text"
+                      aria-expanded={showPresets}
+                      onClick={() => setShowPresets((v) => !v)}
+                    >
+                      {t('scouting.presets')} ({presets.length})
+                    </button>
+                  )}
                   <button className="border border-border bg-transparent text-text" onClick={() => fileRef.current?.click()}>{t('scouting.import')}</button>
                   {tokens.length > 0 && (
                     <button className="border border-border bg-transparent text-text" onClick={exportSetup}>{t('scouting.export')}</button>
@@ -812,6 +832,9 @@ export function ScoutingPage() {
                 />
               </div>
               {importErr && <p className="mt-1 mb-0 text-xs text-danger">{importErr}</p>}
+              {showPresets && (
+                <PresetList presets={presets} onPick={loadPreset} />
+              )}
               {tokens.length === 0 ? (
                 <p className="text-muted">{t('scouting.noTokens')}</p>
               ) : (
@@ -1003,6 +1026,42 @@ function SupportWarning({ support, mapName }: { support: FilterSupportOut; mapNa
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function PresetList({ presets, onPick }: { presets: ScoutingPreset[]; onPick: (p: ScoutingPreset) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-border bg-surface-2 p-2">
+      <p className="m-0 text-xs text-muted">{t('scouting.presetsHint')}</p>
+      {presets.map((p) => (
+        <button
+          key={p.id}
+          onClick={() => onPick(p)}
+          className="flex flex-col items-start gap-0.5 border border-border bg-transparent px-2 py-1.5 text-left text-text"
+        >
+          <span className="flex w-full items-center gap-2">
+            <span
+              className="rounded-[3px] px-1.5 py-0.5 text-xs font-semibold text-bg"
+              style={{ background: SITE_COLOR[p.site] }}
+            >
+              {p.site}
+            </span>
+            <span className="flex-1 overflow-hidden text-[13px] text-ellipsis whitespace-nowrap">{p.label}</span>
+            <span className="text-xs text-muted tabular-nums">{p.tokens.length} ⚑</span>
+          </span>
+          <span className="text-xs text-muted">
+            {t('scouting.presetSupport', {
+              share: pct(p.share),
+              site: p.site,
+              lift: p.lift.toFixed(1),
+              rounds: p.n_rounds,
+              demos: p.n_demos,
+            })}
+          </span>
+        </button>
+      ))}
     </div>
   )
 }
