@@ -1,6 +1,6 @@
 {
  "kind": "cs2ta.scouting.presets.v1",
- "generated_at": "2026-08-01",
+ "generated_at": "2026-08-02",
  "presets": {
   "de_dust2": [
    {
@@ -323,6 +323,599 @@
       "time_to": 41.7,
       "support": 0.41,
       "zone": "dust2_a_long"
+     }
+    ]
+   }
+  ],
+  "de_inferno": [
+   {
+    "id": "de_inferno-b-1",
+    "map_id": "de_inferno",
+    "site": "B",
+    "label": "Banana + Top Mid",
+    "n_rounds": 24,
+    "n_demos": 10,
+    "share": 0.567,
+    "lift": 1.74,
+    "tokens": [
+     {
+      "util_type": "flash",
+      "x": 441.0,
+      "y": 547.0,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 7.4,
+      "time_to": 27.6,
+      "support": 1.0,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "molotov",
+      "x": 512.7,
+      "y": 384.4,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.7,
+      "time_to": 17.7,
+      "support": 0.83,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "smoke",
+      "x": 712.4,
+      "y": 676.5,
+      "w": 40.0,
+      "h": 128.8,
+      "time_from": 11.1,
+      "time_to": 47.9,
+      "support": 0.75,
+      "zone": "inferno_top_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 464.9,
+      "y": 439.1,
+      "w": 72.0,
+      "h": 156.0,
+      "time_from": 1.9,
+      "time_to": 13.2,
+      "support": 0.71,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "he",
+      "x": 531.9,
+      "y": 374.6,
+      "w": 75.9,
+      "h": 80.5,
+      "time_from": 7.2,
+      "time_to": 27.2,
+      "support": 0.67,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "molotov",
+      "x": 671.3,
+      "y": 784.6,
+      "w": 71.6,
+      "h": 87.5,
+      "time_from": 0.0,
+      "time_to": 22.2,
+      "support": 0.62,
+      "zone": "inferno_ct_apartments"
+     },
+     {
+      "util_type": "molotov",
+      "x": 597.8,
+      "y": 400.7,
+      "w": 40.0,
+      "h": 90.2,
+      "time_from": 10.5,
+      "time_to": 37.9,
+      "support": 0.46,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "flash",
+      "x": 646.5,
+      "y": 733.2,
+      "w": 173.7,
+      "h": 163.6,
+      "time_from": 0.0,
+      "time_to": 27.8,
+      "support": 0.42,
+      "zone": "inferno_mid"
+     }
+    ]
+   },
+   {
+    "id": "de_inferno-b-2",
+    "map_id": "de_inferno",
+    "site": "B",
+    "label": "CT + Banana",
+    "n_rounds": 35,
+    "n_demos": 10,
+    "share": 0.567,
+    "lift": 1.74,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 516.2,
+      "y": 381.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 24.4,
+      "support": 0.77,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "smoke",
+      "x": 627.0,
+      "y": 240.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 25.3,
+      "time_to": 45.7,
+      "support": 0.71,
+      "zone": "inferno_ct"
+     },
+     {
+      "util_type": "molotov",
+      "x": 667.6,
+      "y": 785.3,
+      "w": 61.9,
+      "h": 92.9,
+      "time_from": 0.9,
+      "time_to": 15.5,
+      "support": 0.69,
+      "zone": "inferno_ct_apartments"
+     },
+     {
+      "util_type": "molotov",
+      "x": 595.3,
+      "y": 339.9,
+      "w": 40.0,
+      "h": 95.6,
+      "time_from": 1.5,
+      "time_to": 31.0,
+      "support": 0.63,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "he",
+      "x": 539.0,
+      "y": 399.2,
+      "w": 80.0,
+      "h": 42.9,
+      "time_from": 3.9,
+      "time_to": 27.2,
+      "support": 0.63,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "smoke",
+      "x": 711.1,
+      "y": 681.4,
+      "w": 40.0,
+      "h": 116.4,
+      "time_from": 0.0,
+      "time_to": 18.6,
+      "support": 0.6,
+      "zone": "inferno_top_mid"
+     },
+     {
+      "util_type": "flash",
+      "x": 593.8,
+      "y": 251.8,
+      "w": 112.6,
+      "h": 74.7,
+      "time_from": 23.4,
+      "time_to": 46.9,
+      "support": 0.6,
+      "zone": "inferno_ct"
+     },
+     {
+      "util_type": "flash",
+      "x": 506.9,
+      "y": 396.6,
+      "w": 101.3,
+      "h": 51.5,
+      "time_from": 6.0,
+      "time_to": 34.9,
+      "support": 0.6,
+      "zone": "inferno_banana"
+     }
+    ]
+   },
+   {
+    "id": "de_inferno-b-0",
+    "map_id": "de_inferno",
+    "site": "B",
+    "label": "Banana + A Long",
+    "n_rounds": 13,
+    "n_demos": 9,
+    "share": 0.4,
+    "lift": 1.23,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 527.4,
+      "y": 391.3,
+      "w": 86.9,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 23.6,
+      "support": 0.92,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "flash",
+      "x": 692.8,
+      "y": 710.4,
+      "w": 68.5,
+      "h": 138.5,
+      "time_from": 3.5,
+      "time_to": 38.2,
+      "support": 0.85,
+      "zone": "inferno_ct_apartments"
+     },
+     {
+      "util_type": "molotov",
+      "x": 667.5,
+      "y": 784.4,
+      "w": 64.3,
+      "h": 87.7,
+      "time_from": 5.9,
+      "time_to": 9.9,
+      "support": 0.77,
+      "zone": "inferno_ct_apartments"
+     },
+     {
+      "util_type": "he",
+      "x": 555.1,
+      "y": 379.3,
+      "w": 126.0,
+      "h": 165.7,
+      "time_from": 10.2,
+      "time_to": 39.4,
+      "support": 0.77,
+      "zone": "inferno_banana"
+     },
+     {
+      "util_type": "smoke",
+      "x": 717.4,
+      "y": 689.1,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.7,
+      "time_to": 9.4,
+      "support": 0.62,
+      "zone": "inferno_top_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 729.2,
+      "y": 572.7,
+      "w": 45.6,
+      "h": 40.0,
+      "time_from": 21.2,
+      "time_to": 39.9,
+      "support": 0.62,
+      "zone": "inferno_a_long"
+     },
+     {
+      "util_type": "flash",
+      "x": 483.3,
+      "y": 407.4,
+      "w": 84.9,
+      "h": 134.2,
+      "time_from": 13.6,
+      "time_to": 38.6,
+      "support": 0.46,
+      "zone": "inferno_banana"
+     }
+    ]
+   }
+  ],
+  "de_anubis": [
+   {
+    "id": "de_anubis-a-0",
+    "map_id": "de_anubis",
+    "site": "A",
+    "label": "A Site + Plateau",
+    "n_rounds": 13,
+    "n_demos": 8,
+    "share": 0.633,
+    "lift": 2.03,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 647.0,
+      "y": 387.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 20.5,
+      "time_to": 40.3,
+      "support": 0.92,
+      "zone": "anubis_a_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 695.3,
+      "y": 329.8,
+      "w": 52.0,
+      "h": 72.4,
+      "time_from": 21.3,
+      "time_to": 45.0,
+      "support": 0.77,
+      "zone": "anubis_plateau"
+     },
+     {
+      "util_type": "smoke",
+      "x": 734.8,
+      "y": 205.6,
+      "w": 40.0,
+      "h": 64.4,
+      "time_from": 25.2,
+      "time_to": 35.7,
+      "support": 0.69,
+      "zone": "anubis_heaven_x"
+     },
+     {
+      "util_type": "flash",
+      "x": 765.6,
+      "y": 348.3,
+      "w": 89.9,
+      "h": 65.0,
+      "time_from": 28.5,
+      "time_to": 38.6,
+      "support": 0.62,
+      "zone": "anubis_plateau"
+     },
+     {
+      "util_type": "molotov",
+      "x": 731.8,
+      "y": 259.6,
+      "w": 72.7,
+      "h": 40.0,
+      "time_from": 30.2,
+      "time_to": 39.3,
+      "support": 0.62,
+      "zone": "anubis_a_site"
+     },
+     {
+      "util_type": "flash",
+      "x": 811.5,
+      "y": 464.4,
+      "w": 85.1,
+      "h": 49.8,
+      "time_from": 14.5,
+      "time_to": 40.7,
+      "support": 0.54,
+      "zone": "anubis_main"
+     },
+     {
+      "util_type": "flash",
+      "x": 867.9,
+      "y": 343.7,
+      "w": 40.0,
+      "h": 122.2,
+      "time_from": 29.3,
+      "time_to": 40.0,
+      "support": 0.46,
+      "zone": "anubis_main"
+     },
+     {
+      "util_type": "molotov",
+      "x": 862.1,
+      "y": 268.2,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 26.1,
+      "time_to": 38.1,
+      "support": 0.46,
+      "zone": "anubis_fountain"
+     }
+    ]
+   },
+   {
+    "id": "de_anubis-b-0",
+    "map_id": "de_anubis",
+    "site": "B",
+    "label": "Double Doors + Water",
+    "n_rounds": 44,
+    "n_demos": 9,
+    "share": 0.467,
+    "lift": 1.2,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 576.1,
+      "y": 538.0,
+      "w": 71.0,
+      "h": 83.5,
+      "time_from": 0.0,
+      "time_to": 25.4,
+      "support": 0.91,
+      "zone": "anubis_double_doors"
+     },
+     {
+      "util_type": "smoke",
+      "x": 421.4,
+      "y": 603.8,
+      "w": 196.0,
+      "h": 77.1,
+      "time_from": 0.0,
+      "time_to": 15.5,
+      "support": 0.84,
+      "zone": "anubis_e_box"
+     },
+     {
+      "util_type": "smoke",
+      "x": 529.2,
+      "y": 470.1,
+      "w": 124.3,
+      "h": 119.6,
+      "time_from": 11.2,
+      "time_to": 36.7,
+      "support": 0.68,
+      "zone": "anubis_double_doors"
+     },
+     {
+      "util_type": "he",
+      "x": 576.6,
+      "y": 554.9,
+      "w": 56.0,
+      "h": 104.9,
+      "time_from": 0.0,
+      "time_to": 20.1,
+      "support": 0.64,
+      "zone": "anubis_double_doors"
+     },
+     {
+      "util_type": "flash",
+      "x": 499.2,
+      "y": 596.7,
+      "w": 40.0,
+      "h": 50.4,
+      "time_from": 1.6,
+      "time_to": 29.6,
+      "support": 0.55,
+      "zone": "anubis_water"
+     },
+     {
+      "util_type": "molotov",
+      "x": 834.7,
+      "y": 426.6,
+      "w": 56.2,
+      "h": 192.8,
+      "time_from": 12.5,
+      "time_to": 43.5,
+      "support": 0.45,
+      "zone": "anubis_main"
+     },
+     {
+      "util_type": "he",
+      "x": 358.0,
+      "y": 556.8,
+      "w": 127.1,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 25.2,
+      "support": 0.45,
+      "zone": "anubis_pillar"
+     },
+     {
+      "util_type": "flash",
+      "x": 534.1,
+      "y": 550.2,
+      "w": 40.0,
+      "h": 72.1,
+      "time_from": 22.1,
+      "time_to": 42.6,
+      "support": 0.43,
+      "zone": "anubis_double_doors"
+     }
+    ]
+   },
+   {
+    "id": "de_anubis-b-2",
+    "map_id": "de_anubis",
+    "site": "B",
+    "label": "Palace + Default",
+    "n_rounds": 19,
+    "n_demos": 8,
+    "share": 0.467,
+    "lift": 1.2,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 302.0,
+      "y": 483.4,
+      "w": 51.3,
+      "h": 95.7,
+      "time_from": 9.7,
+      "time_to": 44.7,
+      "support": 0.79,
+      "zone": "anubis_default"
+     },
+     {
+      "util_type": "flash",
+      "x": 515.9,
+      "y": 577.4,
+      "w": 104.4,
+      "h": 130.6,
+      "time_from": 0.0,
+      "time_to": 25.2,
+      "support": 0.63,
+      "zone": "anubis_bridge"
+     },
+     {
+      "util_type": "molotov",
+      "x": 577.3,
+      "y": 539.0,
+      "w": 77.8,
+      "h": 93.5,
+      "time_from": 0.0,
+      "time_to": 17.4,
+      "support": 0.63,
+      "zone": "anubis_double_doors"
+     },
+     {
+      "util_type": "flash",
+      "x": 278.8,
+      "y": 569.4,
+      "w": 122.2,
+      "h": 75.4,
+      "time_from": 4.2,
+      "time_to": 30.9,
+      "support": 0.58,
+      "zone": "anubis_pillar"
+     },
+     {
+      "util_type": "molotov",
+      "x": 306.5,
+      "y": 564.9,
+      "w": 104.5,
+      "h": 40.0,
+      "time_from": 5.8,
+      "time_to": 28.5,
+      "support": 0.58,
+      "zone": "anubis_pillar"
+     },
+     {
+      "util_type": "smoke",
+      "x": 402.2,
+      "y": 586.0,
+      "w": 142.3,
+      "h": 40.0,
+      "time_from": 1.5,
+      "time_to": 11.5,
+      "support": 0.53,
+      "zone": "anubis_e_box"
+     },
+     {
+      "util_type": "flash",
+      "x": 812.5,
+      "y": 481.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 10.4,
+      "time_to": 33.4,
+      "support": 0.53,
+      "zone": "anubis_main"
+     },
+     {
+      "util_type": "he",
+      "x": 331.0,
+      "y": 535.0,
+      "w": 128.3,
+      "h": 151.0,
+      "time_from": 9.8,
+      "time_to": 28.8,
+      "support": 0.53,
+      "zone": "anubis_corner"
      }
     ]
    }
