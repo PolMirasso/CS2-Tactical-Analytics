@@ -1,6 +1,6 @@
 {
  "kind": "cs2ta.scouting.presets.v1",
- "generated_at": "2026-08-02",
+ "generated_at": "2026-08-03",
  "presets": {
   "de_dust2": [
    {
@@ -323,6 +323,812 @@
       "time_to": 41.7,
       "support": 0.41,
       "zone": "dust2_a_long"
+     }
+    ]
+   }
+  ],
+  "de_mirage": [
+   {
+    "id": "de_mirage-b-2",
+    "map_id": "de_mirage",
+    "site": "B",
+    "label": "Market + Boost Boxes",
+    "n_rounds": 15,
+    "n_demos": 10,
+    "share": 0.433,
+    "lift": 2.73,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 255.4,
+      "y": 411.4,
+      "w": 51.2,
+      "h": 40.0,
+      "time_from": 11.7,
+      "time_to": 33.4,
+      "support": 1.0,
+      "zone": "mirage_market"
+     },
+     {
+      "util_type": "flash",
+      "x": 286.7,
+      "y": 229.5,
+      "w": 49.2,
+      "h": 40.0,
+      "time_from": 15.9,
+      "time_to": 29.3,
+      "support": 0.93,
+      "zone": "mirage_boost_boxes"
+     },
+     {
+      "util_type": "smoke",
+      "x": 407.4,
+      "y": 468.3,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.4,
+      "support": 0.67,
+      "zone": "mirage_sniper_s_nest"
+     },
+     {
+      "util_type": "flash",
+      "x": 196.6,
+      "y": 286.1,
+      "w": 70.7,
+      "h": 40.0,
+      "time_from": 18.0,
+      "time_to": 31.9,
+      "support": 0.67,
+      "zone": "mirage_b_site"
+     },
+     {
+      "util_type": "molotov",
+      "x": 215.8,
+      "y": 192.7,
+      "w": 144.3,
+      "h": 89.5,
+      "time_from": 14.7,
+      "time_to": 35.3,
+      "support": 0.67,
+      "zone": "mirage_b_apartments"
+     },
+     {
+      "util_type": "smoke",
+      "x": 650.1,
+      "y": 434.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.4,
+      "support": 0.6,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "flash",
+      "x": 340.2,
+      "y": 234.5,
+      "w": 41.5,
+      "h": 40.6,
+      "time_from": 17.1,
+      "time_to": 31.3,
+      "support": 0.53,
+      "zone": "mirage_b_apartments"
+     },
+     {
+      "util_type": "flash",
+      "x": 646.0,
+      "y": 467.7,
+      "w": 123.2,
+      "h": 54.6,
+      "time_from": 6.2,
+      "time_to": 11.2,
+      "support": 0.53,
+      "zone": "mirage_mid"
+     }
+    ]
+   },
+   {
+    "id": "de_mirage-a-1",
+    "map_id": "de_mirage",
+    "site": "A",
+    "label": "Stairs + Default",
+    "n_rounds": 22,
+    "n_demos": 15,
+    "share": 0.667,
+    "lift": 1.95,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 517.0,
+      "y": 666.6,
+      "w": 95.3,
+      "h": 92.4,
+      "time_from": 8.2,
+      "time_to": 27.7,
+      "support": 0.91,
+      "zone": "mirage_stairs"
+     },
+     {
+      "util_type": "flash",
+      "x": 538.8,
+      "y": 666.6,
+      "w": 54.9,
+      "h": 40.0,
+      "time_from": 11.3,
+      "time_to": 30.8,
+      "support": 0.86,
+      "zone": "mirage_stairs"
+     },
+     {
+      "util_type": "flash",
+      "x": 602.0,
+      "y": 723.5,
+      "w": 69.8,
+      "h": 61.5,
+      "time_from": 12.2,
+      "time_to": 33.7,
+      "support": 0.77,
+      "zone": "mirage_default"
+     },
+     {
+      "util_type": "molotov",
+      "x": 670.3,
+      "y": 743.7,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 12.3,
+      "time_to": 27.7,
+      "support": 0.73,
+      "zone": "mirage_balcony"
+     },
+     {
+      "util_type": "smoke",
+      "x": 412.1,
+      "y": 470.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 13.8,
+      "support": 0.59,
+      "zone": "mirage_sniper_s_nest"
+     },
+     {
+      "util_type": "smoke",
+      "x": 635.4,
+      "y": 435.9,
+      "w": 40.6,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.2,
+      "support": 0.55,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 517.4,
+      "y": 617.3,
+      "w": 144.7,
+      "h": 142.2,
+      "time_from": 6.9,
+      "time_to": 35.7,
+      "support": 0.55,
+      "zone": "mirage_stairs"
+     }
+    ]
+   },
+   {
+    "id": "de_mirage-b-1",
+    "map_id": "de_mirage",
+    "site": "B",
+    "label": "Mid + Sniper's Nest",
+    "n_rounds": 15,
+    "n_demos": 11,
+    "share": 0.233,
+    "lift": 1.47,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 413.0,
+      "y": 469.3,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 16.9,
+      "support": 1.0,
+      "zone": "mirage_sniper_s_nest"
+     },
+     {
+      "util_type": "flash",
+      "x": 653.7,
+      "y": 484.2,
+      "w": 84.9,
+      "h": 46.7,
+      "time_from": 6.0,
+      "time_to": 17.9,
+      "support": 1.0,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 653.1,
+      "y": 438.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.3,
+      "support": 0.87,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 509.3,
+      "y": 519.4,
+      "w": 89.2,
+      "h": 40.0,
+      "time_from": 2.9,
+      "time_to": 12.7,
+      "support": 0.4,
+      "zone": "mirage_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 434.7,
+      "y": 450.7,
+      "w": 86.9,
+      "h": 64.3,
+      "time_from": 3.5,
+      "time_to": 25.7,
+      "support": 0.4,
+      "zone": "mirage_sniper_s_nest"
+     }
+    ]
+   },
+   {
+    "id": "de_mirage-a-2",
+    "map_id": "de_mirage",
+    "site": "A",
+    "label": "Mid + Connector",
+    "n_rounds": 58,
+    "n_demos": 16,
+    "share": 0.433,
+    "lift": 1.27,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 407.5,
+      "y": 470.1,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 16.8,
+      "support": 0.97,
+      "zone": "mirage_sniper_s_nest"
+     },
+     {
+      "util_type": "smoke",
+      "x": 653.0,
+      "y": 436.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.4,
+      "support": 0.79,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 496.4,
+      "y": 522.4,
+      "w": 111.2,
+      "h": 198.4,
+      "time_from": 0.0,
+      "time_to": 28.5,
+      "support": 0.72,
+      "zone": "mirage_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 584.5,
+      "y": 478.6,
+      "w": 179.0,
+      "h": 65.5,
+      "time_from": 1.7,
+      "time_to": 23.5,
+      "support": 0.66,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 517.3,
+      "y": 641.3,
+      "w": 40.0,
+      "h": 149.0,
+      "time_from": 5.4,
+      "time_to": 35.6,
+      "support": 0.6,
+      "zone": "mirage_stairs"
+     }
+    ]
+   },
+   {
+    "id": "de_mirage-a-0",
+    "map_id": "de_mirage",
+    "site": "A",
+    "label": "Mid + Sniper's Nest",
+    "n_rounds": 38,
+    "n_demos": 15,
+    "share": 0.4,
+    "lift": 1.17,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 411.5,
+      "y": 470.6,
+      "w": 108.4,
+      "h": 137.1,
+      "time_from": 0.0,
+      "time_to": 19.3,
+      "support": 1.0,
+      "zone": "mirage_sniper_s_nest"
+     },
+     {
+      "util_type": "flash",
+      "x": 665.8,
+      "y": 481.5,
+      "w": 57.9,
+      "h": 50.7,
+      "time_from": 3.3,
+      "time_to": 24.5,
+      "support": 0.97,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 636.3,
+      "y": 434.2,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 2.3,
+      "support": 0.79,
+      "zone": "mirage_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 522.4,
+      "y": 531.1,
+      "w": 94.8,
+      "h": 189.5,
+      "time_from": 0.0,
+      "time_to": 20.5,
+      "support": 0.45,
+      "zone": "mirage_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 510.4,
+      "y": 505.3,
+      "w": 93.2,
+      "h": 176.6,
+      "time_from": 0.4,
+      "time_to": 32.0,
+      "support": 0.42,
+      "zone": "mirage_mid"
+     }
+    ]
+   }
+  ],
+  "de_overpass": [
+   {
+    "id": "de_overpass-b-0",
+    "map_id": "de_overpass",
+    "site": "B",
+    "label": "B Site + Sniper's Nest",
+    "n_rounds": 14,
+    "n_demos": 9,
+    "share": 0.733,
+    "lift": 2.32,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 581.9,
+      "y": 232.7,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 19.7,
+      "time_to": 35.4,
+      "support": 0.93,
+      "zone": "overpass_sniper_s_nest"
+     },
+     {
+      "util_type": "flash",
+      "x": 723.4,
+      "y": 322.3,
+      "w": 42.5,
+      "h": 62.9,
+      "time_from": 13.0,
+      "time_to": 36.1,
+      "support": 0.93,
+      "zone": "overpass_b_site"
+     },
+     {
+      "util_type": "flash",
+      "x": 849.9,
+      "y": 383.2,
+      "w": 90.8,
+      "h": 40.0,
+      "time_from": 6.2,
+      "time_to": 27.1,
+      "support": 0.79,
+      "zone": "overpass_canal"
+     },
+     {
+      "util_type": "molotov",
+      "x": 738.2,
+      "y": 418.8,
+      "w": 40.0,
+      "h": 170.9,
+      "time_from": 0.0,
+      "time_to": 16.0,
+      "support": 0.64,
+      "zone": "overpass_construction"
+     },
+     {
+      "util_type": "smoke",
+      "x": 685.8,
+      "y": 492.8,
+      "w": 110.3,
+      "h": 114.4,
+      "time_from": 5.0,
+      "time_to": 18.6,
+      "support": 0.5,
+      "zone": "overpass_connector"
+     }
+    ]
+   },
+   {
+    "id": "de_overpass-a-0",
+    "map_id": "de_overpass",
+    "site": "A",
+    "label": "Connector + Lower Park",
+    "n_rounds": 21,
+    "n_demos": 13,
+    "share": 0.4,
+    "lift": 1.87,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 735.2,
+      "y": 421.4,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 5.4,
+      "time_to": 9.4,
+      "support": 1.0,
+      "zone": "overpass_construction"
+     },
+     {
+      "util_type": "molotov",
+      "x": 570.5,
+      "y": 521.2,
+      "w": 69.3,
+      "h": 63.2,
+      "time_from": 0.0,
+      "time_to": 23.6,
+      "support": 0.81,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 557.1,
+      "y": 580.5,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 9.5,
+      "time_to": 28.6,
+      "support": 0.76,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 416.3,
+      "y": 685.4,
+      "w": 82.0,
+      "h": 107.6,
+      "time_from": 6.5,
+      "time_to": 12.8,
+      "support": 0.57,
+      "zone": "overpass_fountain"
+     },
+     {
+      "util_type": "smoke",
+      "x": 604.0,
+      "y": 495.1,
+      "w": 96.4,
+      "h": 90.4,
+      "time_from": 2.9,
+      "time_to": 22.5,
+      "support": 0.52,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "he",
+      "x": 508.4,
+      "y": 483.8,
+      "w": 117.6,
+      "h": 196.9,
+      "time_from": 11.7,
+      "time_to": 35.4,
+      "support": 0.43,
+      "zone": "overpass_lower_park"
+     }
+    ]
+   },
+   {
+    "id": "de_overpass-a-2",
+    "map_id": "de_overpass",
+    "site": "A",
+    "label": "Pipe + Connector",
+    "n_rounds": 12,
+    "n_demos": 9,
+    "share": 0.4,
+    "lift": 1.87,
+    "tokens": [
+     {
+      "util_type": "flash",
+      "x": 703.8,
+      "y": 560.3,
+      "w": 53.1,
+      "h": 40.7,
+      "time_from": 9.1,
+      "time_to": 17.8,
+      "support": 1.0,
+      "zone": "overpass_pipe"
+     },
+     {
+      "util_type": "molotov",
+      "x": 735.0,
+      "y": 420.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 5.3,
+      "time_to": 9.3,
+      "support": 1.0,
+      "zone": "overpass_construction"
+     },
+     {
+      "util_type": "flash",
+      "x": 569.9,
+      "y": 536.4,
+      "w": 40.7,
+      "h": 47.3,
+      "time_from": 5.0,
+      "time_to": 26.1,
+      "support": 0.58,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 569.4,
+      "y": 531.2,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 1.9,
+      "time_to": 20.4,
+      "support": 0.58,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "smoke",
+      "x": 603.1,
+      "y": 502.5,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 9.7,
+      "time_to": 13.7,
+      "support": 0.5,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "smoke",
+      "x": 695.3,
+      "y": 516.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 9.5,
+      "time_to": 13.5,
+      "support": 0.5,
+      "zone": "overpass_pipe"
+     },
+     {
+      "util_type": "he",
+      "x": 566.8,
+      "y": 417.9,
+      "w": 144.4,
+      "h": 148.7,
+      "time_from": 9.3,
+      "time_to": 40.4,
+      "support": 0.5,
+      "zone": "overpass_walkway"
+     },
+     {
+      "util_type": "flash",
+      "x": 467.0,
+      "y": 757.7,
+      "w": 64.3,
+      "h": 60.9,
+      "time_from": 0.6,
+      "time_to": 25.0,
+      "support": 0.42,
+      "zone": "overpass_fountain"
+     }
+    ]
+   },
+   {
+    "id": "de_overpass-b-2",
+    "map_id": "de_overpass",
+    "site": "B",
+    "label": "Connector + Fountain",
+    "n_rounds": 48,
+    "n_demos": 15,
+    "share": 0.5,
+    "lift": 1.58,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 735.3,
+      "y": 421.3,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 5.2,
+      "time_to": 9.2,
+      "support": 0.98,
+      "zone": "overpass_construction"
+     },
+     {
+      "util_type": "smoke",
+      "x": 602.7,
+      "y": 494.7,
+      "w": 96.7,
+      "h": 40.0,
+      "time_from": 7.8,
+      "time_to": 20.7,
+      "support": 0.67,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 570.1,
+      "y": 522.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 8.6,
+      "time_to": 12.6,
+      "support": 0.6,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 557.4,
+      "y": 581.5,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 8.8,
+      "time_to": 26.9,
+      "support": 0.58,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 700.3,
+      "y": 540.6,
+      "w": 104.0,
+      "h": 120.1,
+      "time_from": 0.6,
+      "time_to": 24.9,
+      "support": 0.54,
+      "zone": "overpass_pipe"
+     },
+     {
+      "util_type": "smoke",
+      "x": 700.1,
+      "y": 520.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 9.0,
+      "time_to": 13.0,
+      "support": 0.48,
+      "zone": "overpass_pipe"
+     },
+     {
+      "util_type": "flash",
+      "x": 568.6,
+      "y": 535.6,
+      "w": 126.0,
+      "h": 94.7,
+      "time_from": 10.1,
+      "time_to": 41.3,
+      "support": 0.48,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 395.2,
+      "y": 662.1,
+      "w": 40.0,
+      "h": 50.5,
+      "time_from": 0.0,
+      "time_to": 21.5,
+      "support": 0.46,
+      "zone": "overpass_fountain"
+     }
+    ]
+   },
+   {
+    "id": "de_overpass-b-1",
+    "map_id": "de_overpass",
+    "site": "B",
+    "label": "Canal + Pipe",
+    "n_rounds": 28,
+    "n_demos": 13,
+    "share": 0.4,
+    "lift": 1.27,
+    "tokens": [
+     {
+      "util_type": "molotov",
+      "x": 737.9,
+      "y": 414.8,
+      "w": 45.0,
+      "h": 151.5,
+      "time_from": 0.0,
+      "time_to": 20.6,
+      "support": 1.0,
+      "zone": "overpass_construction"
+     },
+     {
+      "util_type": "smoke",
+      "x": 600.1,
+      "y": 507.5,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 15.5,
+      "support": 0.93,
+      "zone": "overpass_connector"
+     },
+     {
+      "util_type": "smoke",
+      "x": 697.3,
+      "y": 517.7,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 9.2,
+      "time_to": 13.2,
+      "support": 0.86,
+      "zone": "overpass_pipe"
+     },
+     {
+      "util_type": "flash",
+      "x": 842.1,
+      "y": 395.0,
+      "w": 131.4,
+      "h": 99.7,
+      "time_from": 22.7,
+      "time_to": 43.9,
+      "support": 0.64,
+      "zone": "overpass_canal"
+     },
+     {
+      "util_type": "flash",
+      "x": 687.3,
+      "y": 539.8,
+      "w": 61.2,
+      "h": 51.9,
+      "time_from": 9.3,
+      "time_to": 14.4,
+      "support": 0.61,
+      "zone": "overpass_pipe"
      }
     ]
    }
