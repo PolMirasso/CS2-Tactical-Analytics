@@ -1,6 +1,6 @@
 {
  "kind": "cs2ta.scouting.presets.v1",
- "generated_at": "2026-08-03",
+ "generated_at": "2026-08-04",
  "presets": {
   "de_dust2": [
    {
@@ -1129,6 +1129,308 @@
       "time_to": 14.4,
       "support": 0.61,
       "zone": "overpass_pipe"
+     }
+    ]
+   }
+  ],
+  "de_ancient": [
+   {
+    "id": "de_ancient-a-1",
+    "map_id": "de_ancient",
+    "site": "A",
+    "label": "CT Lane + Long",
+    "n_rounds": 36,
+    "n_demos": 14,
+    "share": 0.567,
+    "lift": 1.97,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 489.3,
+      "y": 381.1,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 4.8,
+      "support": 0.94,
+      "zone": "ancient_top_mid"
+     },
+     {
+      "util_type": "he",
+      "x": 470.9,
+      "y": 475.5,
+      "w": 113.5,
+      "h": 151.6,
+      "time_from": 0.0,
+      "time_to": 18.6,
+      "support": 0.75,
+      "zone": "ancient_mid"
+     },
+     {
+      "util_type": "flash",
+      "x": 395.4,
+      "y": 596.8,
+      "w": 87.7,
+      "h": 110.1,
+      "time_from": 2.6,
+      "time_to": 22.8,
+      "support": 0.69,
+      "zone": "ancient_elbow"
+     },
+     {
+      "util_type": "smoke",
+      "x": 362.5,
+      "y": 231.4,
+      "w": 40.0,
+      "h": 44.2,
+      "time_from": 13.2,
+      "time_to": 44.1,
+      "support": 0.67,
+      "zone": "ancient_ct_lane"
+     },
+     {
+      "util_type": "flash",
+      "x": 171.8,
+      "y": 344.6,
+      "w": 70.2,
+      "h": 178.5,
+      "time_from": 12.7,
+      "time_to": 38.7,
+      "support": 0.58,
+      "zone": "ancient_long"
+     },
+     {
+      "util_type": "molotov",
+      "x": 550.6,
+      "y": 490.2,
+      "w": 154.2,
+      "h": 106.2,
+      "time_from": 6.6,
+      "time_to": 13.2,
+      "support": 0.5,
+      "zone": "ancient_pit"
+     },
+     {
+      "util_type": "smoke",
+      "x": 650.2,
+      "y": 589.4,
+      "w": 103.9,
+      "h": 46.9,
+      "time_from": 0.0,
+      "time_to": 8.5,
+      "support": 0.47,
+      "zone": "ancient_heaven_x"
+     },
+     {
+      "util_type": "smoke",
+      "x": 324.3,
+      "y": 371.6,
+      "w": 40.0,
+      "h": 72.8,
+      "time_from": 10.7,
+      "time_to": 39.1,
+      "support": 0.47,
+      "zone": "ancient_short"
+     }
+    ]
+   },
+   {
+    "id": "de_ancient-b-0",
+    "map_id": "de_ancient",
+    "site": "B",
+    "label": "Square + B Site",
+    "n_rounds": 50,
+    "n_demos": 14,
+    "share": 0.667,
+    "lift": 1.9,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 487.6,
+      "y": 391.1,
+      "w": 70.7,
+      "h": 106.8,
+      "time_from": 0.0,
+      "time_to": 10.0,
+      "support": 0.78,
+      "zone": "ancient_top_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 711.5,
+      "y": 331.3,
+      "w": 53.8,
+      "h": 140.9,
+      "time_from": 13.5,
+      "time_to": 38.7,
+      "support": 0.72,
+      "zone": "ancient_square"
+     },
+     {
+      "util_type": "flash",
+      "x": 813.2,
+      "y": 480.6,
+      "w": 89.1,
+      "h": 137.2,
+      "time_from": 11.1,
+      "time_to": 36.8,
+      "support": 0.62,
+      "zone": "ancient_ramp"
+     },
+     {
+      "util_type": "smoke",
+      "x": 633.3,
+      "y": 591.4,
+      "w": 104.4,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 20.7,
+      "support": 0.54,
+      "zone": "ancient_heaven_x"
+     },
+     {
+      "util_type": "molotov",
+      "x": 725.0,
+      "y": 420.8,
+      "w": 63.8,
+      "h": 128.7,
+      "time_from": 7.9,
+      "time_to": 32.3,
+      "support": 0.54,
+      "zone": "ancient_b_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 845.9,
+      "y": 359.0,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 13.4,
+      "time_to": 41.1,
+      "support": 0.52,
+      "zone": "ancient_square"
+     },
+     {
+      "util_type": "molotov",
+      "x": 836.2,
+      "y": 467.8,
+      "w": 40.0,
+      "h": 66.8,
+      "time_from": 7.3,
+      "time_to": 11.3,
+      "support": 0.48,
+      "zone": "ancient_b_site"
+     },
+     {
+      "util_type": "he",
+      "x": 490.7,
+      "y": 578.1,
+      "w": 191.1,
+      "h": 152.0,
+      "time_from": 2.5,
+      "time_to": 20.7,
+      "support": 0.48,
+      "zone": "ancient_heaven"
+     }
+    ]
+   },
+   {
+    "id": "de_ancient-a-2",
+    "map_id": "de_ancient",
+    "site": "A",
+    "label": "Elbow + Top Mid",
+    "n_rounds": 50,
+    "n_demos": 15,
+    "share": 0.467,
+    "lift": 1.63,
+    "tokens": [
+     {
+      "util_type": "flash",
+      "x": 432.6,
+      "y": 612.5,
+      "w": 54.8,
+      "h": 41.6,
+      "time_from": 5.1,
+      "time_to": 13.6,
+      "support": 1.0,
+      "zone": "ancient_elbow"
+     },
+     {
+      "util_type": "smoke",
+      "x": 488.2,
+      "y": 375.6,
+      "w": 119.8,
+      "h": 161.4,
+      "time_from": 0.0,
+      "time_to": 19.9,
+      "support": 0.98,
+      "zone": "ancient_top_mid"
+     },
+     {
+      "util_type": "smoke",
+      "x": 651.0,
+      "y": 574.9,
+      "w": 109.6,
+      "h": 47.7,
+      "time_from": 0.3,
+      "time_to": 9.6,
+      "support": 0.74,
+      "zone": "ancient_t_lower"
+     },
+     {
+      "util_type": "smoke",
+      "x": 422.0,
+      "y": 475.9,
+      "w": 40.0,
+      "h": 124.2,
+      "time_from": 0.0,
+      "time_to": 21.6,
+      "support": 0.74,
+      "zone": "ancient_tunnels"
+     },
+     {
+      "util_type": "molotov",
+      "x": 557.6,
+      "y": 475.0,
+      "w": 135.4,
+      "h": 126.0,
+      "time_from": 0.0,
+      "time_to": 22.4,
+      "support": 0.68,
+      "zone": "ancient_pit"
+     },
+     {
+      "util_type": "molotov",
+      "x": 826.0,
+      "y": 465.8,
+      "w": 122.6,
+      "h": 86.2,
+      "time_from": 0.0,
+      "time_to": 19.4,
+      "support": 0.66,
+      "zone": "ancient_b_site"
+     },
+     {
+      "util_type": "he",
+      "x": 478.0,
+      "y": 586.9,
+      "w": 198.7,
+      "h": 138.3,
+      "time_from": 3.8,
+      "time_to": 14.8,
+      "support": 0.64,
+      "zone": "ancient_mid"
+     },
+     {
+      "util_type": "flash",
+      "x": 548.9,
+      "y": 614.4,
+      "w": 91.2,
+      "h": 51.4,
+      "time_from": 6.2,
+      "time_to": 16.8,
+      "support": 0.48,
+      "zone": "ancient_heaven_x"
      }
     ]
    }
