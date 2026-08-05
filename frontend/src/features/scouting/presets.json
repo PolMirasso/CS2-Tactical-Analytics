@@ -1,6 +1,6 @@
 {
  "kind": "cs2ta.scouting.presets.v1",
- "generated_at": "2026-08-04",
+ "generated_at": "2026-08-05",
  "presets": {
   "de_dust2": [
    {
@@ -2024,6 +2024,375 @@
       "time_to": 28.8,
       "support": 0.53,
       "zone": "anubis_corner"
+     }
+    ]
+   }
+  ],
+  "de_nuke": [
+   {
+    "id": "de_nuke-a-1",
+    "map_id": "de_nuke",
+    "site": "A",
+    "label": "Outside + Secret",
+    "n_rounds": 26,
+    "n_demos": 12,
+    "share": 0.4,
+    "lift": 1.55,
+    "tokens": [
+     {
+      "util_type": "he",
+      "x": 523.0,
+      "y": 416.1,
+      "w": 129.3,
+      "h": 96.1,
+      "time_from": 4.7,
+      "time_to": 12.9,
+      "support": 0.92,
+      "zone": "nuke_hut"
+     },
+     {
+      "util_type": "smoke",
+      "x": 659.6,
+      "y": 522.4,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 28.8,
+      "support": 0.77,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 689.5,
+      "y": 586.6,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 4.6,
+      "time_to": 37.4,
+      "support": 0.73,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "flash",
+      "x": 632.4,
+      "y": 564.9,
+      "w": 173.4,
+      "h": 140.8,
+      "time_from": 0.0,
+      "time_to": 20.7,
+      "support": 0.73,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 648.8,
+      "y": 586.5,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 5.5,
+      "time_to": 39.2,
+      "support": 0.65,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "molotov",
+      "x": 752.1,
+      "y": 633.2,
+      "w": 121.6,
+      "h": 40.0,
+      "time_from": 21.5,
+      "time_to": 37.1,
+      "support": 0.42,
+      "zone": "nuke_secret"
+     }
+    ]
+   },
+   {
+    "id": "de_nuke-b-0",
+    "map_id": "de_nuke",
+    "site": "B",
+    "label": "Outside + A Site",
+    "n_rounds": 43,
+    "n_demos": 15,
+    "share": 0.333,
+    "lift": 1.38,
+    "tokens": [
+     {
+      "util_type": "he",
+      "x": 522.7,
+      "y": 418.2,
+      "w": 110.7,
+      "h": 164.6,
+      "time_from": 0.6,
+      "time_to": 16.3,
+      "support": 1.0,
+      "zone": "nuke_hut"
+     },
+     {
+      "util_type": "smoke",
+      "x": 689.7,
+      "y": 563.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 0.2,
+      "time_to": 20.6,
+      "support": 0.95,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "molotov",
+      "x": 561.4,
+      "y": 389.4,
+      "w": 81.4,
+      "h": 86.2,
+      "time_from": 0.0,
+      "time_to": 27.5,
+      "support": 0.84,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 557.9,
+      "y": 420.3,
+      "w": 48.8,
+      "h": 50.1,
+      "time_from": 0.0,
+      "time_to": 19.7,
+      "support": 0.74,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "flash",
+      "x": 624.1,
+      "y": 571.3,
+      "w": 111.1,
+      "h": 81.0,
+      "time_from": 0.3,
+      "time_to": 17.1,
+      "support": 0.74,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 659.6,
+      "y": 514.6,
+      "w": 53.6,
+      "h": 40.8,
+      "time_from": 0.0,
+      "time_to": 31.7,
+      "support": 0.65,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 542.4,
+      "y": 576.8,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 3.5,
+      "time_to": 7.5,
+      "support": 0.63,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "flash",
+      "x": 577.3,
+      "y": 405.4,
+      "w": 175.9,
+      "h": 146.6,
+      "time_from": 13.2,
+      "time_to": 46.9,
+      "support": 0.6,
+      "zone": "nuke_a_site"
+     }
+    ]
+   },
+   {
+    "id": "de_nuke-b-2",
+    "map_id": "de_nuke",
+    "site": "B",
+    "label": "A Site + Main",
+    "n_rounds": 26,
+    "n_demos": 12,
+    "share": 0.3,
+    "lift": 1.24,
+    "tokens": [
+     {
+      "util_type": "he",
+      "x": 521.7,
+      "y": 417.1,
+      "w": 92.8,
+      "h": 46.6,
+      "time_from": 3.2,
+      "time_to": 12.5,
+      "support": 0.96,
+      "zone": "nuke_hut"
+     },
+     {
+      "util_type": "smoke",
+      "x": 554.5,
+      "y": 422.8,
+      "w": 61.5,
+      "h": 51.7,
+      "time_from": 0.1,
+      "time_to": 28.5,
+      "support": 0.92,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "flash",
+      "x": 587.2,
+      "y": 461.9,
+      "w": 90.1,
+      "h": 64.7,
+      "time_from": 1.1,
+      "time_to": 25.8,
+      "support": 0.77,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 546.0,
+      "y": 577.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 3.5,
+      "time_to": 7.5,
+      "support": 0.58,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 662.4,
+      "y": 537.3,
+      "w": 59.7,
+      "h": 107.0,
+      "time_from": 0.0,
+      "time_to": 22.0,
+      "support": 0.54,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "molotov",
+      "x": 555.2,
+      "y": 388.0,
+      "w": 41.4,
+      "h": 55.0,
+      "time_from": 0.0,
+      "time_to": 20.9,
+      "support": 0.54,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "molotov",
+      "x": 608.1,
+      "y": 454.8,
+      "w": 59.5,
+      "h": 73.4,
+      "time_from": 0.0,
+      "time_to": 22.4,
+      "support": 0.5,
+      "zone": "nuke_a_site"
+     }
+    ]
+   },
+   {
+    "id": "de_nuke-a-0",
+    "map_id": "de_nuke",
+    "site": "A",
+    "label": "Outside + A Site",
+    "n_rounds": 50,
+    "n_demos": 16,
+    "share": 0.3,
+    "lift": 1.17,
+    "tokens": [
+     {
+      "util_type": "he",
+      "x": 522.6,
+      "y": 415.8,
+      "w": 104.0,
+      "h": 111.5,
+      "time_from": 1.8,
+      "time_to": 15.1,
+      "support": 1.0,
+      "zone": "nuke_hut"
+     },
+     {
+      "util_type": "smoke",
+      "x": 689.2,
+      "y": 579.1,
+      "w": 46.2,
+      "h": 40.0,
+      "time_from": 1.1,
+      "time_to": 24.8,
+      "support": 0.8,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "molotov",
+      "x": 554.4,
+      "y": 387.9,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 2.9,
+      "time_to": 14.1,
+      "support": 0.66,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 545.0,
+      "y": 577.0,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 3.4,
+      "time_to": 7.4,
+      "support": 0.64,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "smoke",
+      "x": 555.7,
+      "y": 416.9,
+      "w": 48.6,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 23.3,
+      "support": 0.64,
+      "zone": "nuke_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 659.0,
+      "y": 515.7,
+      "w": 55.5,
+      "h": 42.0,
+      "time_from": 0.2,
+      "time_to": 34.8,
+      "support": 0.64,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "flash",
+      "x": 627.7,
+      "y": 573.0,
+      "w": 114.1,
+      "h": 52.6,
+      "time_from": 3.7,
+      "time_to": 13.0,
+      "support": 0.56,
+      "zone": "nuke_outside"
+     },
+     {
+      "util_type": "molotov",
+      "x": 600.7,
+      "y": 456.1,
+      "w": 58.3,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 22.6,
+      "support": 0.56,
+      "zone": "nuke_a_site"
      }
     ]
    }
