@@ -1,6 +1,6 @@
 {
  "kind": "cs2ta.scouting.presets.v1",
- "generated_at": "2026-08-05",
+ "generated_at": "2026-08-06",
  "presets": {
   "de_dust2": [
    {
@@ -2393,6 +2393,264 @@
       "time_to": 22.6,
       "support": 0.56,
       "zone": "nuke_a_site"
+     }
+    ]
+   }
+  ],
+  "de_cache": [
+   {
+    "id": "de_cache-b-1",
+    "map_id": "de_cache",
+    "site": "B",
+    "label": "Hell + Heaven",
+    "n_rounds": 18,
+    "n_demos": 6,
+    "share": 0.4,
+    "lift": 1.57,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 258.7,
+      "y": 762.3,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 10.8,
+      "time_to": 35.4,
+      "support": 0.67,
+      "zone": "cache_hell"
+     },
+     {
+      "util_type": "smoke",
+      "x": 301.0,
+      "y": 594.9,
+      "w": 131.9,
+      "h": 119.4,
+      "time_from": 0.0,
+      "time_to": 7.1,
+      "support": 0.67,
+      "zone": "cache_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 491.8,
+      "y": 538.0,
+      "w": 101.7,
+      "h": 75.0,
+      "time_from": 1.8,
+      "time_to": 14.2,
+      "support": 0.67,
+      "zone": "cache_mid"
+     },
+     {
+      "util_type": "flash",
+      "x": 395.4,
+      "y": 714.5,
+      "w": 113.9,
+      "h": 94.5,
+      "time_from": 17.0,
+      "time_to": 41.9,
+      "support": 0.67,
+      "zone": "cache_checkers"
+     },
+     {
+      "util_type": "smoke",
+      "x": 475.8,
+      "y": 528.0,
+      "w": 175.1,
+      "h": 170.9,
+      "time_from": 0.5,
+      "time_to": 9.6,
+      "support": 0.61,
+      "zone": "cache_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 324.8,
+      "y": 652.8,
+      "w": 91.2,
+      "h": 109.2,
+      "time_from": 3.8,
+      "time_to": 32.2,
+      "support": 0.56,
+      "zone": "cache_heaven"
+     },
+     {
+      "util_type": "molotov",
+      "x": 326.4,
+      "y": 511.6,
+      "w": 134.3,
+      "h": 77.8,
+      "time_from": 1.1,
+      "time_to": 17.1,
+      "support": 0.44,
+      "zone": "cache_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 427.7,
+      "y": 646.2,
+      "w": 67.3,
+      "h": 40.7,
+      "time_from": 6.4,
+      "time_to": 25.8,
+      "support": 0.44,
+      "zone": "cache_vents"
+     }
+    ]
+   },
+   {
+    "id": "de_cache-a-1",
+    "map_id": "de_cache",
+    "site": "A",
+    "label": "A Site + A Main",
+    "n_rounds": 16,
+    "n_demos": 5,
+    "share": 0.533,
+    "lift": 1.52,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 363.5,
+      "y": 313.5,
+      "w": 40.0,
+      "h": 44.4,
+      "time_from": 0.0,
+      "time_to": 27.2,
+      "support": 0.94,
+      "zone": "cache_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 298.4,
+      "y": 332.0,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 17.4,
+      "time_to": 52.4,
+      "support": 0.81,
+      "zone": "cache_a_site"
+     },
+     {
+      "util_type": "flash",
+      "x": 427.8,
+      "y": 290.9,
+      "w": 62.9,
+      "h": 56.6,
+      "time_from": 0.0,
+      "time_to": 27.5,
+      "support": 0.69,
+      "zone": "cache_a_site"
+     },
+     {
+      "util_type": "smoke",
+      "x": 290.6,
+      "y": 595.9,
+      "w": 42.8,
+      "h": 40.0,
+      "time_from": 0.6,
+      "time_to": 4.6,
+      "support": 0.56,
+      "zone": "cache_connector"
+     },
+     {
+      "util_type": "flash",
+      "x": 494.2,
+      "y": 562.2,
+      "w": 130.9,
+      "h": 109.9,
+      "time_from": 0.0,
+      "time_to": 17.6,
+      "support": 0.56,
+      "zone": "cache_mid"
+     },
+     {
+      "util_type": "molotov",
+      "x": 339.7,
+      "y": 195.1,
+      "w": 111.3,
+      "h": 167.2,
+      "time_from": 28.0,
+      "time_to": 54.6,
+      "support": 0.56,
+      "zone": "cache_a_site"
+     }
+    ]
+   },
+   {
+    "id": "de_cache-b-0",
+    "map_id": "de_cache",
+    "site": "B",
+    "label": "Checkers + Connector",
+    "n_rounds": 11,
+    "n_demos": 6,
+    "share": 0.367,
+    "lift": 1.44,
+    "tokens": [
+     {
+      "util_type": "smoke",
+      "x": 411.2,
+      "y": 706.3,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 5.6,
+      "time_to": 12.3,
+      "support": 0.91,
+      "zone": "cache_checkers"
+     },
+     {
+      "util_type": "smoke",
+      "x": 300.8,
+      "y": 593.9,
+      "w": 88.7,
+      "h": 40.0,
+      "time_from": 0.0,
+      "time_to": 20.1,
+      "support": 0.73,
+      "zone": "cache_connector"
+     },
+     {
+      "util_type": "molotov",
+      "x": 428.9,
+      "y": 666.9,
+      "w": 46.9,
+      "h": 84.2,
+      "time_from": 18.9,
+      "time_to": 35.4,
+      "support": 0.55,
+      "zone": "cache_vents"
+     },
+     {
+      "util_type": "flash",
+      "x": 449.6,
+      "y": 728.9,
+      "w": 93.6,
+      "h": 85.2,
+      "time_from": 4.4,
+      "time_to": 36.9,
+      "support": 0.45,
+      "zone": "cache_checkers"
+     },
+     {
+      "util_type": "he",
+      "x": 326.1,
+      "y": 515.7,
+      "w": 40.0,
+      "h": 40.0,
+      "time_from": 1.8,
+      "time_to": 14.8,
+      "support": 0.45,
+      "zone": "cache_connector"
+     },
+     {
+      "util_type": "he",
+      "x": 459.3,
+      "y": 663.8,
+      "w": 104.7,
+      "h": 137.3,
+      "time_from": 15.5,
+      "time_to": 33.2,
+      "support": 0.45,
+      "zone": "cache_vents"
      }
     ]
    }
