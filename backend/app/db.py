@@ -42,6 +42,7 @@ def _add_missing_columns() -> None:
 
     wanted = {
         "download_jobs": {"matches_total": "INTEGER NOT NULL DEFAULT 0",
+                          "matches_found": "INTEGER NOT NULL DEFAULT 0",
                           "demos_total": "INTEGER NOT NULL DEFAULT 0",
                           "max_matches": "INTEGER"},
         "demos": {"team_hltv_id": "VARCHAR", "opponent_hltv_id": "VARCHAR"},

@@ -145,6 +145,8 @@
     "startDownload": "Iniciar descarga",
     "jobs": "Trabajos de descarga",
     "matches": "Partidos",
+    "matchesFound": "Partidos encontrados",
+    "matchesHint": "Con un filtro de mapa el total cuenta solo los partidos que traen ese mapa, así que baja según se descartan.",
     "ingested": "Demos ingestados",
     "progress": "Progreso",
     "demos": "Demos",
@@ -156,6 +158,7 @@
     "retry": "Reintentar",
     "noJobs": "Aún no hay trabajos de descarga.",
     "noMatches": "Sin partidos en este periodo (el equipo puede estar inactivo o haber cambiado de nombre).",
+    "noMapMatches": "Ninguno de los {{n}} partidos del periodo se jugó en {{map}}.",
     "range": {
       "last_month": "Último mes",
       "last_3_months": "Últimos 3 meses",

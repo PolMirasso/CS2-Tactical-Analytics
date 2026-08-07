@@ -248,15 +248,23 @@ def iter_team_demo_archives(
         date_range: DateRange,
         *,
         max_matches: int = 100,
-        on_total: Callable[[int], None] | None = None,
+        on_totals: Callable[[int, int], None] | None = None,
         checkpoint: Callable[[], None] | None = None,
 ) -> Iterator[DemoArchive]:
     # Yield GOTV demo archives one match at a time, as each is downloaded
 
     settings = get_settings()
     match_urls = find_match_results(team_id, date_range)[:max_matches]
-    if on_total is not None:
-        on_total(len(match_urls))
+    found = len(match_urls)
+    expected = found
+    if on_totals is not None:
+        on_totals(found, expected)
+
+    def drop() -> None:
+        nonlocal expected
+        expected -= 1
+        if on_totals is not None:
+            on_totals(found, expected)
 
     for match_url in match_urls:
         # honour a pending pause/cancel before starting another download
@@ -268,9 +276,11 @@ def iter_team_demo_archives(
             # Guard against page-scrape leaks (a generic homepage or "other
             # matches" section): only keep matches the requested team plays in.
             if not _match_involves_team(html, team_id):
+                drop()
                 continue
             demo_links = re.findall(r'href="(/download/demo/\d+)"', html)
             if not demo_links:
+                drop()
                 continue
             id_match = re.search(r"/matches/(\d+)", match_url)
             match_id = id_match.group(1) if id_match else match_url.rstrip("/").split("/")[-1]
@@ -280,6 +290,7 @@ def iter_team_demo_archives(
                 f"{settings.hltv_base_url}{demo_links[0]}", match_id, map_id
             )
         except HLTVError:
+            drop()
             continue  # skip a failed match, keep going
         if dem_paths:
             yield DemoArchive(
@@ -291,8 +302,11 @@ def iter_team_demo_archives(
                 teams=teams,
                 work_dir=work_dir,
             )
-        elif work_dir is not None:
-            shutil.rmtree(work_dir, ignore_errors=True)
+        else:
+            # The series was downloaded but holds no .dem for the map filter
+            drop()
+            if work_dir is not None:
+                shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def _download_and_extract(

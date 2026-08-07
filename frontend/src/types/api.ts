@@ -150,6 +150,7 @@ export interface DownloadJobOut {
   date_range: string
   visibility: Visibility
   matches: number
+  matches_found: number
   matches_total: number
   demos_ingested: number
   demos_total: number

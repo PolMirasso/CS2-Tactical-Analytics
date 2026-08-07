@@ -38,6 +38,7 @@ def _job_out(job: DownloadJob) -> DownloadJobOut:
         date_range=job.date_range,
         visibility=job.visibility,
         matches=job.matches,
+        matches_found=job.matches_found,
         matches_total=job.matches_total,
         demos_ingested=job.demos_ingested,
         demos_total=job.demos_total,
@@ -77,7 +78,9 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                 body.map_id,
                 body.date_range,
                 max_matches=body.max_matches or get_settings().hltv_max_matches,
-                on_total=lambda n: _update(matches_total=n),
+                on_totals=lambda found, expected: _update(
+                    matches_found=found, matches_total=expected
+                ),
                 # cancel/pause aborts before the next download
                 checkpoint=control.checkpoint,
         ):

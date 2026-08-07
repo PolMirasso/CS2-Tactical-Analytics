@@ -145,6 +145,8 @@
     "startDownload": "Start download",
     "jobs": "Download jobs",
     "matches": "Matches",
+    "matchesFound": "Matches found",
+    "matchesHint": "With a map filter the total only counts matches holding that map, so it drops as they are ruled out.",
     "ingested": "Demos ingested",
     "progress": "Progress",
     "demos": "Demos",
@@ -156,6 +158,7 @@
     "retry": "Retry",
     "noJobs": "No download jobs yet.",
     "noMatches": "No matches in this period (the team may be inactive or renamed).",
+    "noMapMatches": "None of the {{n}} matches in this period were played on {{map}}.",
     "range": {
       "last_month": "Last month",
       "last_3_months": "Last 3 months",

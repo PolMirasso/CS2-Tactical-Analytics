@@ -5,6 +5,7 @@ import time
 
 import app.hltv.client as client
 from app.config import get_settings
+from app.domain.enums import DateRange
 from app.hltv.client import (
     _match_involves_team,
     _parse_match_teams,
@@ -114,6 +115,62 @@ def test_flaresolverr_serializes_to_one_by_default(monkeypatch):
 def test_flaresolverr_allows_configured_parallelism(monkeypatch):
     # A higher limit lets overlapping jobs solve in parallel.
     assert _run_concurrent_solves(monkeypatch, limit=3, threads=5) > 1
+
+
+def _drive_archives(monkeypatch, *, map_id, dems_per_match):
+    """Run the archive iterator over 3 fake matches and return the reported totals"""
+    from pathlib import Path
+
+    urls = [f"http://hltv/matches/{i}/x" for i in dems_per_match]
+    monkeypatch.setattr(client, "find_match_results", lambda team, rng: urls)
+    monkeypatch.setattr(get_settings(), "request_delay_s", 0)
+    monkeypatch.setattr(
+        client,
+        "_flaresolverr_get",
+        lambda url, **kw: (
+            '<a href="/team/1/t"><img class="logo"></a><div class="teamName">T</div>'
+            '<a href="/team/2/o"><img class="logo"></a><div class="teamName">O</div>'
+            '<a href="/download/demo/9">dl</a>'
+        ),
+    )
+    monkeypatch.setattr(
+        client,
+        "_download_and_extract",
+        lambda url, match_id, mid=None: (
+            None, [Path(p) for p in dems_per_match[match_id]]
+        ),
+    )
+
+    totals: list[tuple[int, int]] = []
+    got = list(
+        client.iter_team_demo_archives(
+            "1", map_id, DateRange.LAST_3_MONTHS,
+            on_totals=lambda found, expected: totals.append((found, expected)),
+        )
+    )
+    return len(got), totals
+
+
+def test_match_total_narrows_to_the_map_filter(monkeypatch):
+    matches, totals = _drive_archives(
+        monkeypatch,
+        map_id="de_nuke",
+        dems_per_match={"1": [], "2": ["b-nuke.dem"], "3": []},
+    )
+    assert matches == 1
+    assert totals[0] == (3, 3)
+    assert totals[-1] == (3, 1)
+    assert matches == totals[-1][1]
+
+
+def test_match_total_keeps_every_match_without_a_filter(monkeypatch):
+    matches, totals = _drive_archives(
+        monkeypatch,
+        map_id=None,
+        dems_per_match={"1": ["a.dem"], "2": ["b.dem"], "3": ["c.dem"]},
+    )
+    assert matches == 3
+    assert totals == [(3, 3)]  # nothing dropped, no refinement
 
 
 def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):

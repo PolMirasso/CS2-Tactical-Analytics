@@ -8,8 +8,7 @@ import type { DateRange, DownloadJobOut, TeamHit, Visibility } from '@/types/api
 import { TeamSearch } from './TeamSearch'
 import { useDownloadJobs, useJobAction, useStartDownload } from './hooks'
 
-// Overall progress: matches are the stable unit (a job has a fixed match total,
-// but its demo total only grows as each match archive is downloaded).
+// Overall progress: matches are the stable unit (the demo total only grows as each archive is downloaded)
 function jobProgress(job: DownloadJobOut): number {
   if (job.status === 'completed') return 100
   if (job.status === 'failed' || job.matches_total === 0) return 0
@@ -188,10 +187,12 @@ export function HltvPage() {
                           job.matches_total === 0 &&
                           job.demos_ingested === 0 && (
                             <div className="mt-1 text-xs text-muted">
-                              {t(
-                                'hltv.noMatches',
-                                'Sin partidos en este periodo (el equipo puede estar inactivo o haber cambiado de nombre).',
-                              )}
+                              {job.matches_found > 0 && job.map_id
+                                ? t('hltv.noMapMatches', {
+                                    n: job.matches_found,
+                                    map: mapLabel(job.map_id),
+                                  })
+                                : t('hltv.noMatches')}
                             </div>
                           )}
                       </td>
@@ -276,8 +277,12 @@ function ProgressBar({ pct }: { pct: number }) {
 
 function JobDetails({ job }: { job: DownloadJobOut }) {
   const { t } = useTranslation()
+  const narrowed = job.matches_found > job.matches_total
   const rows: [string, string][] = [
     [t('hltv.matches'), job.matches_total ? `${job.matches} / ${job.matches_total}` : `${job.matches}`],
+    ...(narrowed
+      ? ([[t('hltv.matchesFound'), `${job.matches_found}`]] as [string, string][])
+      : []),
     [t('hltv.demos'), job.demos_total ? `${job.demos_ingested} / ${job.demos_total}` : `${job.demos_ingested}`],
     [t('hltv.map'), job.map_id ? mapLabel(job.map_id) : t('hltv.allMaps')],
     [t('hltv.dateRange'), t(`hltv.range.${job.date_range}`, job.date_range)],
@@ -303,6 +308,9 @@ function JobDetails({ job }: { job: DownloadJobOut }) {
           </Fragment>
         ))}
       </div>
+      {narrowed && job.map_id && (
+        <p className="text-muted m-0 text-xs">{t('hltv.matchesHint')}</p>
+      )}
       {job.error && <p className="m-0 text-[0.9rem] text-danger">{job.error}</p>}
     </div>
   )

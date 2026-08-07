@@ -131,6 +131,7 @@ class DownloadJob(Base):
     max_matches: Mapped[int | None] = mapped_column(nullable=True)
 
     matches: Mapped[int] = mapped_column(default=0)
+    matches_found: Mapped[int] = mapped_column(default=0)
     matches_total: Mapped[int] = mapped_column(default=0)
     demos_ingested: Mapped[int] = mapped_column(default=0)
     demos_total: Mapped[int] = mapped_column(default=0)

@@ -277,6 +277,7 @@ class DownloadJobOut(BaseModel):
     date_range: str
     visibility: str
     matches: int
+    matches_found: int = 0
     matches_total: int = 0
     demos_ingested: int
     demos_total: int = 0
