@@ -164,7 +164,7 @@ export function HltvPage() {
                 <th>{t('hltv.matches')}</th>
                 <th>{t('hltv.ingested')}</th>
                 <th>{t('demos.created')}</th>
-                <th>{t('hltv.actions')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -238,7 +238,7 @@ function JobActions({ job, disabled }: { job: DownloadJobOut; disabled: boolean 
   if (job.status === 'running') buttons.push({ label: t('hltv.pause'), a: 'pause' })
   if (job.status === 'paused') buttons.push({ label: t('hltv.resume'), a: 'resume' })
   if (job.status === 'running' || job.status === 'paused' || job.status === 'pending')
-    buttons.push({ label: t('hltv.cancel'), a: 'cancel' })
+    buttons.push({ label: t('common.cancel'), a: 'cancel' })
   if (job.status === 'failed' || job.status === 'cancelled')
     buttons.push({ label: t('hltv.retry'), a: 'retry' })
 

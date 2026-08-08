@@ -1183,7 +1183,7 @@ function Prediction({ result }: { result: PredictOut }) {
             result.source === 'model' ? 'border-ok text-ok' : 'border-warn text-warn'
           }`}
         >
-          {result.source === 'model' ? t('scouting.modelSource') : t('scouting.baselineSource')}
+          {result.source === 'model' ? t('scouting.modelSource') : t('scouting.baseline')}
         </span>
       </div>
       <p className="mt-0 mb-3">

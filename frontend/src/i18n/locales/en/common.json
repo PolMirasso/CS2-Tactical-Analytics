@@ -16,7 +16,6 @@
   "common": {
     "loading": "Loading…",
     "error": "Something went wrong",
-    "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
     "submit": "Submit",
@@ -25,9 +24,7 @@
     "remove": "Remove",
     "noResults": "No results",
     "none": "-",
-    "actions": "Actions",
-    "yes": "Yes",
-    "no": "No"
+    "actions": "Actions"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -37,8 +34,7 @@
     "login": "Sign in",
     "register": "Register",
     "needAccount": "Need an account? Register",
-    "haveAccount": "Already have an account? Sign in",
-    "invalidCredentials": "Invalid credentials"
+    "haveAccount": "Already have an account? Sign in"
   },
   "stats": {
     "scoreboard": "Player stats",
@@ -115,7 +111,6 @@
     "speed": "Speed",
     "noReplay": "No replay data for this demo. Re-parse it to generate the 2D replay.",
     "noRadar": "No radar image for this map; showing a schematic view.",
-    "utilityTimeline": "Utility timeline",
     "hp": "HP",
     "armor": "Armor",
     "money": "Money",
@@ -151,10 +146,8 @@
     "progress": "Progress",
     "demos": "Demos",
     "updated": "Updated",
-    "actions": "Actions",
     "pause": "Pause",
     "resume": "Resume",
-    "cancel": "Cancel",
     "retry": "Retry",
     "noJobs": "No download jobs yet.",
     "noMatches": "No matches in this period (the team may be inactive or renamed).",
@@ -232,7 +225,7 @@
     "winRate": "Win rate",
     "noData": "No rounds match these filters.",
     "roster": {
-      "title": "Roster change detected",
+      "title": "Line-up change detected",
       "body_one": "This team swapped players once in the analysed demos — the aggregated tendencies below mix different line-ups.",
       "body_other": "This team swapped players {{count}} times in the analysed demos — the aggregated tendencies below mix different line-ups.",
       "core": "Core (in every demo)",
@@ -303,14 +296,10 @@
       "snipers": "Snipers",
       "heavy": "Heavy"
     },
-    "roundTime": "Round time",
     "timeWindow": "Throw window",
-    "from": "from",
-    "to": "to",
     "addHint": "Pick a utility type and throw window, then drag a box anywhere on the map to place it. Click a placed area to remove it.",
     "timelineHint": "Drag the middle of a bar to move it and its edges (the grips) to make the window bigger or smaller. The dashed bar sets the next utility's window.",
     "placed": "Placed utility",
-    "region": "Region",
     "noTokens": "No utility placed yet. Pick a type above and drag a box on the map.",
     "clear": "Clear",
     "presets": "Presets",
@@ -326,7 +315,6 @@
     "prediction": "Prediction",
     "predictedSite": "Most likely site",
     "modelSource": "Model (neural net)",
-    "baselineSource": "Historical base rate",
     "baseline": "Historical frequency",
     "baselineHint": "The bar is the model probability; the vertical tick is the team's historical frequency (baseline).",
     "executionTiming": "Execution timing",

@@ -38,6 +38,7 @@ export function DemosPage() {
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const noDemosAtAll = total === 0 && !(mapId || team || dateFrom || dateTo)
 
   const reparseAll = useReparseAll()
   const reparseStatus = useReparseStatus(isAdmin)
@@ -113,7 +114,9 @@ export function DemosPage() {
 
         {isLoading && <p className="text-muted">{t('common.loading')}</p>}
         {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
-        {!isLoading && items.length === 0 && <p className="text-muted">{t('demos.noMatches')}</p>}
+        {!isLoading && !isError && items.length === 0 && (
+          <p className="text-muted">{noDemosAtAll ? t('demos.empty') : t('demos.noMatches')}</p>
+        )}
         {items.length > 0 && (
           <>
             <table>
