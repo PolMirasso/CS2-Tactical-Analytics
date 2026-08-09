@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/apiClient'
 import { useAuth } from '@/features/auth/AuthContext'
 import { StatusBadge } from '@/components/StatusBadge'
 import { formatDate } from '@/lib/format'
-import type { DateRange, DownloadJobOut, TeamHit, Visibility } from '@/types/api'
+import type { DateRange, DownloadJobOut, TeamHit } from '@/types/api'
 import { TeamSearch } from './TeamSearch'
 import { useDownloadJobs, useJobAction, useStartDownload } from './hooks'
 
@@ -47,7 +47,6 @@ export function HltvPage() {
   const [team, setTeam] = useState<TeamHit | null>(null)
   const [mapId, setMapId] = useState<string>('')
   const [dateRange, setDateRange] = useState<DateRange>('last_3_months')
-  const [visibility, setVisibility] = useState<Visibility>('public')
   const [maxMatches, setMaxMatches] = useState(100)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,7 +65,6 @@ export function HltvPage() {
         team_name: team.name,
         map_id: mapId || undefined,
         date_range: dateRange,
-        visibility,
         max_matches: maxMatches,
       })
     } catch (err) {
@@ -116,17 +114,6 @@ export function HltvPage() {
                       {t(`hltv.range.${r}`)}
                     </option>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="vis">{t('demos.visibility')}</label>
-                <select
-                  id="vis"
-                  value={visibility}
-                  onChange={(e) => setVisibility(e.target.value as Visibility)}
-                >
-                  <option value="public">public</option>
-                  <option value="private">private</option>
                 </select>
               </div>
               <div>

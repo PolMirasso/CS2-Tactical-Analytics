@@ -110,7 +110,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 fh,
                                 filename=dem_path.name,
                                 source=DemoSource.HLTV,
-                                visibility=body.visibility,
+                                visibility=Visibility.PUBLIC,
                                 map_id=demo_map,
                                 # No name stored; clans map to ids below.
                                 team=None,
@@ -118,6 +118,7 @@ def _run_download_job(job_id: str, owner_id: int, body: DownloadDemosIn) -> None
                                 match_date=archive.match_date,
                                 hltv_match_id=archive.match_id,
                             )
+                        demo.visibility = str(Visibility.PUBLIC)
                         # A series archive can hold a map already ingested in a
                         # prior run; skip re-parsing those duplicates.
                         if created or demo.status != str(DemoStatus.PARSED):
@@ -250,7 +251,7 @@ def download_demos(
         team_name=body.team_name,
         map_id=body.map_id,
         date_range=str(body.date_range),
-        visibility=str(body.visibility),
+        visibility=str(Visibility.PUBLIC),
         max_matches=body.max_matches,
     )
     session.add(job)
@@ -353,9 +354,9 @@ def retry_download_job(
         team_name=job.team_name,
         map_id=job.map_id,
         date_range=DateRange(job.date_range),
-        visibility=Visibility(job.visibility),
         max_matches=job.max_matches,
     )
+    job.visibility = str(Visibility.PUBLIC)
     job.status = str(JobStatus.PENDING)
     job.error = None
     session.commit()

@@ -165,7 +165,6 @@ export interface DownloadDemosIn {
   team_name?: string | null
   map_id?: string | null
   date_range?: DateRange
-  visibility?: Visibility
   max_matches?: number
 }
 

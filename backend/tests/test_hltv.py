@@ -173,6 +173,27 @@ def test_match_total_keeps_every_match_without_a_filter(monkeypatch):
     assert totals == [(3, 3)]  # nothing dropped, no refinement
 
 
+def test_download_job_is_always_public(client, monkeypatch):
+    # HLTV demos feed the shared pool: a private request must not be honoured.
+    from app.db import session_scope
+    from app.domain.models import DownloadJob
+    from app.hltv import routes as hltv_routes
+    from tests.conftest import auth
+
+    monkeypatch.setattr(hltv_routes, "_run_download_job", lambda *a, **kw: None)
+    login = client.post("/auth/login", data={"username": "admin@cs2.local", "password": "admin"})
+    resp = client.post(
+        "/hltv/download",
+        json={"team_id": "1", "team_name": "T", "visibility": "private"},
+        headers=auth(login.json()["access_token"]),
+    )
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["visibility"] == "public"
+
+    with session_scope() as session:  # shared test DB: drop the job we just made
+        session.delete(session.get(DownloadJob, resp.json()["id"]))
+
+
 def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):
     from pathlib import Path
 

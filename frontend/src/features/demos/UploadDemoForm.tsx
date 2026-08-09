@@ -8,6 +8,7 @@ import { useUploadDemo } from './hooks'
 export function UploadDemoForm() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const upload = useUploadDemo()
   const [file, setFile] = useState<File | null>(null)
   const [event, setEvent] = useState('')
@@ -23,7 +24,7 @@ export function UploadDemoForm() {
     if (!file) return
     const form = new FormData()
     form.append('file', file)
-    form.append('visibility', visibility)
+    form.append('visibility', isAdmin ? visibility : 'private')
     if (event) form.append('event', event)
     if (matchDate) form.append('match_date', matchDate)
     try {
@@ -68,19 +69,19 @@ export function UploadDemoForm() {
             <label htmlFor="event">{t('demos.event')}</label>
             <input id="event" value={event} onChange={(e) => setEvent(e.target.value)} />
           </div>
-          <div>
-            <label htmlFor="visibility">{t('demos.visibility')}</label>
-            <select
-              id="visibility"
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as Visibility)}
-            >
-              <option value="private">private</option>
-              <option value="public" disabled={user?.role !== 'admin'}>
-                public {user?.role !== 'admin' ? '(admin)' : ''}
-              </option>
-            </select>
-          </div>
+          {isAdmin && (
+            <div>
+              <label htmlFor="visibility">{t('demos.visibility')}</label>
+              <select
+                id="visibility"
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as Visibility)}
+              >
+                <option value="private">private</option>
+                <option value="public">public</option>
+              </select>
+            </div>
+          )}
         </div>
         {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
         {note && <p className="text-muted">{note}</p>}

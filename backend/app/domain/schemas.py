@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.domain.enums import DateRange, Visibility
+from app.domain.enums import DateRange
 
 
 # auth
@@ -292,7 +292,6 @@ class DownloadDemosIn(BaseModel):
     team_name: str | None = None
     map_id: str | None = None
     date_range: DateRange = DateRange.LAST_3_MONTHS
-    visibility: Visibility = Visibility.PUBLIC
     # Max series to pull
     max_matches: int | None = Field(default=None, ge=1, le=200)
 
