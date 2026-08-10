@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/features/auth/AuthContext'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -46,7 +46,11 @@ export function Sidebar() {
           collapsed ? 'justify-center' : 'justify-between'
         }`}
       >
-        {!collapsed && <span className="overflow-hidden font-bold whitespace-nowrap">{t('app.title')}</span>}
+        {!collapsed && (
+          <Link to="/" className="overflow-hidden font-bold whitespace-nowrap text-text">
+            {t('app.title')}
+          </Link>
+        )}
         <button
           className="border border-border bg-transparent px-[9px] py-0.5 text-[18px] leading-none text-text"
           onClick={toggle}
