@@ -91,6 +91,14 @@ def list_demos(
     return DemoListOut(items=[_to_out(d, names) for d in demos], total=total)
 
 
+@router.get("/events", response_model=list[str])
+def list_events(
+        user: User = Depends(get_current_user),
+        session: Session = Depends(get_session),
+) -> list[str]:
+    return service.list_events(session, user)
+
+
 @router.get("/{demo_id}", response_model=DemoOut)
 def get_demo(
         demo_id: int,

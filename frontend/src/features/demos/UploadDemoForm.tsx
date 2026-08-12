@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/lib/apiClient'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { Visibility } from '@/types/api'
-import { useUploadDemo } from './hooks'
+import { useDemoEvents, useUploadDemo } from './hooks'
 
 export function UploadDemoForm() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const upload = useUploadDemo()
+  const events = useDemoEvents()
   const [file, setFile] = useState<File | null>(null)
   const [event, setEvent] = useState('')
   const [matchDate, setMatchDate] = useState('')
@@ -67,7 +68,18 @@ export function UploadDemoForm() {
           </div>
           <div>
             <label htmlFor="event">{t('demos.event')}</label>
-            <input id="event" value={event} onChange={(e) => setEvent(e.target.value)} />
+            <input
+              id="event"
+              list="event-options"
+              autoComplete="off"
+              value={event}
+              onChange={(e) => setEvent(e.target.value)}
+            />
+            <datalist id="event-options">
+              {(events.data ?? []).map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
           </div>
           {isAdmin && (
             <div>

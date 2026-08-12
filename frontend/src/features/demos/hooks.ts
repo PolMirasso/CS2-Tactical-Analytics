@@ -11,6 +11,10 @@ export function useDemos(params: DemoListParams = {}) {
   })
 }
 
+export function useDemoEvents() {
+  return useQuery({ queryKey: [...KEY, 'events'], queryFn: () => demosApi.events() })
+}
+
 export function useDemo(id: number) {
   return useQuery({ queryKey: [...KEY, id], queryFn: () => demosApi.get(id) })
 }

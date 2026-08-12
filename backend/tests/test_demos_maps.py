@@ -295,6 +295,23 @@ def test_apply_canonical_teams_tags_ids_and_drops_names(client):
         assert (r13.team_hltv_id, r13.opponent_hltv_id) == ("6667", "9565")
 
 
+def test_events_lists_stored_names_and_respects_visibility(client):
+    token = register_and_login(client, "events@example.com")
+    up = _upload(
+        client, token, map_id="de_mirage", team="Vitality", event="IEM Katowice 2026"
+    )
+    demo_id = up.json()["demo"]["id"]
+
+    resp = client.get("/demos/events", headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    assert "IEM Katowice 2026" in resp.json()
+
+    other = register_and_login(client, "events-other@example.com")
+    assert "IEM Katowice 2026" not in client.get("/demos/events", headers=auth(other)).json()
+
+    client.delete(f"/demos/{demo_id}", headers=auth(token))
+
+
 def test_demo_list_pagination_and_filter(client):
     token = register_and_login(client, "pager@example.com")
     _upload(client, token, map_id="de_nuke", team="Spirit", visibility="private")

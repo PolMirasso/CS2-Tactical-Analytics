@@ -12,6 +12,7 @@ import type {
 
 export const demosApi = {
   list: (params: DemoListParams = {}) => api.get<DemoListOut>(`/demos${qs(params)}`),
+  events: () => api.get<string[]>('/demos/events'),
   get: (id: number) => api.get<DemoOut>(`/demos/${id}`),
   analysis: (id: number) => api.get<DemoAnalysisOut>(`/demos/${id}/analysis`),
   replayMeta: (id: number) => api.get<ReplayMetaOut>(`/demos/${id}/replay`),

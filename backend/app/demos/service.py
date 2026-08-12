@@ -377,6 +377,20 @@ def list_visible(
     return list(session.scalars(q)), total
 
 
+def list_events(session: Session, user: User) -> list[str]:
+    rows = session.execute(
+        select(Demo.event, func.count())
+        .where(
+            _visibility_clause(session, user),
+            Demo.event.is_not(None),
+            Demo.event != "",
+        )
+        .group_by(Demo.event)
+        .order_by(func.count().desc(), Demo.event)
+    ).all()
+    return [event for event, _ in rows]
+
+
 def load_analysis(
         session: Session, demo: Demo
 ) -> list[tuple[Round, list[UtilityEvent]]]:
