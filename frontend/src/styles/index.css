@@ -55,9 +55,14 @@
     @apply mb-1 block text-[0.85rem] text-muted;
   }
 
-  input,
+  input:not([type='checkbox'], [type='radio']),
   select {
     @apply mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    @apply m-0 size-[0.95rem] shrink-0 accent-accent;
   }
 
   button {
