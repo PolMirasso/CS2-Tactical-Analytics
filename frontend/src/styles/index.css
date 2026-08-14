@@ -1,8 +1,5 @@
 @import 'tailwindcss';
 
-/* Design tokens. Plain @theme (not @theme inline) on purpose: utilities compile
-   to var(--color-*), so the print block below re-themes the whole app by
-   overriding these six vars. Inlining would freeze the dark values. */
 @theme {
   --color-bg: #0f1115;
   --color-surface: #181b22;
@@ -19,73 +16,7 @@
   --font-sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
-
-  body {
-    @apply m-0 bg-bg font-sans text-text;
-  }
-
-  a {
-    @apply text-accent no-underline hover:underline;
-  }
-
-  /* Preflight zeroes these; the pre-Tailwind design leaned on the browser
-     defaults (h1/h2 sizing was explicit, paragraph spacing was not). */
-  p {
-    @apply my-4;
-  }
-
-  h1 {
-    @apply mb-4 text-[1.4rem];
-  }
-
-  h2 {
-    @apply mb-3 text-[1.1rem];
-  }
-
-  /* h3 was never styled either, so it rode on the UA defaults Preflight drops. */
-  h3 {
-    @apply my-[1em] text-[1.17em] font-bold;
-  }
-
-  label {
-    @apply mb-1 block text-[0.85rem] text-muted;
-  }
-
-  input:not([type='checkbox'], [type='radio']),
-  select {
-    @apply mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text;
-  }
-
-  input[type='checkbox'],
-  input[type='radio'] {
-    @apply m-0 size-[0.95rem] shrink-0 accent-accent;
-  }
-
-  button {
-    @apply cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text;
-    @apply hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  table {
-    @apply w-full border-collapse text-[0.9rem];
-  }
-
-  th,
-  td {
-    @apply border-b border-border px-2.5 py-2 text-left;
-  }
-
-  th {
-    @apply font-semibold text-muted;
-  }
-}
-
-/* Print / PDF export (scouting report): re-theme to light. What gets hidden or
-   shown is handled at the call sites with Tailwind's `print:` variant. */
+/* Print / PDF export */
 @media print {
   :root {
     --color-bg: #ffffff;

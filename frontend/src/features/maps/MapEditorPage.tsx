@@ -185,29 +185,29 @@ export function MapEditorPage() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  if (isLoading) return <p className="text-muted">Loading…</p>
+  if (isLoading) return <p className="my-4 text-muted">Loading…</p>
 
   return (
     <div>
-      <h1>Editor de zonas</h1>
-      <p className="text-muted">
+      <h1 className="mb-4 text-[1.4rem]">Editor de zonas</h1>
+      <p className="my-4 text-muted">
         Arrastra los vértices para ajustar una zona. Click en una zona para seleccionarla; arrastra
         su interior para moverla entera. Doble-click en un borde añade un vértice; doble-click en un
         vértice lo borra. Usa la recalibración global para encajar todo el set sobre el radar.
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <select value={mapId ?? ''} onChange={(e) => setMapId(e.target.value)}>
+        <select className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" value={mapId ?? ''} onChange={(e) => setMapId(e.target.value)}>
           {maps?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
         </select>
-        <button className="border border-border bg-transparent text-text" onClick={() => map && setZones(toEditZones(map.zones))}>
+        <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => map && setZones(toEditZones(map.zones))}>
           Restablecer
         </button>
-        <button onClick={addZone} disabled={!map}>
+        <button className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={addZone} disabled={!map}>
           Agregar zona
         </button>
       </div>
@@ -286,40 +286,40 @@ export function MapEditorPage() {
 
         <div className="flex min-w-[280px] flex-1 flex-col gap-4">
           <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
-            <h3 className="mt-0">Recalibración global</h3>
+            <h3 className="mt-0 mb-[1em] text-[1.17em] font-bold">Recalibración global</h3>
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
               <span className="text-muted">Escala %</span>
-              <input type="range" min={50} max={150} step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} />
-              <input type="number" step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} className="w-[70px]" />
+              <input className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" type="range" min={50} max={150} step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} />
+              <input type="number" step={0.5} value={scalePct} onChange={(e) => setScalePct(+e.target.value)} className="rounded-md border border-border bg-surface-2 font-[inherit] text-text mb-3 w-[70px] px-2.5 py-2" />
               <span className="text-muted">Offset X</span>
-              <input type="range" min={-200} max={200} value={offX} onChange={(e) => setOffX(+e.target.value)} />
-              <input type="number" value={offX} onChange={(e) => setOffX(+e.target.value)} className="w-[70px]" />
+              <input className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" type="range" min={-200} max={200} value={offX} onChange={(e) => setOffX(+e.target.value)} />
+              <input type="number" value={offX} onChange={(e) => setOffX(+e.target.value)} className="rounded-md border border-border bg-surface-2 font-[inherit] text-text mb-3 w-[70px] px-2.5 py-2" />
               <span className="text-muted">Offset Y</span>
-              <input type="range" min={-200} max={200} value={offY} onChange={(e) => setOffY(+e.target.value)} />
-              <input type="number" value={offY} onChange={(e) => setOffY(+e.target.value)} className="w-[70px]" />
+              <input className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" type="range" min={-200} max={200} value={offY} onChange={(e) => setOffY(+e.target.value)} />
+              <input type="number" value={offY} onChange={(e) => setOffY(+e.target.value)} className="rounded-md border border-border bg-surface-2 font-[inherit] text-text mb-3 w-[70px] px-2.5 py-2" />
             </div>
-            <button className="mt-2.5" onClick={applyGlobal}>
+            <button className="cursor-pointer mt-2.5 rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={applyGlobal}>
               Aplicar a todas las zonas
             </button>
           </div>
 
           {selected !== null && zones[selected] && (
             <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
-              <h3 className="mt-0">Zona seleccionada</h3>
-              <label className="mb-2 block">
+              <h3 className="mt-0 mb-[1em] text-[1.17em] font-bold">Zona seleccionada</h3>
+              <label className="mb-2 block text-[0.85rem] text-muted">
                 Nombre
                 <input
                   value={zones[selected].name}
                   onChange={(e) => updateZone(selected, (z) => ({ ...z, name: e.target.value }))}
-                  className="w-full"
+                  className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                 />
               </label>
-              <label className="block">
+              <label className="mb-1 block text-[0.85rem] text-muted">
                 Región
                 <select
                   value={zones[selected].region}
                   onChange={(e) => updateZone(selected, (z) => ({ ...z, region: e.target.value as Region }))}
-                  className="w-full"
+                  className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                 >
                   {REGIONS.map((r) => (
                     <option key={r} value={r}>
@@ -328,12 +328,12 @@ export function MapEditorPage() {
                   ))}
                 </select>
               </label>
-              <p className="mb-2 text-muted">
+              <p className="mt-4 mb-2 text-muted">
                 {zones[selected].polygon.length} vértices · id <code>{zones[selected].id}</code>
               </p>
               <button
                 onClick={() => deleteZone(selected)}
-                className="border-danger bg-danger text-white"
+                className="cursor-pointer rounded-md border-none bg-danger px-3.5 py-2 font-[inherit] text-white hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Eliminar zona
               </button>
@@ -341,8 +341,8 @@ export function MapEditorPage() {
           )}
 
           <div className="m-0 rounded-[10px] border border-border bg-surface p-4 print:break-inside-avoid">
-            <h3 className="mt-0">Exportar</h3>
-            <button onClick={copy}>{copied ? '¡Copiado!' : 'Copiar JSON'}</button>
+            <h3 className="mt-0 mb-[1em] text-[1.17em] font-bold">Exportar</h3>
+            <button className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={copy}>{copied ? '¡Copiado!' : 'Copiar JSON'}</button>
             <textarea
               readOnly
               value={json}

@@ -47,12 +47,12 @@ export function Sidebar() {
         }`}
       >
         {!collapsed && (
-          <Link to="/" className="overflow-hidden font-bold whitespace-nowrap text-text">
+          <Link to="/" className="overflow-hidden no-underline font-bold whitespace-nowrap text-text hover:underline">
             {t('app.title')}
           </Link>
         )}
         <button
-          className="border border-border bg-transparent px-[9px] py-0.5 text-[18px] leading-none text-text"
+          className="cursor-pointer rounded-md border border-border bg-transparent px-[9px] py-0.5 font-[inherit] text-[18px] leading-none text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
           onClick={toggle}
           aria-label="Toggle menu"
         >
@@ -68,7 +68,7 @@ export function Sidebar() {
             end={item.end}
             title={t(item.key)}
             className={({ isActive }) =>
-              `flex items-center gap-[11px] rounded-lg whitespace-nowrap ${
+              `flex items-center gap-[11px] rounded-lg whitespace-nowrap no-underline hover:underline ${
                 collapsed ? 'justify-center p-[9px]' : 'px-[11px] py-[9px]'
               } ${isActive ? 'bg-accent text-accent-text' : 'text-text hover:bg-surface-2'}`
             }
@@ -85,7 +85,7 @@ export function Sidebar() {
           <span className="overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">{user.email}</span>
         )}
         <button
-          className="border border-border bg-transparent text-text"
+          className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
           onClick={logout}
           title={t('nav.logout')}
         >

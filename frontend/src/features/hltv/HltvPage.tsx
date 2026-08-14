@@ -74,7 +74,7 @@ export function HltvPage() {
 
   return (
     <div>
-      <h1>{t('hltv.title')}</h1>
+      <h1 className="mb-4 text-[1.4rem]">{t('hltv.title')}</h1>
 
       {!isAdmin && <p className="my-2 text-[0.9rem] text-danger">{t('hltv.adminOnly')}</p>}
 
@@ -87,13 +87,13 @@ export function HltvPage() {
 
         {team && (
           <>
-            <p>
+            <p className="my-4">
               {t('hltv.selectTeam')}: <strong>{team.name}</strong> (#{team.id})
             </p>
             <div className="flex max-w-[520px] flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
               <div>
-                <label htmlFor="map">{t('hltv.map')}</label>
-                <select id="map" value={mapId} onChange={(e) => setMapId(e.target.value)}>
+                <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="map">{t('hltv.map')}</label>
+                <select id="map" className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" value={mapId} onChange={(e) => setMapId(e.target.value)}>
                   <option value="">{t('hltv.allMaps')}</option>
                   {MAPS.map((m) => (
                     <option key={m} value={m}>
@@ -103,9 +103,10 @@ export function HltvPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="range">{t('hltv.dateRange')}</label>
+                <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="range">{t('hltv.dateRange')}</label>
                 <select
                   id="range"
+                  className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value as DateRange)}
                 >
@@ -117,9 +118,10 @@ export function HltvPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="maxm">{t('hltv.maxMatches')}</label>
+                <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="maxm">{t('hltv.maxMatches')}</label>
                 <input
                   id="maxm"
+                  className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                   type="number"
                   min={1}
                   max={200}
@@ -128,9 +130,9 @@ export function HltvPage() {
                 />
               </div>
             </div>
-            <p className="mt-1 text-[13px] text-muted">{t('hltv.maxMatchesHint')}</p>
+            <p className="mt-1 mb-4 text-[13px] text-muted">{t('hltv.maxMatchesHint')}</p>
             {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
-            <button onClick={onStart} disabled={!isAdmin || start.isPending}>
+            <button className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={onStart} disabled={!isAdmin || start.isPending}>
               {t('hltv.startDownload')}
             </button>
           </>
@@ -138,20 +140,20 @@ export function HltvPage() {
       </div>
 
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h2>{t('hltv.jobs')}</h2>
+        <h2 className="mb-3 text-[1.1rem]">{t('hltv.jobs')}</h2>
         {!jobs || jobs.length === 0 ? (
-          <p className="text-muted">{t('hltv.noJobs')}</p>
+          <p className="my-4 text-muted">{t('hltv.noJobs')}</p>
         ) : (
-          <table>
+          <table className="w-full border-collapse text-[0.9rem]">
             <thead>
               <tr>
-                <th className="w-6"></th>
-                <th>{t('demos.team')}</th>
-                <th>{t('demos.status')}</th>
-                <th>{t('hltv.matches')}</th>
-                <th>{t('hltv.ingested')}</th>
-                <th>{t('demos.created')}</th>
-                <th>{t('common.actions')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted w-6"></th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.team')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.status')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('hltv.matches')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('hltv.ingested')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.created')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -163,11 +165,11 @@ export function HltvPage() {
                       onClick={() => toggleJob(job.id)}
                       className="cursor-pointer"
                     >
-                      <td className="text-muted text-center">
+                      <td className="border-b border-border px-2.5 py-2 text-center text-muted">
                         {open ? '▾' : '▸'}
                       </td>
-                      <td>{job.team_name ?? job.team_id}</td>
-                      <td>
+                      <td className="border-b border-border px-2.5 py-2 text-left">{job.team_name ?? job.team_id}</td>
+                      <td className="border-b border-border px-2.5 py-2 text-left">
                         <StatusBadge status={job.status} />
                         {job.error && <div className="my-2 text-[0.9rem] text-danger">{job.error}</div>}
                         {job.status === 'completed' &&
@@ -183,22 +185,22 @@ export function HltvPage() {
                             </div>
                           )}
                       </td>
-                      <td>
+                      <td className="border-b border-border px-2.5 py-2 text-left">
                         {job.matches_total ? `${job.matches}/${job.matches_total}` : job.matches}
                       </td>
-                      <td>
+                      <td className="border-b border-border px-2.5 py-2 text-left">
                         {job.demos_total
                           ? `${job.demos_ingested}/${job.demos_total}`
                           : job.demos_ingested}
                       </td>
-                      <td className="text-muted">{formatDate(job.created_at)}</td>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td className="border-b border-border px-2.5 py-2 text-left text-muted">{formatDate(job.created_at)}</td>
+                      <td className="border-b border-border px-2.5 py-2 text-left" onClick={(e) => e.stopPropagation()}>
                         <JobActions job={job} disabled={!isAdmin} />
                       </td>
                     </tr>
                     {open && (
                       <tr>
-                        <td colSpan={7} className="bg-white/2">
+                        <td colSpan={7} className="border-b border-border px-2.5 py-2 text-left bg-white/2">
                           <JobDetails job={job} />
                         </td>
                       </tr>
@@ -235,7 +237,7 @@ function JobActions({ job, disabled }: { job: DownloadJobOut; disabled: boolean 
       {buttons.map(({ label, a }) => (
         <button
           key={a}
-          className="px-2 py-0.5 text-xs"
+          className="cursor-pointer rounded-md border-none bg-accent px-2 py-0.5 font-[inherit] text-xs text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={busy}
           onClick={() => run(a)}
         >

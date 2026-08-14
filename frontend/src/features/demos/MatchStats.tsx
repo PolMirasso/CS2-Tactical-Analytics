@@ -18,39 +18,42 @@ export function PlayerScoreboard({ players }: { players: PlayerStatOut[] }) {
   if (players.length === 0) return null
   return (
     <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-      <h2>{t('stats.scoreboard', 'Estadísticas de jugadores')}</h2>
-      <table>
+      <h2 className="mb-3 text-[1.1rem]">{t('stats.scoreboard', 'Estadísticas de jugadores')}</h2>
+      <table className="w-full border-collapse text-[0.9rem]">
         <thead>
           <tr>
-            <th>{t('stats.player', 'Jugador')}</th>
-            <th>K</th>
-            <th>D</th>
-            <th>A</th>
-            <th>+/-</th>
-            <th>HS%</th>
-            <th>ADR</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('stats.player', 'Jugador')}</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">K</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">D</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">A</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">+/-</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">HS%</th>
+            <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">ADR</th>
           </tr>
         </thead>
         <tbody>
           {groupByTeam(players).map(([team, group]) => (
             <Fragment key={team}>
               <tr>
-                <th colSpan={7} className="pt-3 text-left text-muted">
+                <th
+                  colSpan={7}
+                  className="border-b border-border px-2.5 pt-3 pb-2 text-left font-semibold text-muted"
+                >
                   {team}
                 </th>
               </tr>
               {group.map((p) => (
                 <tr key={p.name}>
-                  <td>{p.name}</td>
-                  <td>{p.kills}</td>
-                  <td>{p.deaths}</td>
-                  <td>{p.assists}</td>
-                  <td className={p.kills - p.deaths >= 0 ? 'text-[#7bd88f]' : 'text-danger'}>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.name}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.kills}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.deaths}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.assists}</td>
+                  <td className={`border-b border-border px-2.5 py-2 text-left ${p.kills - p.deaths >= 0 ? 'text-[#7bd88f]' : 'text-danger'}`}>
                     {p.kills - p.deaths > 0 ? '+' : ''}
                     {p.kills - p.deaths}
                   </td>
-                  <td>{p.kills ? Math.round((p.headshots / p.kills) * 100) : 0}%</td>
-                  <td>{p.adr != null ? p.adr.toFixed(1) : '-'}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.kills ? Math.round((p.headshots / p.kills) * 100) : 0}%</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">{p.adr != null ? p.adr.toFixed(1) : '-'}</td>
                 </tr>
               ))}
             </Fragment>
@@ -116,8 +119,8 @@ export function WinRateSummary({ rounds }: { rounds: RoundOut[] }) {
 
   return (
     <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-      <h2>{t('stats.winRate', 'Win rate (lado T)')}</h2>
-      <p className="text-muted mt-0">
+      <h2 className="mb-3 text-[1.1rem]">{t('stats.winRate', 'Win rate (lado T)')}</h2>
+      <p className="mt-0 mb-4 text-muted">
         T {pct(tWins, total)}% · CT {pct(total - tWins, total)}%
         {pistolWon > 0 && (
           <span className="ml-3">
@@ -130,7 +133,7 @@ export function WinRateSummary({ rounds }: { rounds: RoundOut[] }) {
           <Bar key={k} label={t(`demos.buyTypes.${k}`, k)} cell={cell} />
         ))}
       </div>
-      <h3 className="mb-1.5">{t('demos.site')}</h3>
+      <h3 className="mt-[1em] mb-1.5 text-[1.17em] font-bold">{t('demos.site')}</h3>
       <div className="flex flex-col gap-1.5">
         {Object.entries(bySite).map(([k, cell]) => (
           <Bar key={k} label={k} cell={cell} />

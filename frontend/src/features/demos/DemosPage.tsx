@@ -47,13 +47,14 @@ export function DemosPage() {
 
   return (
     <div>
-      <h1>{t('demos.title')}</h1>
+      <h1 className="mb-4 text-[1.4rem]">{t('demos.title')}</h1>
       <UploadDemoForm />
 
       {isAdmin && (
         <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
           <div className="flex flex-wrap items-center gap-3">
             <button
+              className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => reparseAll.mutate(mapId || undefined)}
               disabled={reparseAll.isPending || !!job?.running}
             >
@@ -87,7 +88,7 @@ export function DemosPage() {
 
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <select value={mapId} onChange={(e) => reset(setMapId)(e.target.value)}>
+          <select className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" value={mapId} onChange={(e) => reset(setMapId)(e.target.value)}>
             <option value="">{t('demos.allMaps', 'Todos los mapas')}</option>
             {maps?.map((m) => (
               <option key={m.id} value={m.id}>
@@ -100,69 +101,69 @@ export function DemosPage() {
             value={team}
             onChange={(e) => reset(setTeam)(e.target.value)}
             placeholder={t('demos.search')}
-            className="max-w-[220px]"
+            className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text max-w-[220px]"
           />
-          <label className="text-muted text-xs">
+          <label className="mb-1 block text-xs text-muted">
             {t('demos.from', 'Desde')}
-            <input type="date" value={dateFrom} onChange={(e) => reset(setDateFrom)(e.target.value)} />
+            <input className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" type="date" value={dateFrom} onChange={(e) => reset(setDateFrom)(e.target.value)} />
           </label>
-          <label className="text-muted text-xs">
+          <label className="mb-1 block text-xs text-muted">
             {t('demos.to', 'Hasta')}
-            <input type="date" value={dateTo} onChange={(e) => reset(setDateTo)(e.target.value)} />
+            <input className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" type="date" value={dateTo} onChange={(e) => reset(setDateTo)(e.target.value)} />
           </label>
         </div>
 
-        {isLoading && <p className="text-muted">{t('common.loading')}</p>}
+        {isLoading && <p className="my-4 text-muted">{t('common.loading')}</p>}
         {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
         {!isLoading && !isError && items.length === 0 && (
-          <p className="text-muted">{noDemosAtAll ? t('demos.empty') : t('demos.noMatches')}</p>
+          <p className="my-4 text-muted">{noDemosAtAll ? t('demos.empty') : t('demos.noMatches')}</p>
         )}
         {items.length > 0 && (
           <>
-            <table>
+            <table className="w-full border-collapse text-[0.9rem]">
               <thead>
                 <tr>
-                  <th>{t('demos.map')}</th>
-                  <th>{t('demos.team')}</th>
-                  <th>{t('demos.opponent')}</th>
-                  <th>{t('demos.event')}</th>
-                  <th>{t('demos.matchDate')}</th>
-                  <th>{t('demos.source')}</th>
-                  <th>{t('demos.status')}</th>
-                  <th>{t('demos.size')}</th>
-                  <th>{t('demos.created')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.map')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.team')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.opponent')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.event')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.matchDate')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.source')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.status')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.size')}</th>
+                  <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.created')}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((d) => (
                   <tr key={d.id}>
-                    <td>
-                      <Link to={`/demos/${d.id}`}>{d.map_id ?? t('common.none')}</Link>
+                    <td className="border-b border-border px-2.5 py-2 text-left">
+                      <Link className="no-underline text-accent hover:underline" to={`/demos/${d.id}`}>{d.map_id ?? t('common.none')}</Link>
                     </td>
-                    <td>{d.team ?? t('common.none')}</td>
-                    <td>{d.opponent ?? t('common.none')}</td>
-                    <td>{d.event ?? t('common.none')}</td>
-                    <td className="text-muted">{formatDay(d.match_date)}</td>
-                    <td>{d.source}</td>
-                    <td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">{d.team ?? t('common.none')}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">{d.opponent ?? t('common.none')}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">{d.event ?? t('common.none')}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left text-muted">{formatDay(d.match_date)}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">{d.source}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">
                       <StatusBadge status={d.status} />
                     </td>
-                    <td>{formatBytes(d.size_bytes)}</td>
-                    <td className="text-muted">{formatDate(d.created_at)}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left">{formatBytes(d.size_bytes)}</td>
+                    <td className="border-b border-border px-2.5 py-2 text-left text-muted">{formatDate(d.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
             <div className="mt-3 flex items-center gap-3">
-              <button className="border border-border bg-transparent text-text" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
                 ← {t('demos.prev', 'Anterior')}
               </button>
               <span className="text-muted">
                 {t('demos.page', 'Página')} {page + 1}/{pages} · {total}
               </span>
               <button
-                className="border border-border bg-transparent text-text"
+                className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={page + 1 >= pages}
                 onClick={() => setPage((p) => p + 1)}
               >

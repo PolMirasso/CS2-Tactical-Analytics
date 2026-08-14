@@ -4,7 +4,7 @@ export function LanguageSwitcher() {
   const { i18n } = useTranslation()
   return (
     <select
-      className="m-0 w-auto px-2 py-1"
+      className="rounded-md border border-border bg-surface-2 font-[inherit] text-text m-0 w-auto px-2 py-1"
       value={i18n.resolvedLanguage}
       onChange={(e) => void i18n.changeLanguage(e.target.value)}
       aria-label="Language"

@@ -30,19 +30,21 @@ export function RegisterPage() {
   return (
     <div className="mx-auto mt-[12vh] max-w-[360px]">
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h1>{t('auth.registerTitle')}</h1>
+        <h1 className="mb-4 text-[1.4rem]">{t('auth.registerTitle')}</h1>
         <form onSubmit={onSubmit}>
-          <label htmlFor="email">{t('auth.email')}</label>
+          <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="email">{t('auth.email')}</label>
           <input
             id="email"
+            className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <label htmlFor="password">{t('auth.password')}</label>
+          <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="password">{t('auth.password')}</label>
           <input
             id="password"
+            className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
             type="password"
             minLength={6}
             value={password}
@@ -50,12 +52,12 @@ export function RegisterPage() {
             required
           />
           {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
-          <button type="submit" disabled={busy}>
+          <button className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={busy}>
             {t('auth.register')}
           </button>
         </form>
-        <p className="text-muted mt-3">
-          <Link to="/login">{t('auth.haveAccount')}</Link>
+        <p className="mt-3 mb-4 text-muted">
+          <Link className="no-underline text-accent hover:underline" to="/login">{t('auth.haveAccount')}</Link>
         </p>
       </div>
     </div>

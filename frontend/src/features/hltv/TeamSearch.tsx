@@ -20,23 +20,24 @@ export function TeamSearch({ onSelect }: Props) {
 
   return (
     <div>
-      <label htmlFor="team-search">{t('common.search')}</label>
+      <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="team-search">{t('common.search')}</label>
       <input
         id="team-search"
+        className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
         value={term}
         placeholder={t('hltv.searchPlaceholder')}
         onChange={(e) => setTerm(e.target.value)}
       />
-      {isFetching && <p className="text-muted">{t('common.loading')}</p>}
+      {isFetching && <p className="my-4 text-muted">{t('common.loading')}</p>}
       {data && data.length > 0 && (
-        <table>
+        <table className="w-full border-collapse text-[0.9rem]">
           <tbody>
             {data.map((team) => (
               <tr key={team.id}>
-                <td>{team.name}</td>
-                <td className="text-muted">#{team.id}</td>
-                <td className="text-right">
-                  <button className="border border-border bg-transparent text-text" onClick={() => onSelect(team)}>
+                <td className="border-b border-border px-2.5 py-2 text-left">{team.name}</td>
+                <td className="border-b border-border px-2.5 py-2 text-left text-muted">#{team.id}</td>
+                <td className="border-b border-border px-2.5 py-2 text-right">
+                  <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => onSelect(team)}>
                     {t('hltv.selectTeam')}
                   </button>
                 </td>

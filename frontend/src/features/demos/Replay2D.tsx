@@ -1024,13 +1024,16 @@ function ReplayStage({
             >
               <div className="flex items-center justify-between gap-2">
                 <strong className="text-xs">{picked.name}</strong>
-                <button className="border border-border bg-transparent text-text px-1.5 py-0" onClick={() => setPicked(null)}>
+                <button
+                  className="cursor-pointer rounded-md border border-border bg-transparent px-1.5 py-0 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => setPicked(null)}
+                >
                   ✕
                 </button>
               </div>
               <code className="text-[11px] break-all">{picked.cmd}</code>
               <button
-                className="self-start px-2 py-[3px]"
+                className="cursor-pointer self-start rounded-md border-none bg-accent px-2 py-[3px] font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={async () => {
                   await navigator.clipboard.writeText(picked.cmd)
                   setCopied(true)
@@ -1089,7 +1092,7 @@ function ReplayStage({
         </div>
       </div>
 
-      {!hasRadar && <p className="mt-2 text-muted">{t('replay.noRadar')}</p>}
+      {!hasRadar && <p className="mt-2 mb-4 text-muted">{t('replay.noRadar')}</p>}
 
       {/* Round strip: winner colour on top, clickable round number below. */}
       <div className="mt-3.5 flex flex-wrap gap-[3px]">
@@ -1101,7 +1104,7 @@ function ReplayStage({
               key={r.round_number}
               onClick={() => onRound(r.round_number)}
               title={`${t('replay.round')} ${r.round_number}`}
-              className={`flex min-w-[30px] cursor-pointer flex-col overflow-hidden rounded-[5px] border p-0 ${
+              className={`flex cursor-pointer flex-col min-w-[30px] overflow-hidden rounded-[5px] border p-0 font-[inherit] hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 ${
                 active ? 'border-text bg-surface-2' : 'border-border bg-[#11141a]'
               }`}
             >
@@ -1128,7 +1131,7 @@ function ReplayStage({
         onPointerMove={(e) => {
           if (e.buttons & 1) seekFromClientX(e.clientX)
         }}
-        className="relative mt-2.5 h-[30px] touch-none cursor-pointer rounded-md border border-border bg-[#11141a]"
+        className="relative touch-none cursor-pointer h-[30px] mt-2.5 rounded-md border border-border bg-[#11141a]"
       >
         <div
           className="absolute top-0 bottom-0 left-0 bg-[rgba(79,140,255,0.18)]"
@@ -1164,7 +1167,7 @@ function ReplayStage({
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-3">
-        <button className="min-w-[110px] border border-border bg-transparent text-text" onClick={togglePlay}>
+        <button className="cursor-pointer min-w-[110px] rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={togglePlay}>
           {playing ? t('replay.pause') : t('replay.play')}
         </button>
         <span className="min-w-[96px] text-muted">
@@ -1174,8 +1177,8 @@ function ReplayStage({
         {SPEEDS.map((s) => (
           <button
             key={s}
-            className={`inline-block cursor-pointer rounded-full border bg-surface-2 px-2 py-0.5 text-xs ${
-              speed === s ? 'border-text text-text' : 'border-border'
+            className={`inline-block cursor-pointer rounded-full border bg-surface-2 px-2 py-0.5 font-[inherit] text-xs hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 ${
+              speed === s ? 'border-text text-text' : 'border-border text-accent-text'
             }`}
             onClick={() => setSpeed(s)}
           >
@@ -1200,12 +1203,12 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
 
   const roundQ = useReplayRound(demoId, round)
 
-  if (meta.isLoading) return <p className="text-muted">{t('common.loading')}</p>
+  if (meta.isLoading) return <p className="my-4 text-muted">{t('common.loading')}</p>
   if (meta.isError || !meta.data) {
     return (
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h2>{t('replay.title')}</h2>
-        <p className="text-muted">{t('replay.noReplay')}</p>
+        <h2 className="mb-3 text-[1.1rem]">{t('replay.title')}</h2>
+        <p className="my-4 text-muted">{t('replay.noReplay')}</p>
       </div>
     )
   }
@@ -1214,7 +1217,7 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
 
   return (
     <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-      <h2>{t('replay.title')}</h2>
+      <h2 className="mb-3 text-[1.1rem]">{t('replay.title')}</h2>
       {roundQ.data ? (
         <ReplayStage
           key={round ?? 0}
@@ -1230,7 +1233,7 @@ export function Replay2D({ demoId, fullscreen }: { demoId: number; fullscreen?: 
           onRound={setRound}
         />
       ) : (
-        <p className="text-muted">{t('common.loading')}</p>
+        <p className="my-4 text-muted">{t('common.loading')}</p>
       )}
     </div>
   )

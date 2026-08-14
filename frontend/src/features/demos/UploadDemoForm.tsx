@@ -45,31 +45,34 @@ export function UploadDemoForm() {
 
   return (
     <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-      <h2>{t('demos.uploadTitle')}</h2>
+      <h2 className="mb-3 text-[1.1rem]">{t('demos.uploadTitle')}</h2>
       <form onSubmit={onSubmit}>
-        <label htmlFor="file">{t('demos.file')}</label>
+        <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="file">{t('demos.file')}</label>
         <input
           id="file"
+          className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
           type="file"
           accept=".dem"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           required
         />
-        <p className="text-muted">{t('demos.mapAutoDetected')}</p>
+        <p className="my-4 text-muted">{t('demos.mapAutoDetected')}</p>
         <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
-            <label htmlFor="matchDate">{t('demos.matchDate')}</label>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="matchDate">{t('demos.matchDate')}</label>
             <input
               id="matchDate"
+              className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
               type="date"
               value={matchDate}
               onChange={(e) => setMatchDate(e.target.value)}
             />
           </div>
           <div>
-            <label htmlFor="event">{t('demos.event')}</label>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="event">{t('demos.event')}</label>
             <input
               id="event"
+              className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
               list="event-options"
               autoComplete="off"
               value={event}
@@ -83,9 +86,10 @@ export function UploadDemoForm() {
           </div>
           {isAdmin && (
             <div>
-              <label htmlFor="visibility">{t('demos.visibility')}</label>
+              <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="visibility">{t('demos.visibility')}</label>
               <select
                 id="visibility"
+                className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as Visibility)}
               >
@@ -96,8 +100,8 @@ export function UploadDemoForm() {
           )}
         </div>
         {error && <p className="my-2 text-[0.9rem] text-danger">{error}</p>}
-        {note && <p className="text-muted">{note}</p>}
-        <button type="submit" disabled={upload.isPending || !file}>
+        {note && <p className="my-4 text-muted">{note}</p>}
+        <button className="cursor-pointer rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={upload.isPending || !file}>
           {t('common.submit')}
         </button>
       </form>

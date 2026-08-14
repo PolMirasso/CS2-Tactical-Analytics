@@ -92,7 +92,7 @@ export function MultiSelect({
             {byId.get(v)?.name ?? v}
             <button
               type="button"
-              className="border-none bg-transparent p-0 leading-none text-muted"
+              className="cursor-pointer rounded-md border-none bg-transparent p-0 font-[inherit] leading-none text-muted hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={(e) => { e.stopPropagation(); remove(v) }}
               aria-label={t('common.remove')}
             >
@@ -113,7 +113,7 @@ export function MultiSelect({
           onFocus={() => { if (!disabled) { setOpen(true); setActive(0) } }}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0) }}
           onKeyDown={onKeyDown}
-          className="!mb-0 w-auto min-w-[80px] flex-1 border-none bg-transparent px-1 py-0.5 outline-none"
+          className="mb-0 w-auto min-w-[80px] flex-1 rounded-md border-none bg-transparent px-1 py-0.5 font-[inherit] text-text outline-none"
         />
       </div>
       {open && (

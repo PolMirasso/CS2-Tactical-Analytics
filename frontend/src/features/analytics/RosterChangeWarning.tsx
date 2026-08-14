@@ -28,12 +28,12 @@ export function RosterChangeWarning({
       )}
       {pickable && (
         <div className="mt-2.5">
-          <label htmlFor="sc-lineup" className="mb-1 text-[0.85rem]">
+          <label htmlFor="sc-lineup" className="mb-1 block text-[0.85rem] text-muted">
             {t('analytics.roster.filterLabel')}
           </label>
           <select
             id="sc-lineup"
-            className="!mb-0 max-w-[520px]"
+            className="rounded-md border border-border bg-surface-2 font-[inherit] text-text mb-0 w-full max-w-[520px] px-2.5 py-2"
             value={selected ?? ''}
             onChange={(e) => onSelect?.(e.target.value)}
           >
@@ -52,7 +52,7 @@ export function RosterChangeWarning({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="mt-2 w-auto px-2 py-0.5 text-[0.8rem]"
+        className="cursor-pointer w-auto mt-2 rounded-md border-none bg-accent px-2 py-0.5 font-[inherit] text-[0.8rem] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {open ? t('analytics.roster.hide') : t('analytics.roster.details')}
       </button>

@@ -50,7 +50,7 @@ function WeaponSelect(props: {
     <select
       id={props.id}
       aria-label={props.ariaLabel}
-      className={props.className}
+      className={`rounded-md border border-border bg-surface-2 font-[inherit] text-text w-full px-2.5 py-2 ${props.className ?? ''}`}
       value={props.value}
       onChange={(e) => props.onChange(e.target.value)}
     >
@@ -100,7 +100,7 @@ function WeaponPicker(props: {
             placeholder={props.removeLabel}
             exclude={used}
             catLabel={props.catLabel}
-            className="!mb-0 min-w-0 flex-1"
+            className="min-w-0 flex-1"
           />
           <span className="flex shrink-0 items-center gap-1 text-sm text-muted" title={props.countLabel}>
             <span aria-hidden="true">≥</span>
@@ -111,12 +111,12 @@ function WeaponPicker(props: {
               value={p.count}
               aria-label={props.countLabel}
               onChange={(e) => setCount(p.id, parseInt(e.target.value, 10))}
-              className="!mb-0 w-12"
+              className="rounded-md border border-border bg-surface-2 font-[inherit] text-text w-12 px-2.5 py-2"
             />
           </span>
           <button
             type="button"
-            className="shrink-0 bg-transparent px-1 text-muted hover:text-text"
+            className="cursor-pointer shrink-0 rounded-md border-none bg-transparent px-1 py-2 font-[inherit] text-muted hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 hover:text-text"
             aria-label={props.removeLabel}
             onClick={() => setWeapon(p.id, '')}
           >
@@ -132,7 +132,6 @@ function WeaponPicker(props: {
         ariaLabel={props.addLabel}
         exclude={used}
         catLabel={props.catLabel}
-        className="!mb-0"
       />
     </div>
   )
@@ -150,7 +149,7 @@ function BuySelect(props: {
     <div>
       <select
         id={props.id}
-        className="!mb-0"
+        className="rounded-md border border-border bg-surface-2 font-[inherit] text-text w-full px-2.5 py-2"
         value={props.value}
         onChange={(e) => props.onValue(e.target.value as BuyFilter)}
       >
@@ -185,7 +184,7 @@ function FilterRow(props: { label: string; htmlFor: string; hint?: string; child
   return (
     <div className="flex flex-wrap items-start gap-x-5 gap-y-1.5 py-3.5">
       <div className="max-w-[240px] min-w-[140px] flex-[1_1_150px]">
-        <label htmlFor={props.htmlFor} className="mb-0">{props.label}</label>
+        <label htmlFor={props.htmlFor} className="mb-0 block text-[0.85rem] text-muted">{props.label}</label>
         {props.hint && <p className="mt-1 mb-0 text-xs text-muted">{props.hint}</p>}
       </div>
       <div className="max-w-[440px] min-w-[220px] flex-[2_1_240px]">{props.children}</div>
@@ -543,10 +542,10 @@ export function ScoutingPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div className="min-w-[280px] flex-1">
-          <h1 className="mb-1">{t('scouting.title')}</h1>
-          <p className="mt-0 text-muted">{t('scouting.subtitle')}</p>
+          <h1 className="mb-1 text-[1.4rem]">{t('scouting.title')}</h1>
+          <p className="mt-0 mb-4 text-muted">{t('scouting.subtitle')}</p>
         </div>
-        <button className="border border-border bg-transparent text-text" onClick={() => window.print()}>
+        <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => window.print()}>
           {t('scouting.exportPdf')}
         </button>
       </div>
@@ -556,10 +555,10 @@ export function ScoutingPage() {
       )}
 
       <div className="mb-3 hidden print:block">
-        <h2 className="mb-1">
+        <h2 className="mb-1 text-[1.1rem]">
           {t('scouting.reportTitle')}: {teamLabel || t('analytics.allTeams')} — {map?.name ?? mapId}
         </h2>
-        <p className="text-muted">
+        <p className="my-4 text-muted">
           {[
             periodLabel && `${t('scouting.period')}: ${t(`scouting.periods.${period}`)} (${periodLabel})`,
             lineupSummary,
@@ -572,15 +571,15 @@ export function ScoutingPage() {
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid print:hidden">
         <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
-            <label htmlFor="sc-map">{t('demos.map')}</label>
-            <select id="sc-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="sc-map">{t('demos.map')}</label>
+            <select id="sc-map" className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
               {(maps ?? []).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label htmlFor="sc-team">{t('scouting.team')}</label>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="sc-team">{t('scouting.team')}</label>
             <MultiSelect
               id="sc-team"
               options={teams ?? []}
@@ -590,9 +589,10 @@ export function ScoutingPage() {
             />
           </div>
           <div>
-            <label htmlFor="sc-period">{t('scouting.period')}</label>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="sc-period">{t('scouting.period')}</label>
             <select
               id="sc-period"
+              className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
               value={period}
               onChange={(e) => setPeriod(e.target.value as PeriodPreset)}
             >
@@ -602,18 +602,20 @@ export function ScoutingPage() {
             </select>
             {period === 'custom' && (
               <div className="mt-1.5 flex flex-wrap gap-2">
-                <label className="text-muted flex-1 text-xs">
+                <label className="mb-1 block flex-1 text-xs text-muted">
                   {t('scouting.periodFrom')}
                   <input
+                    className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                     type="date"
                     value={customFrom}
                     max={customTo || undefined}
                     onChange={(e) => setCustomFrom(e.target.value)}
                   />
                 </label>
-                <label className="text-muted flex-1 text-xs">
+                <label className="mb-1 block flex-1 text-xs text-muted">
                   {t('scouting.periodTo')}
                   <input
+                    className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
                     type="date"
                     value={customTo}
                     min={customFrom || undefined}
@@ -633,7 +635,7 @@ export function ScoutingPage() {
         <div className="mt-1">
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-lg border border-border bg-transparent px-3 py-2 text-left text-text hover:border-accent"
+            className="flex cursor-pointer items-center gap-2 w-full rounded-lg border border-border bg-transparent px-3 py-2 font-[inherit] text-left text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 hover:border-accent"
             aria-expanded={showFilters}
             aria-controls="sc-filters"
             onClick={() => setShowFilters((v) => !v)}
@@ -668,7 +670,7 @@ export function ScoutingPage() {
               >
                 <select
                   id="sc-phase"
-                  className="!mb-0"
+                  className="rounded-md border border-border bg-surface-2 font-[inherit] text-text w-full px-2.5 py-2"
                   value={phase}
                   onChange={(e) => setPhase(e.target.value as Phase | '')}
                 >
@@ -730,7 +732,7 @@ export function ScoutingPage() {
                 <div className="flex justify-end py-2">
                   <button
                     type="button"
-                    className="bg-transparent px-0 py-0 text-xs text-muted hover:text-text"
+                    className="cursor-pointer rounded-md border-none bg-transparent px-0 py-0 font-[inherit] text-xs text-muted hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 hover:text-text"
                     onClick={clearFilters}
                   >
                     {t('scouting.clearFilters')}
@@ -750,13 +752,13 @@ export function ScoutingPage() {
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <div className="flex flex-wrap items-start gap-5">
           <div className="min-w-[320px] flex-[1_1_620px]">
-            <div className="print:hidden mb-2.5">
+            <div className="mb-2.5 print:hidden">
               <div className="mb-2 flex flex-wrap gap-2">
                 {UTILS.map((u) => (
                   <button
                     key={u}
                     onClick={() => setActiveUtil(u)}
-                    className={`flex items-center gap-1.5 border font-semibold ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3.5 py-2 font-[inherit] font-semibold hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 ${
                       activeUtil === u ? 'text-[#11141a]' : 'bg-transparent text-text'
                     }`}
                     style={{
@@ -769,7 +771,7 @@ export function ScoutingPage() {
                   </button>
                 ))}
               </div>
-              <label className="mb-1 block">{t('scouting.timeWindow')}</label>
+              <label className="mb-1 block text-[0.85rem] text-muted">{t('scouting.timeWindow')}</label>
               <ScoutingTimeline
                 tokens={tokens}
                 activeUtil={activeUtil}
@@ -791,7 +793,7 @@ export function ScoutingPage() {
                 size={720}
               />
             ) : (
-              <p className="text-muted">{t('common.loading')}</p>
+              <p className="my-4 text-muted">{t('common.loading')}</p>
             )}
           </div>
 
@@ -800,23 +802,23 @@ export function ScoutingPage() {
             {result && <Prediction result={result} />}
             <div className="print:hidden">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="m-0">{t('scouting.placed')} ({tokens.length})</h2>
+                <h2 className="m-0 text-[1.1rem]">{t('scouting.placed')} ({tokens.length})</h2>
                 <div className="flex flex-wrap gap-1.5">
                   {presets.length > 0 && (
                     <button
-                      className="border border-border bg-transparent text-text"
+                      className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-expanded={showPresets}
                       onClick={() => setShowPresets((v) => !v)}
                     >
                       {t('scouting.presets')} ({presets.length})
                     </button>
                   )}
-                  <button className="border border-border bg-transparent text-text" onClick={() => fileRef.current?.click()}>{t('scouting.import')}</button>
+                  <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => fileRef.current?.click()}>{t('scouting.import')}</button>
                   {tokens.length > 0 && (
-                    <button className="border border-border bg-transparent text-text" onClick={exportSetup}>{t('scouting.export')}</button>
+                    <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={exportSetup}>{t('scouting.export')}</button>
                   )}
                   {tokens.length > 0 && (
-                    <button className="border border-border bg-transparent text-text" onClick={() => setTokens([])}>{t('scouting.clear')}</button>
+                    <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setTokens([])}>{t('scouting.clear')}</button>
                   )}
                 </div>
                 <input
@@ -836,7 +838,7 @@ export function ScoutingPage() {
                 <PresetList presets={presets} onPick={loadPreset} />
               )}
               {tokens.length === 0 ? (
-                <p className="text-muted">{t('scouting.noTokens')}</p>
+                <p className="my-4 text-muted">{t('scouting.noTokens')}</p>
               ) : (
                 <div className="mt-2 flex flex-col gap-1.5">
                   {tokens.map((tk) => (
@@ -851,7 +853,12 @@ export function ScoutingPage() {
                       <span className="text-xs text-muted tabular-nums">
                         {fmtClock(tk.time_from)}–{fmtClock(tk.time_to)}
                       </span>
-                      <button className="border border-border bg-transparent text-text px-2 py-0.5" onClick={() => removeToken(tk.id)}>✕</button>
+                      <button
+                        className="cursor-pointer rounded-md border border-border bg-transparent px-2 py-0.5 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => removeToken(tk.id)}
+                      >
+                        ✕
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -859,7 +866,7 @@ export function ScoutingPage() {
               <button
                 onClick={analyze}
                 disabled={!mapId || tokens.length === 0 || predict.isPending}
-                className="mt-2.5 w-full"
+                className="cursor-pointer w-full mt-2.5 rounded-md border-none bg-accent px-3.5 py-2 font-[inherit] text-accent-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {predict.isPending ? t('common.loading') : t('scouting.analyze')}
               </button>
@@ -873,20 +880,20 @@ export function ScoutingPage() {
 
       {/* Historical tendencies + utility heatmap */}
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-        <h2>
+        <h2 className="mb-3 text-[1.1rem]">
           {t('scouting.tendencies')}{teamLabel ? ` · ${teamLabel}` : ''}
           {periodLabel && <span className="text-muted text-sm font-normal"> · {periodLabel}</span>}
         </h2>
-        {tendencies.isLoading && <p className="text-muted">{t('common.loading')}</p>}
+        {tendencies.isLoading && <p className="my-4 text-muted">{t('common.loading')}</p>}
         {tendencies.data && tendencies.data.total_rounds === 0 && (
-          <p className="text-muted">
+          <p className="my-4 text-muted">
             {periodLabel ? t('scouting.noTendenciesPeriod') : t('scouting.noTendencies')}
           </p>
         )}
         {tendencies.data && tendencies.data.total_rounds > 0 && (
           <div className="flex flex-wrap items-start gap-6">
             <div className="min-w-[240px] flex-[1_1_260px]">
-              <p className="text-muted mt-0">
+              <p className="mt-0 mb-4 text-muted">
                 {t('scouting.tendenciesSummary', { rounds: tendencies.data.total_rounds })}
               </p>
               {tendencies.data.sites.map((s) => (
@@ -895,7 +902,7 @@ export function ScoutingPage() {
             </div>
             {map && (
               <div className="flex-[0_1_420px]">
-                <p className="text-muted mt-0">{t('scouting.heatmap')}</p>
+                <p className="mt-0 mb-4 text-muted">{t('scouting.heatmap')}</p>
                 <ScoutingRadar mapId={map.id} zones={zones} heatmap={tendencies.data.heatmap} size={420} />
               </div>
             )}
@@ -906,7 +913,7 @@ export function ScoutingPage() {
       <div className="mb-6 print:hidden">
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-lg border border-border bg-transparent px-3 py-2 text-left text-text hover:border-accent"
+          className="flex cursor-pointer items-center gap-2 w-full rounded-lg border border-border bg-transparent px-3 py-2 font-[inherit] text-left text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50 hover:border-accent"
           aria-expanded={showModel}
           aria-controls="sc-model"
           onClick={() => setShowModel((v) => !v)}
@@ -960,12 +967,12 @@ export function ScoutingPage() {
                 </span>
               )}
               {isAdmin && (
-                <button className="border border-border bg-transparent text-text" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
+                <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => trainModel.mutate()} disabled={trainModel.isPending}>
                   {trainModel.isPending ? t('common.loading') : t('scouting.train')}
                 </button>
               )}
               {isAdmin && (
-                <button className="border border-border bg-transparent text-text" onClick={() => evaluateMaps.mutate()} disabled={evaluateMaps.isPending}>
+                <button className="cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => evaluateMaps.mutate()} disabled={evaluateMaps.isPending}>
                   {evaluateMaps.isPending ? t('common.loading') : t('scouting.testMaps')}
                 </button>
               )}
@@ -1039,7 +1046,7 @@ function PresetList({ presets, onPick }: { presets: ScoutingPreset[]; onPick: (p
         <button
           key={p.id}
           onClick={() => onPick(p)}
-          className="flex flex-col items-start gap-0.5 border border-border bg-transparent px-2 py-1.5 text-left text-text"
+          className="flex cursor-pointer flex-col items-start gap-0.5 rounded-md border border-border bg-transparent px-2 py-1.5 font-[inherit] text-left text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="flex w-full items-center gap-2">
             <span
@@ -1099,12 +1106,12 @@ function Bar({ label, value, color, note }: { label: string; value: number; colo
 function PerMapTable({ rows, maps, tested }: { rows: PerMapMetric[]; maps?: MapOut[]; tested?: boolean }) {
   const { t } = useTranslation()
   const name = (id: string) => maps?.find((m) => m.id === id)?.name ?? id
-  const cell = 'py-0.5 pr-2.5 pl-0 text-right whitespace-nowrap'
-  const head = `${cell} border-b border-border font-semibold`
+  const cell = 'border-b border-border py-0.5 pr-2.5 pl-0 text-right whitespace-nowrap'
+  const head = `${cell} font-semibold`
   return (
     <div className="mt-3 overflow-x-auto print:hidden">
       <div className="text-muted mb-1 text-xs">{tested ? t('scouting.mapTestResults') : t('scouting.byMap')}</div>
-      <table className="border-collapse text-xs">
+      <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="text-muted">
             <th className={`${head} text-left`}>{t('scouting.map')}</th>
@@ -1133,22 +1140,22 @@ function PerMapTable({ rows, maps, tested }: { rows: PerMapMetric[]; maps?: MapO
 // calibration plot
 function ReliabilityDiagram({ bins }: { bins: ReliabilityBin[] }) {
   const { t } = useTranslation()
-  const P = { l: 22, r: 10, t: 10, b: 26 }
+  const PAD = { l: 22, r: 10, t: 10, b: 26 }
   const S = 150
-  const w = P.l + S + P.r
-  const h = P.t + S + P.b
-  const X = (c: number) => P.l + c * S
-  const Y = (a: number) => P.t + (1 - a) * S
+  const w = PAD.l + S + PAD.r
+  const h = PAD.t + S + PAD.b
+  const X = (c: number) => PAD.l + c * S
+  const Y = (a: number) => PAD.t + (1 - a) * S
   const pts = [...bins].sort((a, b) => a.confidence - b.confidence)
   const maxCount = Math.max(1, ...pts.map((b) => b.count))
   const line = pts.map((b) => `${X(b.confidence).toFixed(1)},${Y(b.accuracy).toFixed(1)}`).join(' ')
   return (
-    <div className="print:hidden mt-3">
+    <div className="mt-3 print:hidden">
       <div className="text-muted mb-1 text-xs">{t('scouting.reliabilityTitle')}</div>
       <svg width={w} height={h} role="img" aria-label={t('scouting.reliabilityTitle')} className="max-w-full">
-        <rect x={P.l} y={P.t} width={S} height={S} fill="none" className="stroke-border" />
-        <line x1={X(0.5)} y1={P.t} x2={X(0.5)} y2={P.t + S} className="stroke-border" strokeDasharray="2 3" opacity={0.6} />
-        <line x1={P.l} y1={Y(0.5)} x2={P.l + S} y2={Y(0.5)} className="stroke-border" strokeDasharray="2 3" opacity={0.6} />
+        <rect x={PAD.l} y={PAD.t} width={S} height={S} fill="none" className="stroke-border" />
+        <line x1={X(0.5)} y1={PAD.t} x2={X(0.5)} y2={PAD.t + S} className="stroke-border" strokeDasharray="2 3" opacity={0.6} />
+        <line x1={PAD.l} y1={Y(0.5)} x2={PAD.l + S} y2={Y(0.5)} className="stroke-border" strokeDasharray="2 3" opacity={0.6} />
         <line x1={X(0)} y1={Y(0)} x2={X(1)} y2={Y(1)} className="stroke-muted" strokeDasharray="4 3" />
         {pts.length > 1 && <polyline points={line} fill="none" strokeWidth={2} className="stroke-accent" />}
         {pts.map((b, i) => (
@@ -1163,8 +1170,8 @@ function ReliabilityDiagram({ bins }: { bins: ReliabilityBin[] }) {
             <title>{`${t('scouting.confidence')} ${pct(b.confidence)} · ${t('scouting.observed')} ${pct(b.accuracy)} · n=${b.count}`}</title>
           </circle>
         ))}
-        <text x={P.l + S / 2} y={h - 3} fontSize={10} className="fill-muted" textAnchor="middle">{t('scouting.confidence')}</text>
-        <text x={9} y={P.t + S / 2} fontSize={10} className="fill-muted" textAnchor="middle" transform={`rotate(-90 9 ${P.t + S / 2})`}>{t('scouting.observed')}</text>
+        <text x={PAD.l + S / 2} y={h - 3} fontSize={10} className="fill-muted" textAnchor="middle">{t('scouting.confidence')}</text>
+        <text x={9} y={PAD.t + S / 2} fontSize={10} className="fill-muted" textAnchor="middle" transform={`rotate(-90 9 ${PAD.t + S / 2})`}>{t('scouting.observed')}</text>
       </svg>
       <div className="text-muted text-[11px]">{t('scouting.reliabilityHint')}</div>
     </div>
@@ -1177,7 +1184,7 @@ function Prediction({ result }: { result: PredictOut }) {
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
-        <h2 className="m-0">{t('scouting.prediction')}</h2>
+        <h2 className="m-0 text-[1.1rem]">{t('scouting.prediction')}</h2>
         <span
           className={`inline-block rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs ${
             result.source === 'model' ? 'border-ok text-ok' : 'border-warn text-warn'

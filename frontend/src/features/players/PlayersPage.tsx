@@ -29,7 +29,7 @@ function PlayerSearch({
   if (collapsed && !open) {
     return (
       <button
-        className="mb-5 w-full rounded-[10px] border border-border bg-surface px-4 py-2 text-left text-muted"
+        className="cursor-pointer w-full mb-5 rounded-[10px] border border-border bg-surface px-4 py-2 font-[inherit] text-left text-muted hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
         onClick={() => setOpen(true)}
       >
         {t('players.searchAnother')}
@@ -39,35 +39,36 @@ function PlayerSearch({
 
   return (
     <div className={CARD}>
-      <label htmlFor="player-search">{t('players.search')}</label>
+      <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="player-search">{t('players.search')}</label>
       <input
         id="player-search"
+        className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text"
         value={term}
         autoFocus={collapsed}
         placeholder={t('players.searchPlaceholder')}
         onChange={(e) => setTerm(e.target.value)}
       />
-      {isFetching && <p className="text-muted">{t('common.loading')}</p>}
-      {data && data.length === 0 && <p className="text-muted">{t('common.noResults')}</p>}
+      {isFetching && <p className="my-4 text-muted">{t('common.loading')}</p>}
+      {data && data.length === 0 && <p className="my-4 text-muted">{t('common.noResults')}</p>}
       {data && data.length > 0 && (
-        <table>
+        <table className="w-full border-collapse text-[0.9rem]">
           <tbody>
             {data.map((p) => (
               <tr key={p.id}>
-                <td className="w-9">
+                <td className="border-b border-border px-2.5 py-2 text-left w-9">
                   {p.image && <img src={p.image} alt="" className="h-8 w-8 rounded-full object-cover" />}
                 </td>
-                <td>
+                <td className="border-b border-border px-2.5 py-2 text-left">
                   <button
-                    className="border-0 bg-transparent p-0 font-semibold text-accent"
+                    className="cursor-pointer rounded-md border-0 bg-transparent p-0 font-[inherit] font-semibold text-accent hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => select(p)}
                   >
                     {p.nick}
                   </button>
                   {p.name && <span className="text-muted"> · {p.name}</span>}
                 </td>
-                <td className="text-muted">{p.team_name ?? '-'}</td>
-                <td className="text-right text-muted">
+                <td className="border-b border-border px-2.5 py-2 text-left text-muted">{p.team_name ?? '-'}</td>
+                <td className="border-b border-border px-2.5 py-2 text-right text-muted">
                   {p.retired ? t('players.retired') : p.country ?? ''}
                 </td>
               </tr>
@@ -134,9 +135,9 @@ function Profile({ profile }: { profile: PlayerProfile }) {
             <img src={profile.image} alt="" className="h-20 w-20 rounded-lg object-cover" />
           )}
           <div className="flex-1">
-            <h2 className="mb-0">{profile.nick}</h2>
-            <p className="text-muted">{subtitle.join(' · ')}</p>
-            <a href={`${HLTV}/player/${profile.id}/-`} target="_blank" rel="noreferrer">
+            <h2 className="mb-0 text-[1.1rem]">{profile.nick}</h2>
+            <p className="my-4 text-muted">{subtitle.join(' · ')}</p>
+            <a className="no-underline text-accent hover:underline" href={`${HLTV}/player/${profile.id}/-`} target="_blank" rel="noreferrer">
               {t('players.viewOnHltv')}
             </a>
           </div>
@@ -151,14 +152,14 @@ function Profile({ profile }: { profile: PlayerProfile }) {
           )}
         </div>
         {profile.stats_window && (
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 mb-4 text-xs text-muted">
             {t('players.statsWindow', { window: profile.stats_window })}
           </p>
         )}
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1 mb-4 text-xs text-muted">
           {t('players.updated', { when: formatDate(profile.fetched_at) })}{' '}
           <button
-            className="ml-2 border border-border bg-transparent text-text"
+            className="cursor-pointer ml-2 rounded-md border border-border bg-transparent px-3.5 py-2 font-[inherit] text-text hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => refresh.mutate(profile.id)}
             disabled={refresh.isPending}
           >
@@ -169,39 +170,39 @@ function Profile({ profile }: { profile: PlayerProfile }) {
 
       {profile.summary.length > 0 && (
         <div className={CARD}>
-          <h2>{t('players.summary')}</h2>
+          <h2 className="mb-3 text-[1.1rem]">{t('players.summary')}</h2>
           <StatGrid items={profile.summary} />
         </div>
       )}
 
       {profile.roles.length > 0 && (
         <div className={CARD}>
-          <h2>{t('players.rolesTitle')}</h2>
-          <p className="text-muted">{t('players.rolesHint')}</p>
+          <h2 className="mb-3 text-[1.1rem]">{t('players.rolesTitle')}</h2>
+          <p className="my-4 text-muted">{t('players.rolesHint')}</p>
           <RoleBars roles={profile.roles} />
         </div>
       )}
 
       {profile.matches.length > 0 && (
         <div className={CARD}>
-          <h2>{t('players.matches')}</h2>
-          <table>
+          <h2 className="mb-3 text-[1.1rem]">{t('players.matches')}</h2>
+          <table className="w-full border-collapse text-[0.9rem]">
             <thead>
               <tr>
-                <th>{t('players.date')}</th>
-                <th>{t('players.event')}</th>
-                <th>{t('demos.opponent')}</th>
-                <th className="text-right">{t('players.score')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('players.date')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('players.event')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('demos.opponent')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-right font-semibold text-muted">{t('players.score')}</th>
               </tr>
             </thead>
             <tbody>
               {profile.matches.map((m, i) => (
                 <tr key={`${m.url ?? i}`}>
-                  <td className="text-muted">{formatDay(m.match_date)}</td>
-                  <td className="text-muted">{m.event ?? '-'}</td>
-                  <td>
+                  <td className="border-b border-border px-2.5 py-2 text-left text-muted">{formatDay(m.match_date)}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left text-muted">{m.event ?? '-'}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">
                     {m.url ? (
-                      <a href={`${HLTV}${m.url}`} target="_blank" rel="noreferrer">
+                      <a className="no-underline text-accent hover:underline" href={`${HLTV}${m.url}`} target="_blank" rel="noreferrer">
                         {m.opponent ?? '-'}
                       </a>
                     ) : (
@@ -209,7 +210,7 @@ function Profile({ profile }: { profile: PlayerProfile }) {
                     )}
                   </td>
                   <td
-                    className={`text-right ${
+                    className={`border-b border-border px-2.5 py-2 text-right ${
                       m.won === null ? '' : m.won ? 'text-ok' : 'text-danger'
                     }`}
                   >
@@ -224,29 +225,29 @@ function Profile({ profile }: { profile: PlayerProfile }) {
 
       {profile.teams.length > 0 && (
         <div className={CARD}>
-          <h2>{t('players.teams')}</h2>
-          <table>
+          <h2 className="mb-3 text-[1.1rem]">{t('players.teams')}</h2>
+          <table className="w-full border-collapse text-[0.9rem]">
             <thead>
               <tr>
-                <th>{t('players.team')}</th>
-                <th>{t('players.from')}</th>
-                <th>{t('players.to')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('players.team')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('players.from')}</th>
+                <th className="border-b border-border px-2.5 py-2 text-left font-semibold text-muted">{t('players.to')}</th>
               </tr>
             </thead>
             <tbody>
               {profile.teams.map((s, i) => (
                 <tr key={`${s.team_id ?? s.team_name}-${i}`}>
-                  <td>
+                  <td className="border-b border-border px-2.5 py-2 text-left">
                     {s.team_id ? (
-                      <a href={`${HLTV}/team/${s.team_id}/-`} target="_blank" rel="noreferrer">
+                      <a className="no-underline text-accent hover:underline" href={`${HLTV}/team/${s.team_id}/-`} target="_blank" rel="noreferrer">
                         {s.team_name}
                       </a>
                     ) : (
                       s.team_name
                     )}
                   </td>
-                  <td className="text-muted">{formatDay(s.start)}</td>
-                  <td className="text-muted">{s.end ? formatDay(s.end) : t('players.present')}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left text-muted">{formatDay(s.start)}</td>
+                  <td className="border-b border-border px-2.5 py-2 text-left text-muted">{s.end ? formatDay(s.end) : t('players.present')}</td>
                 </tr>
               ))}
             </tbody>
@@ -265,15 +266,15 @@ export function PlayersPage() {
 
   return (
     <div>
-      <h1>{t('players.title')}</h1>
-      <p className="text-muted">{t('players.subtitle')}</p>
+      <h1 className="mb-4 text-[1.4rem]">{t('players.title')}</h1>
+      <p className="my-4 text-muted">{t('players.subtitle')}</p>
 
       <PlayerSearch collapsed={Boolean(id)} onSelect={(p) => navigate(`/players/${p.id}`)} />
 
       {isLoading && (
         <div className={CARD}>
-          <p className="text-muted">{t('common.loading')}</p>
-          <p className="text-sm text-muted">{t('players.slowHint')}</p>
+          <p className="my-4 text-muted">{t('common.loading')}</p>
+          <p className="my-4 text-sm text-muted">{t('players.slowHint')}</p>
         </div>
       )}
       {isError && (

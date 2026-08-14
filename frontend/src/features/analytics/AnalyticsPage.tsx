@@ -44,21 +44,21 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <h1>{t('analytics.title')}</h1>
-      <p className="text-muted">{t('analytics.subtitle')}</p>
+      <h1 className="mb-4 text-[1.4rem]">{t('analytics.title')}</h1>
+      <p className="my-4 text-muted">{t('analytics.subtitle')}</p>
 
       <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
         <div className="flex flex-wrap gap-3 [&>*]:min-w-[140px] [&>*]:flex-1">
           <div>
-            <label htmlFor="an-map">{t('demos.map')}</label>
-            <select id="an-map" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="an-map">{t('demos.map')}</label>
+            <select id="an-map" className="mb-3 w-full rounded-md border border-border bg-surface-2 px-2.5 py-2 font-[inherit] text-text" value={mapId} onChange={(e) => { setMapId(e.target.value); setTeamIds([]) }}>
               {(maps ?? []).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label htmlFor="an-team">{t('demos.team')}</label>
+            <label className="mb-1 block text-[0.85rem] text-muted" htmlFor="an-team">{t('demos.team')}</label>
             <MultiSelect
               id="an-team"
               options={teams ?? []}
@@ -69,11 +69,19 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        <label>{t('demos.buy')}</label>
+        <label className="mb-1 block text-[0.85rem] text-muted">{t('demos.buy')}</label>
         <div className="flex flex-wrap gap-3">
           {BUY_TYPES.map((b) => (
-            <label key={b} className="flex items-center gap-1 font-normal whitespace-nowrap">
-              <input type="checkbox" checked={buyTypes.includes(b)} onChange={() => toggleBuy(b)} />
+            <label
+              key={b}
+              className="mb-1 flex items-center gap-1 text-[0.85rem] font-normal whitespace-nowrap text-muted"
+            >
+              <input
+                type="checkbox"
+                className="m-0 size-[0.95rem] shrink-0 accent-accent"
+                checked={buyTypes.includes(b)}
+                onChange={() => toggleBuy(b)}
+              />
               {t(`demos.buyTypes.${b}`)}
             </label>
           ))}
@@ -82,17 +90,17 @@ export function AnalyticsPage() {
 
       {soloTeam && roster?.has_changes && <RosterChangeWarning roster={roster} />}
 
-      {isLoading && <p className="text-muted">{t('common.loading')}</p>}
+      {isLoading && <p className="my-4 text-muted">{t('common.loading')}</p>}
       {isError && <p className="my-2 text-[0.9rem] text-danger">{t('common.error')}</p>}
 
       {data && (
         <div className="mb-5 rounded-[10px] border border-border bg-surface p-4 print:mb-3 print:break-inside-avoid">
-          <h2>{t('analytics.siteDistribution')}</h2>
+          <h2 className="mb-3 text-[1.1rem]">{t('analytics.siteDistribution')}</h2>
           {data.total_rounds === 0 ? (
-            <p className="text-muted">{t('analytics.noData')}</p>
+            <p className="my-4 text-muted">{t('analytics.noData')}</p>
           ) : (
             <>
-              <p className="text-muted">
+              <p className="my-4 text-muted">
                 {t('analytics.summary', {
                   rounds: data.total_rounds,
                   demos: data.total_demos,
