@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import threading
 import time
+from datetime import UTC, date, datetime, timedelta
 
 import app.hltv.client as client
 from app.config import get_settings
 from app.domain.enums import DateRange
 from app.hltv.client import (
     _match_involves_team,
+    _parse_match_meta,
     _parse_match_teams,
     _select_dem_members,
     map_from_filename,
@@ -64,6 +66,47 @@ def test_parse_match_teams_reads_both_teams():
 
 def test_parse_match_teams_empty_when_no_team_names():
     assert _parse_match_teams('<a href="/team/1/x">X</a> vs <a href="/team/2/y">Y</a>') == []
+
+
+def _unix_ms(d: date) -> str:
+    return str(int(datetime(d.year, d.month, d.day, 12, tzinfo=UTC).timestamp() * 1000))
+
+
+def _match_page(*, played: date, upcoming: date, header: bool = True) -> str:
+    head = (
+        '<div class="timeAndEvent">'
+        f'<div class="time" data-time-format="HH:mm" data-unix="{_unix_ms(played)}">06:30</div>'
+        f'<div class="date" data-time-format="do \'of\' MMMM y" data-unix="{_unix_ms(played)}">played</div>'
+        '<div class="event text-ellipsis"><a href="/events/7907/iem-chengdu-2025">IEM Chengdu 2025</a></div>'
+        "</div>"
+    )
+    return (
+        '<div class="smartphone-top-widget-date-info">'
+        f'<div class="smartphone-top-widget-date" data-unix="{_unix_ms(upcoming)}">tomorrow</div>'
+        f'<div class="smartphone-top-widget-time" data-unix="{_unix_ms(upcoming)}">16:50</div></div>'
+        '<a href="/events/9999/some-other-event">Some Other Event</a>'
+        f'<div class="score">1 : 2</div><div class="date" data-time-format="d MMM" data-unix="{_unix_ms(played)}">8 Nov</div>'
+        + (head if header else "")
+        + '<td class="date"><a href="/matches/2387395/x">'
+          f'<span data-time-format="d/M yy" data-unix="{_unix_ms(date(2025, 1, 2))}">2/1 25</span></a></td>'
+    )
+
+
+def test_parse_match_meta_skips_the_upcoming_match_widget():
+    played, upcoming = date(2025, 11, 8), date.today() + timedelta(days=1)
+    event, match_date = _parse_match_meta(_match_page(played=played, upcoming=upcoming))
+    assert match_date == played
+    assert event == "IEM Chengdu 2025"  # not the widget's "Some Other Event"
+
+
+def test_parse_match_meta_falls_back_to_the_score_date():
+    page = _match_page(played=date(2025, 11, 8), upcoming=date.today() + timedelta(days=1), header=False)
+    assert _parse_match_meta(page)[1] == date(2025, 11, 8)
+
+
+def test_parse_match_meta_drops_a_future_date():
+    ahead = date.today() + timedelta(days=30)
+    assert _parse_match_meta(_match_page(played=ahead, upcoming=ahead))[1] is None
 
 
 class _FakeResp:
@@ -225,3 +268,75 @@ def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):
         client._download_and_extract("http://x/demo.rar", "123")
 
     assert made and not Path(made[0]).exists()
+
+
+def test_backfill_repairs_the_wrong_match_date(monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.domain.models import Demo, User
+    from app.hltv import backfill
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    admin = User(email="bf@x.io", hashed_password="x", role="admin")
+    session.add(admin)
+    session.flush()
+
+    download_day = date(2026, 8, 7)
+    played = {"2387412": date(2025, 11, 8), "2396004": date(2026, 7, 24)}
+    demos = []
+    for did, (match_id, map_id) in enumerate(
+        [("2387412", "de_train"), ("2387412", "de_nuke"), ("2396004", "de_cache")], start=1
+    ):
+        demo = Demo(id=did, owner_id=admin.id, map_id=map_id, visibility="public",
+                    hltv_match_id=match_id, match_date=download_day, event="Old Event")
+        session.add(demo)
+        demos.append(demo)
+    session.flush()
+
+    fetched: list[str] = []
+
+    def fake_get(url, **kw):
+        match_id = url.rstrip("/x").rsplit("/", 1)[-1]
+        fetched.append(match_id)
+        return _match_page(played=played[match_id], upcoming=date.today() + timedelta(days=1))
+
+    monkeypatch.setattr(client, "_flaresolverr_get", fake_get)
+
+    cache: dict[str, backfill._MatchMeta] = {}
+    for demo in demos:
+        assert backfill._backfill_one(session, demo, cache) == "updated"
+
+    assert [d.match_date for d in demos] == [played["2387412"], played["2387412"], played["2396004"]]
+    assert {d.event for d in demos} == {"IEM Chengdu 2025"}
+    assert fetched == ["2387412", "2396004"]  # 3 demos, 2 matches solved
+
+
+def test_backfill_keeps_a_good_date_when_the_page_cannot_be_read(monkeypatch):
+    # A page we fail to parse must not wipe what we already have.
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.domain.models import Demo, User
+    from app.hltv import backfill
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    admin = User(email="bf2@x.io", hashed_password="x", role="admin")
+    session.add(admin)
+    session.flush()
+    known = date(2025, 11, 8)
+    demo = Demo(id=1, owner_id=admin.id, map_id="de_train", visibility="public",
+                hltv_match_id="2387412", match_date=known, event="IEM Chengdu 2025")
+    session.add(demo)
+    session.flush()
+
+    monkeypatch.setattr(client, "_flaresolverr_get", lambda url, **kw: "<html>redesigned</html>")
+    assert backfill._backfill_one(session, demo, {}) == "skipped"
+    assert demo.match_date == known
+    assert demo.event == "IEM Chengdu 2025"

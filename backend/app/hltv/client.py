@@ -8,7 +8,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from app.config import get_settings
@@ -155,20 +155,40 @@ def _select_dem_members(members: list[str], map_id: str | None) -> list[str]:
     return [m for m in dems if map_from_filename(Path(m).name) == map_id]
 
 
+_TIME_AND_EVENT = re.compile(r'class="timeAndEvent"')
+_SCORE_DATE = re.compile(r'class="date"[^>]*data-unix="(\d+)"')
+_UNIX = re.compile(r'data-unix="(\d+)"')
+_EVENT_LINK = re.compile(r'href="/events/\d+/[^"]*"[^>]*>([^<]+)</a>')
+
+
+def _unix_to_date(ts: str) -> date | None:
+    try:
+        return datetime.fromtimestamp(int(ts) / 1000, tz=UTC).date()
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
 def _parse_match_meta(html: str) -> tuple[str | None, date | None]:
     """Pull the event name and match date from an HLTV match page's HTML."""
+    header = _TIME_AND_EVENT.search(html)
+    scoped = html[header.start():] if header else html
+
     event = None
-    m = re.search(r'href="/events/\d+/[^"]*"[^>]*>([^<]+)</a>', html)
+    m = _EVENT_LINK.search(scoped)
     if m:
         event = re.sub(r"\s+", " ", m.group(1)).strip() or None
 
     match_date = None
-    d = re.search(r'data-unix="(\d+)"', html)
-    if d:
-        try:
-            match_date = datetime.fromtimestamp(int(d.group(1)) / 1000, tz=UTC).date()
-        except (ValueError, OverflowError, OSError):
-            pass
+    if header:
+        d = _UNIX.search(scoped)
+        if d:
+            match_date = _unix_to_date(d.group(1))
+    if match_date is None:
+        d = _SCORE_DATE.search(html)
+        if d:
+            match_date = _unix_to_date(d.group(1))
+    if match_date is not None and match_date > date.today() + timedelta(days=1):
+        match_date = None
     return event, match_date
 
 

@@ -375,7 +375,7 @@ def _backfill_out(st) -> BackfillStatusOut:
 
 @router.post("/backfill-teams", response_model=BackfillStatusOut)
 def backfill_teams(_admin: User = Depends(require_admin)) -> BackfillStatusOut:
-    """Re-fetch each demo's HLTV match page to fill team ids + tag rounds."""
+    """Re-fetch each demo's HLTV match page: team ids + round tags, event, date."""
     return _backfill_out(backfill.start())
 
 

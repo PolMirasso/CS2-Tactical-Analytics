@@ -4,7 +4,7 @@ import difflib
 import re
 import threading
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 
@@ -87,17 +87,46 @@ def _clan_to_id(clans: list[str], teams: list[tuple[str, str]]) -> dict[str, str
     return out
 
 
-def _backfill_one(session, demo: Demo) -> str:
+@dataclass(frozen=True)
+class _MatchMeta:
+    teams: tuple[tuple[str, str], ...]
+    event: str | None
+    match_date: date | None
+
+
+def _fetch_meta(match_id: str, cache: dict[str, _MatchMeta]) -> _MatchMeta:
+    meta = cache.get(match_id)
+    if meta is None:
+        settings = get_settings()
+        html = client._flaresolverr_get(f"{settings.hltv_base_url}/matches/{match_id}/x")
+        event, match_date = client._parse_match_meta(html)
+        meta = _MatchMeta(
+            teams=tuple(client._parse_match_teams(html)),
+            event=event,
+            match_date=match_date,
+        )
+        cache[match_id] = meta
+    return meta
+
+
+def _backfill_one(session, demo: Demo, cache: dict[str, _MatchMeta]) -> str:
     """Returns 'updated' | 'skipped' for one demo."""
     if not demo.hltv_match_id:
         return "skipped"
-    settings = get_settings()
-    html = client._flaresolverr_get(
-        f"{settings.hltv_base_url}/matches/{demo.hltv_match_id}/x"
-    )
-    teams = client._parse_match_teams(html)
+    meta = _fetch_meta(demo.hltv_match_id, cache)
+
+    updated = False
+    if meta.match_date is not None and demo.match_date != meta.match_date:
+        demo.match_date = meta.match_date
+        updated = True
+    if meta.event and demo.event != meta.event:
+        demo.event = meta.event
+        updated = True
+
+    teams = list(meta.teams)
     if len(teams) < 2:
-        return "skipped"
+        session.flush()
+        return "updated" if updated else "skipped"
 
     for tid, name in teams:
         upsert_team(session, tid, name)
@@ -131,11 +160,12 @@ def _run() -> None:
             ]
         with _lock:
             _state.total = len(ids)
+        cache: dict[str, _MatchMeta] = {}
         for did in ids:
             try:
                 with session_scope() as session:
                     demo = session.get(Demo, did)
-                    result = _backfill_one(session, demo) if demo else "skipped"
+                    result = _backfill_one(session, demo, cache) if demo else "skipped"
                 with _lock:
                     if result == "updated":
                         _state.updated += 1
