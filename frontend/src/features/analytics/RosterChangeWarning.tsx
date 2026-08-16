@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { RosterLineup, TeamRostersOut } from '@/types/api'
+import { formatDay } from '@/lib/format'
 
 export function RosterChangeWarning({
   roster,
@@ -60,7 +61,7 @@ export function RosterChangeWarning({
         <ul className="mt-2 mb-0 list-disc pl-[18px]">
           {changes.map((e) => (
             <li key={e.demo_id} className="my-0.5">
-              {e.match_date && <span className="text-muted">{e.match_date} · </span>}
+              {e.match_date && <span className="text-muted">{formatDay(e.match_date)} · </span>}
               {e.opponent && <span className="text-muted">vs {e.opponent} · </span>}
               {e.added.length > 0 && <span className="text-ok">+ {e.added.join(', ')}</span>}
               {e.added.length > 0 && e.removed.length > 0 && ' '}
@@ -76,8 +77,8 @@ export function RosterChangeWarning({
 export function lineupLabel(l: RosterLineup, core: string[]): string {
   const diff = l.players.filter((p) => !core.includes(p))
   const span = l.first_date && l.last_date && l.first_date !== l.last_date
-    ? `${l.first_date} → ${l.last_date}`
-    : l.first_date ?? l.last_date ?? ''
+    ? `${formatDay(l.first_date)} → ${formatDay(l.last_date)}`
+    : l.first_date || l.last_date ? formatDay(l.first_date ?? l.last_date) : ''
   return [span, (diff.length ? diff : l.players).join(', '), `(${l.n_demos})`]
     .filter(Boolean)
     .join(' · ')
