@@ -24,7 +24,7 @@ def main() -> None:
         if user is None:
             print("No users in the DB — nothing to compare.")
             return
-        samples, targets, meta = build_dataset(session, user)
+        samples, targets, timing_targets, meta = build_dataset(session, user)
 
     print(f"user={user.email}  rounds={len(samples)}  teams={meta.get('n_teams')}")
     if len(samples) < M.MIN_ROUNDS:
@@ -34,7 +34,7 @@ def main() -> None:
     trained = []
     for pooling in POOLINGS:
         M._POOLING = pooling
-        trained.append((pooling, M.SitePredictor.train(samples, targets, meta)))
+        trained.append((pooling, M.SitePredictor.train(samples, targets, meta, timing_targets)))
 
     hdr = (
         f"{'pooling':<10}{'3-class':>9}{'site':>9}{'baseline':>10}"

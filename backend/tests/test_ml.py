@@ -7,6 +7,7 @@ import numpy as np
 from app.ml.deepsets import POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
 from app.ml.model import HOLDOUT_FRAC, SitePredictor, _reliability
+from app.ml.validation import leave_teams_out, team_folds
 from tests.conftest import auth, register_and_login
 
 
@@ -375,6 +376,60 @@ def test_holdout_evaluation_shows_model_is_correct():
     # 3-class accuracy on the held-out rows clears the base rate on those same rows
     assert p.accuracy is not None and p.baseline_accuracy is not None
     assert p.accuracy > p.baseline_accuracy
+
+
+# leave-teams-out CV — is it the tactic or the team's base rate?
+
+def test_team_folds_keep_teams_whole():
+    teams = ["NaVi"] * 50 + ["G2"] * 30 + ["Vitality"] * 20 + ["FaZe"] * 5
+    folds = team_folds(teams, 3)
+    assert len(folds) == 3
+    assert sorted(t for f in folds for t in f) == sorted(set(teams))  # each team in exactly one
+    assert team_folds(["A", "B"], 5) == [["A"], ["B"]]  # more folds than teams ⇒ clamped
+
+
+def _synth_team_rounds(rng, map_id, team, n, *, plants: bool):
+    """Rounds where the position decides A-vs-B but the TEAM decides plant-vs-NoPlant.
+    The utility is drawn the same way either way, so nothing except team identity
+    says whether the round ends in a plant."""
+    samples, targets = [], []
+    for _ in range(n):
+        x = 200.0 if rng.random() < 0.5 else 800.0
+        util = [{"util_type": "smoke", "x": x, "y": 500.0, "round_time_s": 6.0, "side": "t"}]
+        samples.append({
+            "tokens": round_tokens(map_id, util),
+            "context": round_context(
+                map_id=map_id, team=team, opponent="OPP",
+                buy_type="full", equip_value=4000, utility=util,
+            ),
+        })
+        targets.append(("A" if x == 200.0 else "B") if plants else "NoPlant")
+    return samples, targets
+
+
+def test_leave_teams_out_separates_team_shortcut_from_position():
+    """The point of the CV: on teams it has never seen, what was read off the
+    utility survives and what was memorised from team identity does not.
+
+    Here A-vs-B is decided by position and plant-vs-NoPlant only by which team it
+    is. The site head is tokens-only, so it keeps its accuracy on unseen teams; the
+    gate, which does see the team one-hot, loses its shortcut (an unseen team
+    vectorises to all-zero) and drops well below its 80/20 number.
+    """
+    rng = np.random.default_rng(11)
+    samples, targets = [], []
+    for i, team in enumerate(["NaVi", "G2", "Vitality", "FaZe", "Spirit", "MOUZ"]):
+        s, tg = _synth_team_rounds(rng, "de_mirage", team, 36, plants=i % 2 == 0)
+        samples += s
+        targets += tg
+
+    ref = SitePredictor.train(samples, targets, {"n_rounds": len(samples), "n_teams": 6})
+    cv = leave_teams_out(samples, targets, n_folds=3)
+
+    assert cv["n_folds"] == 3 and not cv["skipped"]
+    assert cv["n_rounds"] == len(samples)  # every round scored exactly once, by a model blind to its team
+    assert cv["site_accuracy"] >= 0.9  # position is still readable on unseen teams
+    assert ref.accuracy - cv["accuracy"] > 0.2  # the memorised gate does not travel
 
 
 def test_prediction_follows_selected_utility_box():

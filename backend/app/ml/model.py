@@ -119,6 +119,54 @@ def _reliability(
     return float(ece), bins
 
 
+def evaluate_rows(
+    p3: dict[int, np.ndarray],
+    tgt: list[str],
+    ctxs: list[dict],
+    rows: list[int],
+    base: tuple[dict[str, str], str],
+) -> dict:
+
+    tbl, gmode = base
+    idx3 = {"A": 0, "B": 1, "NoPlant": 2}
+    plant = [i for i in rows if tgt[i] in ("A", "B")]
+
+    def _acc(rs: list[int]) -> float | None:
+        return float(np.mean([np.argmax(p3[i]) == idx3[tgt[i]] for i in rs])) if rs else None
+
+    def _site_acc(rs: list[int]) -> float | None:
+        return (
+            float(np.mean([(0 if p3[i][0] >= p3[i][1] else 1) == idx3[tgt[i]] for i in rs]))
+            if rs else None
+        )
+
+    def _base_acc(rs: list[int]) -> float | None:
+        ok = [int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in rs]
+        return float(np.mean(ok)) if ok else None
+
+    def _map(i: int) -> str:
+        return str(ctxs[i].get("map") or "?")
+
+    return {
+        "n_rounds": len(rows),
+        "n_plant": len(plant),
+        "accuracy": _acc(rows),
+        "site_accuracy": _site_acc(plant),
+        "baseline_accuracy": _base_acc(rows),
+        "per_map": [
+            {
+                "map_id": m,
+                "n_rounds": sum(_map(i) == m for i in rows),
+                "n_plant": sum(_map(i) == m for i in plant),
+                "accuracy": _acc([i for i in rows if _map(i) == m]),
+                "site_accuracy": _site_acc([i for i in plant if _map(i) == m]),
+                "baseline_accuracy": _base_acc([i for i in rows if _map(i) == m]),
+            }
+            for m in sorted({_map(i) for i in rows})
+        ],
+    }
+
+
 @dataclass
 class SitePredictor:
     # Two stages, kept apart so context can't drown the position signal: a context-driven gate (plant vs NoPlant) + a position-only site head (A vs B)
@@ -282,40 +330,12 @@ class SitePredictor:
 
         # Measured with the final temperatures (what model_proba serves): gate T can shift the plant/NoPlant boundary, so 3-class acc is post-calibration.
         p3 = {i: proba3(i) for i in va}
-        tbl, gmode = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
-
-        def _acc(rows: list[int]) -> float | None:
-            return float(np.mean([np.argmax(p3[i]) == idx3[tgt[i]] for i in rows])) if rows else None
-
-        def _site_acc(rows: list[int]) -> float | None:
-            return (
-                float(np.mean([(0 if p3[i][0] >= p3[i][1] else 1) == idx3[tgt[i]] for i in rows]))
-                if rows else None
-            )
-
-        def _base_acc(rows: list[int]) -> float | None:
-            ok = [int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in rows]
-            return float(np.mean(ok)) if ok else None
-
-        self.accuracy = _acc(va)
-        self.site_accuracy = _site_acc(vap)
-        self.baseline_accuracy = _base_acc(va)
-
-        # metrics split per map 
-        def _map(i: int) -> str:
-            return str(ctxs[i].get("map") or "?")
-
-        self.per_map = [
-            {
-                "map_id": m,
-                "n_rounds": sum(_map(i) == m for i in va),
-                "n_plant": sum(_map(i) == m for i in vap),
-                "accuracy": _acc([i for i in va if _map(i) == m]),
-                "site_accuracy": _site_acc([i for i in vap if _map(i) == m]),
-                "baseline_accuracy": _base_acc([i for i in va if _map(i) == m]),
-            }
-            for m in sorted({_map(i) for i in va})
-        ]
+        base = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
+        held = evaluate_rows(p3, tgt, ctxs, va, base)
+        self.accuracy = held["accuracy"]
+        self.site_accuracy = held["site_accuracy"]
+        self.baseline_accuracy = held["baseline_accuracy"]
+        self.per_map = held["per_map"]
 
         self.gate_net = gate_net
         self.gate_vec = vec
@@ -386,6 +406,20 @@ class SitePredictor:
         out = {s: float(triple.get(s, 0.0)) for s in SITES}
         total = sum(out.values()) or 1.0
         return {k: v / total for k, v in out.items()}
+
+    def proba3_rows(self, samples: list[dict]) -> list[np.ndarray] | None:
+
+        if self.gate_net is None or self.site_net is None or self.gate_vec is None:
+            return None
+        x_ctx = self.gate_vec.transform([s["context"] for s in samples])
+        dummy = np.zeros(1)
+        out: list[np.ndarray] = []
+        for s, xc in zip(samples, x_ctx, strict=True):
+            tokens = _to_array(s["tokens"])
+            pg = self.gate_net.predict_proba(tokens, np.asarray(xc, dtype=float))
+            ps = self.site_net.predict_proba(tokens, dummy)
+            out.append(np.array([pg[0] * ps[0], pg[0] * ps[1], pg[1]]))
+        return out
 
     def timing_proba(self, *, map_id: str | None, utility) -> dict[str, float] | None:
         """P(rush/default/late) given a plant, from the drawn utility only"""
