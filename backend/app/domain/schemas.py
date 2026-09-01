@@ -454,6 +454,7 @@ class PerMapMetric(BaseModel):
     accuracy: float | None = None
     site_accuracy: float | None = None
     baseline_accuracy: float | None = None
+    site_baseline_accuracy: float | None = None
 
 
 class ModelStatusOut(BaseModel):
@@ -465,6 +466,7 @@ class ModelStatusOut(BaseModel):
     accuracy: float | None = None
     site_accuracy: float | None = None
     baseline_accuracy: float | None = None
+    site_baseline_accuracy: float | None = None  
     # rush/default/late given a plant
     timing_accuracy: float | None = None
     timing_baseline_accuracy: float | None = None

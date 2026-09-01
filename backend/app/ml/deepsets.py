@@ -29,6 +29,38 @@ def _relu(z: np.ndarray) -> np.ndarray:
     return np.maximum(z, 0.0)
 
 
+def _d_relu(z: np.ndarray) -> np.ndarray:
+    return (z > 0).astype(float)
+
+
+def _tanh(z: np.ndarray) -> np.ndarray:
+    return np.tanh(z)
+
+
+def _d_tanh(z: np.ndarray) -> np.ndarray:
+    t = np.tanh(z)
+    return 1.0 - t * t
+
+
+_LEAK = 0.01
+
+
+def _leaky_relu(z: np.ndarray) -> np.ndarray:
+    return np.where(z > 0, z, _LEAK * z)
+
+
+def _d_leaky_relu(z: np.ndarray) -> np.ndarray:
+    return np.where(z > 0, 1.0, _LEAK)
+
+
+# name -> (activation, derivative w.r.t. its pre-activation)
+ACTIVATIONS = {
+    "relu": (_relu, _d_relu),
+    "tanh": (_tanh, _d_tanh),
+    "leaky_relu": (_leaky_relu, _d_leaky_relu),
+}
+
+
 def _softmax(logits: np.ndarray) -> np.ndarray:
     e = np.exp(logits - logits.max())
     return e / e.sum()
@@ -45,6 +77,7 @@ class DeepSets:
     h_rho: int
     pooling: str = "mean"
     temperature: float = 1.0
+    activation: str = "relu"
 
     # init
     @classmethod
@@ -57,34 +90,74 @@ class DeepSets:
         h_phi: int = 32,
         d_embed: int = 24,
         h_rho: int = 32,
+        phi_depth: int = 2,
+        rho_depth: int = 2,
+        activation: str = "relu",
         pooling: str = "mean",
         seed: int = 0,
     ) -> DeepSets:
+        """φ: token_dim →(h_phi ×phi_depth-1)→ d_embed;
+        ρ: d_embed+ctx →(h_rho ×rho_depth-1)→ n_classes.
+
+        The last layer of each block is linear. At the defaults (depth 2/2, relu)
+        the params are the same keys, shapes and RNG draws as before the depth/
+        activation knobs existed, so an already-persisted model still loads.
+        """
         if pooling not in POOLINGS:
             raise ValueError(f"unknown pooling {pooling!r}, expected one of {POOLINGS}")
+        if activation not in ACTIVATIONS:
+            raise ValueError(
+                f"unknown activation {activation!r}, expected one of {tuple(ACTIVATIONS)}"
+            )
+        if phi_depth < 1 or rho_depth < 1:
+            raise ValueError("phi_depth and rho_depth must be >= 1")
         rng = np.random.default_rng(seed)
 
-        def he(fan_in: int, fan_out: int) -> np.ndarray:
-            return rng.standard_normal((fan_in, fan_out)) * np.sqrt(2.0 / fan_in)
+        # He for the rectifiers, Xavier for tanh
+        gain = 1.0 if activation == "tanh" else 2.0
 
-        params = {
-            "W1": he(token_dim, h_phi), "b1": np.zeros(h_phi),
-            "W2": he(h_phi, d_embed), "b2": np.zeros(d_embed),
-            "U1": he(d_embed + ctx_dim, h_rho), "c1": np.zeros(h_rho),
-            "U2": he(h_rho, n_classes), "c2": np.zeros(n_classes),
-        }
+        def w(fan_in: int, fan_out: int) -> np.ndarray:
+            return rng.standard_normal((fan_in, fan_out)) * np.sqrt(gain / fan_in)
+
+        params: dict[str, np.ndarray] = {}
+        phi_dims = [token_dim] + [h_phi] * (phi_depth - 1) + [d_embed]
+        for i in range(phi_depth):
+            params[f"W{i + 1}"] = w(phi_dims[i], phi_dims[i + 1])
+            params[f"b{i + 1}"] = np.zeros(phi_dims[i + 1])
+        rho_dims = [d_embed + ctx_dim] + [h_rho] * (rho_depth - 1) + [n_classes]
+        for i in range(rho_depth):
+            params[f"U{i + 1}"] = w(rho_dims[i], rho_dims[i + 1])
+            params[f"c{i + 1}"] = np.zeros(rho_dims[i + 1])
         if pooling == "attention":
             # small init ⇒ near-uniform attention at start (≈ mean), then learns
             params["w_att"] = rng.standard_normal(d_embed) * 0.01
             params["b_att"] = np.zeros(())
-        return cls(params, n_classes, token_dim, ctx_dim, d_embed, h_phi, h_rho, pooling=pooling)
+        return cls(
+            params, n_classes, token_dim, ctx_dim, d_embed, h_phi, h_rho,
+            pooling=pooling, activation=activation,
+        )
+
+    @property
+    def phi_depth(self) -> int:
+        return sum(1 for k in self.params if k[:1] == "W" and k[1:].isdigit())
+
+    @property
+    def rho_depth(self) -> int:
+        return sum(1 for k in self.params if k[:1] == "U" and k[1:].isdigit())
+
+    def _act(self):
+        return ACTIVATIONS[getattr(self, "activation", "relu")]
 
     @property
     def layers(self) -> str:
         pool = getattr(self, "pooling", "mean")
+        act = getattr(self, "activation", "relu")
+        phi = [self.token_dim]
+        phi += [self.params[f"W{i}"].shape[1] for i in range(1, self.phi_depth + 1)]
+        rho = [self.params[f"U{i}"].shape[1] for i in range(1, self.rho_depth + 1)]
         return (
-            f"φ{self.token_dim}→{self.h_phi}→{self.d_embed} · {pool} · "
-            f"ρ{self.h_rho}→{self.n_classes}"
+            "φ" + "→".join(str(d) for d in phi) + f" · {pool} · "
+            "ρ" + "→".join(str(d) for d in rho) + f" · {act}"
         )
 
     # pooling
@@ -120,20 +193,26 @@ class DeepSets:
     # forward
     def _forward(self, tokens: np.ndarray, ctx: np.ndarray):
         p = self.params
+        act, _ = self._act()
+        n_phi, n_rho = self.phi_depth, self.rho_depth
+
         if tokens.shape[0] > 0:
-            z1 = tokens @ p["W1"] + p["b1"]
-            a1 = _relu(z1)
-            z2 = a1 @ p["W2"] + p["b2"]
-            pooled, pcache = self._pool(z2)
+            a, phi_cache = tokens, []
+            for i in range(1, n_phi + 1):
+                z = a @ p[f"W{i}"] + p[f"b{i}"]
+                phi_cache.append((a, z))
+                a = act(z) if i < n_phi else z
+            pooled, pcache = self._pool(a)
         else:
-            z1 = a1 = z2 = None
+            phi_cache = None
             pooled, pcache = np.zeros(self.d_embed), ("mean", 0, None)
-        h = np.concatenate([pooled, ctx])
-        zr1 = h @ p["U1"] + p["c1"]
-        ar1 = _relu(zr1)
-        logits = ar1 @ p["U2"] + p["c2"]
-        cache = (tokens, z1, a1, z2, h, zr1, ar1, pcache)
-        return logits, cache
+
+        a, rho_cache = np.concatenate([pooled, ctx]), []
+        for i in range(1, n_rho + 1):
+            z = a @ p[f"U{i}"] + p[f"c{i}"]
+            rho_cache.append((a, z))
+            a = act(z) if i < n_rho else z
+        return a, (tokens, phi_cache, rho_cache, pcache)
 
     def predict_logits(self, tokens: np.ndarray, ctx: np.ndarray) -> np.ndarray:
         logits, _ = self._forward(tokens, ctx)
@@ -147,26 +226,33 @@ class DeepSets:
     # per-sample cross-entropy gradient (data term only; weight decay is in ``fit``)
     def _backward_one(self, tokens: np.ndarray, ctx: np.ndarray, y: int):
         logits, cache = self._forward(tokens, ctx)
-        _, z1, a1, _, h, zr1, ar1, pcache = cache
+        _, phi_cache, rho_cache, pcache = cache
+        _, dact = self._act()
         probs = _softmax(logits)
         grads = {k: np.zeros_like(v) for k, v in self.params.items()}
 
-        dlogits = probs.copy()
-        dlogits[y] -= 1.0
-        grads["U2"] += np.outer(ar1, dlogits)
-        grads["c2"] += dlogits
-        dzr1 = (self.params["U2"] @ dlogits) * (zr1 > 0)
-        grads["U1"] += np.outer(h, dzr1)
-        grads["c1"] += dzr1
-        dpooled = (self.params["U1"] @ dzr1)[: self.d_embed]
+        d = probs.copy()
+        d[y] -= 1.0
+        n_rho = self.rho_depth
+        for i in range(n_rho, 0, -1):
+            a_prev, z = rho_cache[i - 1]
+            if i < n_rho:
+                d = d * dact(z)
+            grads[f"U{i}"] += np.outer(a_prev, d)
+            grads[f"c{i}"] += d
+            d = self.params[f"U{i}"] @ d
+        dpooled = d[: self.d_embed]
 
         if tokens.shape[0] > 0:
-            dz2, pool_grads = self._pool_backward(dpooled, pcache)
-            grads["W2"] += a1.T @ dz2
-            grads["b2"] += dz2.sum(axis=0)
-            dz1 = (dz2 @ self.params["W2"].T) * (z1 > 0)
-            grads["W1"] += tokens.T @ dz1
-            grads["b1"] += dz1.sum(axis=0)
+            d, pool_grads = self._pool_backward(dpooled, pcache)
+            n_phi = self.phi_depth
+            for i in range(n_phi, 0, -1):
+                a_prev, z = phi_cache[i - 1]
+                if i < n_phi:
+                    d = d * dact(z)
+                grads[f"W{i}"] += a_prev.T @ d
+                grads[f"b{i}"] += d.sum(axis=0)
+                d = d @ self.params[f"W{i}"].T
             for k, g in pool_grads.items():
                 grads[k] += g
 
@@ -222,6 +308,12 @@ class DeepSets:
         weight_decay: float = 1e-4,
         patience: int = 50,
         pooling: str = "mean",
+        h_phi: int = 32,
+        d_embed: int = 24,
+        h_rho: int = 32,
+        phi_depth: int = 2,
+        rho_depth: int = 2,
+        activation: str = "relu",
         seed: int = 0,
     ) -> tuple[DeepSets, float, np.ndarray]:
         """Fit on (token_sets, ctx, y) returns (model, validation_accuracy, val_idx)
@@ -229,7 +321,10 @@ class DeepSets:
         """
         n = len(token_sets)
         model = cls._init(
-            token_sets[0].shape[1] if n else 7, ctx.shape[1], n_classes, pooling=pooling, seed=seed
+            token_sets[0].shape[1] if n else 7, ctx.shape[1], n_classes,
+            h_phi=h_phi, d_embed=d_embed, h_rho=h_rho,
+            phi_depth=phi_depth, rho_depth=rho_depth, activation=activation,
+            pooling=pooling, seed=seed,
         )
 
         rng = np.random.default_rng(seed)
@@ -238,7 +333,7 @@ class DeepSets:
         val_idx = idx[:n_val]
         tr_idx = idx[n_val:] if n_val else idx
 
-        weight_keys = ("W1", "W2", "U1", "U2")
+        weight_keys = tuple(k for k in model.params if k[:1] in ("W", "U") and k[1:].isdigit())
         m = {k: np.zeros_like(v) for k, v in model.params.items()}
         v = {k: np.zeros_like(v) for k, v in model.params.items()}
         b1m, b2m = 0.9, 0.999

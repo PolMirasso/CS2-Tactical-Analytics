@@ -76,10 +76,14 @@ def _sampled_utility_sets(utility, n: int, seed: int = 0) -> list[list[dict]]:
     return sets
 
 
-def _base_rate(contexts: list[dict], targets: list[str]) -> tuple[dict[str, str], str]:
+def _base_rate(
+    contexts: list[dict], targets: list[str], only: set[str] | None = None
+) -> tuple[dict[str, str], str]:
     by_key: dict[tuple, Counter] = {}
     overall: Counter = Counter()
     for f, y in zip(contexts, targets, strict=True):
+        if only is not None and y not in only:
+            continue
         by_key.setdefault((f.get("map"), f.get("team")), Counter())[y] += 1
         overall[y] += 1
     table = {f"{m}|{t}": c.most_common(1)[0][0] for (m, t), c in by_key.items()}
@@ -125,9 +129,11 @@ def evaluate_rows(
     ctxs: list[dict],
     rows: list[int],
     base: tuple[dict[str, str], str],
+    site_base: tuple[dict[str, str], str] | None = None,
 ) -> dict:
 
     tbl, gmode = base
+    stbl, sgmode = site_base or base
     idx3 = {"A": 0, "B": 1, "NoPlant": 2}
     plant = [i for i in rows if tgt[i] in ("A", "B")]
 
@@ -144,6 +150,13 @@ def evaluate_rows(
         ok = [int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in rs]
         return float(np.mean(ok)) if ok else None
 
+    def _site_base_acc(rs: list[int]) -> float | None:
+        ok = [
+            int(stbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", sgmode) == tgt[i])
+            for i in rs
+        ]
+        return float(np.mean(ok)) if ok else None
+
     def _map(i: int) -> str:
         return str(ctxs[i].get("map") or "?")
 
@@ -153,6 +166,7 @@ def evaluate_rows(
         "accuracy": _acc(rows),
         "site_accuracy": _site_acc(plant),
         "baseline_accuracy": _base_acc(rows),
+        "site_baseline_accuracy": _site_base_acc(plant),
         "per_map": [
             {
                 "map_id": m,
@@ -161,10 +175,46 @@ def evaluate_rows(
                 "accuracy": _acc([i for i in rows if _map(i) == m]),
                 "site_accuracy": _site_acc([i for i in plant if _map(i) == m]),
                 "baseline_accuracy": _base_acc([i for i in rows if _map(i) == m]),
+                "site_baseline_accuracy": _site_base_acc([i for i in plant if _map(i) == m]),
             }
             for m in sorted({_map(i) for i in rows})
         ],
     }
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+
+    pooling: str | None = None
+    weight_decay: float | None = None
+    h_phi: int = 32
+    d_embed: int = 24
+    h_rho: int = 32
+    phi_depth: int = 2
+    rho_depth: int = 2
+    activation: str = "relu"
+    lr: float = 5e-3
+    epochs: int = 500
+    patience: int = 50
+    seed: int = 0
+    train_frac: float = 1.0
+
+    def net_kwargs(self) -> dict:
+        return {
+            "pooling": self.pooling or _POOLING,
+            "weight_decay": self.weight_decay if self.weight_decay is not None else _WEIGHT_DECAY,
+            "h_phi": self.h_phi, "d_embed": self.d_embed, "h_rho": self.h_rho,
+            "phi_depth": self.phi_depth, "rho_depth": self.rho_depth,
+            "activation": self.activation, "lr": self.lr,
+            "epochs": self.epochs, "patience": self.patience, "seed": self.seed,
+        }
+
+    def label(self) -> str:
+        kw = self.net_kwargs()
+        return (
+            f"phi{self.phi_depth}x{self.h_phi}/{self.d_embed} rho{self.rho_depth}x{self.h_rho} "
+            f"{self.activation} {kw['pooling']} lr{self.lr:g} wd{kw['weight_decay']:g}"
+        )
 
 
 @dataclass
@@ -185,7 +235,8 @@ class SitePredictor:
     site_accuracy: float | None = None  # held-out A-vs-B given a plant
     timing_accuracy: float | None = None  # rush/default/late given a plant
     timing_baseline_accuracy: float | None = None
-    baseline_accuracy: float | None = None
+    baseline_accuracy: float | None = None 
+    site_baseline_accuracy: float | None = None
     # Confidence calibration (temperature scaling)
     ece: float | None = None
     ece_uncalibrated: float | None = None
@@ -205,9 +256,13 @@ class SitePredictor:
         targets: list[str],
         meta: dict,
         timing_targets: list[str | None] | None = None,
+        config: TrainConfig | None = None,
     ) -> SitePredictor:
         """ samples = {"tokens", "context"} dicts"""
         from sklearn.feature_extraction import DictVectorizer
+
+        cfg = config or TrainConfig()
+        net_kw = cfg.net_kwargs()
 
         contexts = [s["context"] for s in samples]
         table, global_mode = _base_rate(contexts, targets)
@@ -239,10 +294,12 @@ class SitePredictor:
         )
 
         # One outer 80/20 holdout for honest, comparable metrics
-        rng = np.random.default_rng(0)
+        rng = np.random.default_rng(cfg.seed)
         order = rng.permutation(len(keep))
         n_val = max(2, round(len(keep) * HOLDOUT_FRAC))
         va, tr = list(order[:n_val]), list(order[n_val:])
+        if cfg.train_frac < 1.0:
+            tr = tr[: max(MIN_ROUNDS, round(len(tr) * cfg.train_frac))]
 
         vec = DictVectorizer(sparse=False)
         vec.fit([ctxs[i] for i in tr])  # train-only fit avoids leaking val categories
@@ -252,15 +309,13 @@ class SitePredictor:
         # plant (0) vs NoPlant (1), on context + tokens
         y_gate = np.array([0 if p else 1 for p in is_plant])
         gate_net, _, _ = DeepSets.fit(
-            [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2,
-            weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
+            [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2, **net_kw,
         )
         #  A (0) vs B (1) on plant rounds, map-aware tokens only
         trp = [i for i in tr if is_plant[i]]
         y_site = np.array([0 if tgt[i] == "A" else 1 for i in trp])
         site_net, _, _ = DeepSets.fit(
-            [tokens[i] for i in trp], dummy[trp], y_site, 2,
-            weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
+            [tokens[i] for i in trp], dummy[trp], y_site, 2, **net_kw,
         )
 
         # Temperature scaling on the held-out rows: one scalar per net (NLL fit) never moves a binary argmax (site_accuracy unchanged)
@@ -279,8 +334,7 @@ class SitePredictor:
             ti = {c: k for k, c in enumerate(timing_classes)}
             timing_net, _, _ = DeepSets.fit(
                 [tokens[i] for i in trp_t], dummy[trp_t],
-                np.array([ti[tim[i]] for i in trp_t]), len(timing_classes),
-                weight_decay=_WEIGHT_DECAY, pooling=_POOLING,
+                np.array([ti[tim[i]] for i in trp_t]), len(timing_classes), **net_kw,
             )
             vap_t = [i for i in vap if tim[i] is not None]
             if vap_t:
@@ -331,10 +385,12 @@ class SitePredictor:
         # Measured with the final temperatures (what model_proba serves): gate T can shift the plant/NoPlant boundary, so 3-class acc is post-calibration.
         p3 = {i: proba3(i) for i in va}
         base = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
-        held = evaluate_rows(p3, tgt, ctxs, va, base)
+        site_base = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr], only={"A", "B"})
+        held = evaluate_rows(p3, tgt, ctxs, va, base, site_base)
         self.accuracy = held["accuracy"]
         self.site_accuracy = held["site_accuracy"]
         self.baseline_accuracy = held["baseline_accuracy"]
+        self.site_baseline_accuracy = held["site_baseline_accuracy"]
         self.per_map = held["per_map"]
 
         self.gate_net = gate_net
@@ -344,8 +400,8 @@ class SitePredictor:
         self.params = {
             "gate": gate_net.layers,
             "site": site_net.layers,
-            "alpha": f"{_WEIGHT_DECAY:g}",
-            "pooling": _POOLING,
+            "alpha": f"{net_kw['weight_decay']:g}",
+            "pooling": net_kw["pooling"],
             "gate_T": f"{gate_net.temperature:.2f}",
             "site_T": f"{site_net.temperature:.2f}",
         }

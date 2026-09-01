@@ -4,9 +4,9 @@ import io
 
 import numpy as np
 
-from app.ml.deepsets import POOLINGS, DeepSets, _softmax
+from app.ml.deepsets import ACTIVATIONS, POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
-from app.ml.model import HOLDOUT_FRAC, SitePredictor, _reliability
+from app.ml.model import HOLDOUT_FRAC, SitePredictor, _base_rate, _reliability, evaluate_rows
 from app.ml.validation import leave_teams_out, team_folds
 from tests.conftest import auth, register_and_login
 
@@ -133,10 +133,15 @@ def test_round_context_weapon_flags():
 
 
 # deepSets pooling (fwd/bwd) + temperature calibration
-def _finite_diff_grad_ok(pooling: str) -> None:
+def _finite_diff_grad_ok(
+    pooling: str, activation: str = "relu", phi_depth: int = 2, rho_depth: int = 2
+) -> None:
     """Every param's analytic grad matches central finite differences of the loss."""
     rng = np.random.default_rng(1)
-    net = DeepSets._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, pooling=pooling, seed=1)
+    net = DeepSets._init(
+        5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=phi_depth, rho_depth=rho_depth,
+        activation=activation, pooling=pooling, seed=1,
+    )
     tokens = rng.standard_normal((4, 5))
     ctx = rng.standard_normal(4)
     y = 2
@@ -145,6 +150,7 @@ def _finite_diff_grad_ok(pooling: str) -> None:
     def loss() -> float:
         return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
 
+    where = (pooling, activation, phi_depth, rho_depth)
     eps = 1e-6
     for k, p in net.params.items():
         flat, g = p.ravel(), grads[k].ravel()
@@ -156,12 +162,32 @@ def _finite_diff_grad_ok(pooling: str) -> None:
             lm = loss()
             flat[j] = orig
             num = (lp - lm) / (2 * eps)
-            assert abs(num - g[j]) < 1e-4, (pooling, k, j, num, g[j])
+            assert abs(num - g[j]) < 1e-4, (where, k, j, num, g[j])
 
 
 def test_all_poolings_backprop_matches_finite_differences():
     for pooling in POOLINGS:
         _finite_diff_grad_ok(pooling)
+
+
+def test_backprop_matches_finite_differences_for_every_activation():
+    for activation in ACTIVATIONS:
+        for pooling in POOLINGS:
+            _finite_diff_grad_ok(pooling, activation=activation)
+
+
+def test_backprop_matches_finite_differences_at_other_depths():
+    # the last layer of each block is linear, so depth 1 means "no hidden layer"
+    for phi_depth, rho_depth in ((1, 1), (1, 2), (2, 1), (3, 2), (2, 3), (3, 3)):
+        _finite_diff_grad_ok("attention", phi_depth=phi_depth, rho_depth=rho_depth)
+
+
+def test_layers_string_reports_depth_and_activation():
+    net = DeepSets._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=3,
+                         activation="tanh", pooling="attention", seed=1)
+    assert net.phi_depth == 3
+    assert net.rho_depth == 2
+    assert net.layers == "φ5→7→7→6 · attention · ρ8→3 · tanh"
 
 
 def test_sum_pool_keeps_cardinality_and_attention_is_normalised():
@@ -356,6 +382,27 @@ def test_train_holds_out_20_percent_for_evaluation():
     n_val = sum(r["n_rounds"] for r in p.per_map)
     assert n_val == max(2, round(len(samples) * HOLDOUT_FRAC))  # ~20% held out
     assert round(len(samples) * HOLDOUT_FRAC) == 60  # 20% of 300
+
+
+def test_site_baseline_is_a_vs_b_not_three_class():
+    """`baseline_accuracy` is the 3-class base rate over ALL rounds, so when most
+    rounds are NoPlant it just predicts NoPlant and scores 0 on the plants — it is
+    not comparable to `site_accuracy`. `site_baseline_accuracy` is."""
+    tgt = ["A"] * 30 + ["B"] * 20 + ["NoPlant"] * 50
+    ctxs = [{"map": "de_mirage", "team": "NaVi"} for _ in tgt]
+    rows = list(range(len(tgt)))
+    p3 = {i: np.array([1.0, 0.0, 0.0]) for i in rows}  # a model that always says A
+
+    base, site_base = _base_rate(ctxs, tgt), _base_rate(ctxs, tgt, only={"A", "B"})
+    assert base[1] == "NoPlant" and site_base[1] == "A"
+
+    ev = evaluate_rows(p3, tgt, ctxs, rows, base, site_base)
+    assert ev["n_plant"] == 50
+    assert ev["baseline_accuracy"] == 0.5       # NoPlant, right on 50 of 100 rounds
+    assert ev["site_baseline_accuracy"] == 0.6  # A, right on 30 of the 50 plants
+    # Always-A scores 0.6 too: it ties the A-vs-B baseline while "beating" the
+    # 3-class one, which is exactly the comparison the site row must not make.
+    assert ev["site_accuracy"] == 0.6
 
 
 def test_holdout_evaluation_shows_model_is_correct():

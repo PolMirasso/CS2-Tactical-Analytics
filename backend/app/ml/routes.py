@@ -39,6 +39,7 @@ def _status(p: SitePredictor) -> ModelStatusOut:
         accuracy=p.accuracy,
         site_accuracy=getattr(p, "site_accuracy", None),
         baseline_accuracy=p.baseline_accuracy,
+        site_baseline_accuracy=getattr(p, "site_baseline_accuracy", None),
         timing_accuracy=getattr(p, "timing_accuracy", None),
         timing_baseline_accuracy=getattr(p, "timing_baseline_accuracy", None),
         ece=getattr(p, "ece", None),
