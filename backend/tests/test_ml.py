@@ -6,7 +6,14 @@ import numpy as np
 
 from app.ml.deepsets import ACTIVATIONS, POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
-from app.ml.model import HOLDOUT_FRAC, SitePredictor, _base_rate, _reliability, evaluate_rows
+from app.ml.model import (
+    HOLDOUT_FRAC,
+    SitePredictor,
+    _base_rate,
+    _reliability,
+    _sampled_utility_sets,
+    evaluate_rows,
+)
 from app.ml.validation import leave_teams_out, team_folds
 from tests.conftest import auth, register_and_login
 
@@ -477,6 +484,43 @@ def test_leave_teams_out_separates_team_shortcut_from_position():
     assert cv["n_rounds"] == len(samples)  # every round scored exactly once, by a model blind to its team
     assert cv["site_accuracy"] >= 0.9  # position is still readable on unseen teams
     assert ref.accuracy - cv["accuracy"] > 0.2  # the memorised gate does not travel
+
+
+def test_box_sampling_spreads_over_the_whole_box():
+    """The drawn box means "this utility lands somewhere in here", so the samples
+    must stay inside it AND cover it evenly. Independent uniform draws clump and
+    leave holes — with 64 of them a quarter of the box can come out nearly empty,
+    and the averaged prediction then depends on the seed."""
+    util = [{
+        "util_type": "smoke", "x": 500.0, "y": 400.0, "w": 200.0, "h": 100.0,
+        "time_from": 10.0, "time_to": 30.0, "side": "t",
+    }]
+    sets = _sampled_utility_sets(util, 64)
+    assert len(sets) == 64
+
+    xs = np.array([s[0]["x"] for s in sets])
+    ys = np.array([s[0]["y"] for s in sets])
+    ts = np.array([s[0]["time_from"] for s in sets])
+    assert (np.abs(xs - 500.0) <= 100.0).all()  # inside the drawn box
+    assert (np.abs(ys - 400.0) <= 50.0).all()
+    assert ((ts >= 10.0) & (ts <= 30.0)).all()  # inside the drawn window
+    # the window collapses to the sampled instant so token and context agree on it
+    assert all(s[0]["time_from"] == s[0]["time_to"] for s in sets)
+
+    for lo in (0.0, 0.25, 0.5, 0.75):  # every quarter gets its share, in each axis
+        for v, origin, size in ((xs, 400.0, 200.0), (ys, 350.0, 100.0), (ts, 10.0, 20.0)):
+            share = np.mean(((v - origin) / size >= lo) & ((v - origin) / size < lo + 0.25))
+            assert abs(share - 0.25) < 0.02
+
+
+def test_box_sampling_is_deterministic_and_skips_pinned_utility():
+    pinned = [{"util_type": "smoke", "x": 500.0, "y": 400.0, "w": 0.0, "h": 0.0,
+               "time_from": 12.0, "time_to": 12.0, "side": "t"}]
+    assert len(_sampled_utility_sets(pinned, 64)) == 1  # nothing to sample over
+
+    box = [dict(pinned[0], w=200.0, h=100.0)]
+    first = _sampled_utility_sets(box, 64)
+    assert [s[0]["x"] for s in first] == [s[0]["x"] for s in _sampled_utility_sets(box, 64)]
 
 
 def test_prediction_follows_selected_utility_box():
