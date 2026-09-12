@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import warnings
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
 
 import numpy as np
 
@@ -21,16 +23,30 @@ _POOLING = "attention"
 # is point-trained, so the drawn box means "lands somewhere in this area" and the
 # time window means "active across this span": we average the prediction over
 # (position, time) sampled in them (wider box/window ⇒ broader, less peaked output).
-_N_SAMPLES = 24
+# Past 64 the error stops dropping
+_N_SAMPLES = 64
+
+
+@lru_cache(maxsize=64)
+def _low_discrepancy(d: int, n: int, seed: int) -> np.ndarray:
+    """n points in [0,1)^d spread evenly by construction (scrambled Sobol),
+    where n independent uniform draws would clump and leave holes"""
+    from scipy.stats import qmc
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # n not a power of two
+        points = qmc.Sobol(d=d, scramble=True, seed=seed).random(n)
+    points.flags.writeable = False  # shared by every caller
+    return points
 
 
 def _sampled_utility_sets(utility, n: int, seed: int = 0) -> list[list[dict]]:
-    """Perturbed copies of ``utility`` with each x/y jittered inside its w×h box
-    and its throw time drawn uniformly inside its [time_from, time_to] window.
+    """Perturbed copies of ``utility`` with each x/y placed inside its w×h box and
+    its throw time inside its [time_from, time_to] window.
 
     Returns one set when nothing has an area or a time span to sample over, else
-    ``n`` Monte-Carlo sets — a joint draw over every utility's landing point and
-    active instant.
+    ``n`` sets — a joint draw over every utility's landing point and active
+    instant, spread over the whole box/window by ``_low_discrepancy``.
     """
     base = [
         {
@@ -53,25 +69,32 @@ def _sampled_utility_sets(utility, n: int, seed: int = 0) -> list[list[dict]]:
         lo, hi = b["time_from"], b["time_to"]
         return (hi - lo) if lo is not None and hi is not None else 0.0
 
-    if not any(b["w"] > 0 or b["h"] > 0 or _span(b) > 0 for b in base):
+    # one dimension per thing that varies, so pinned utility costs no points
+    dims: list[tuple[int, str]] = []
+    for i, b in enumerate(base):
+        if b["x"] is not None and b["w"] > 0:
+            dims.append((i, "x"))
+        if b["y"] is not None and b["h"] > 0:
+            dims.append((i, "y"))
+        if _span(b) > 0:
+            dims.append((i, "t"))
+    if not dims:
         return [base]
 
-    rng = np.random.default_rng(seed)
+    u = _low_discrepancy(len(dims), n, seed)
     sets: list[list[dict]] = []
-    for _ in range(n):
-        sample = []
-        for b in base:
-            d = dict(b)
-            if b["x"] is not None and b["w"] > 0:
-                d["x"] = b["x"] + rng.uniform(-b["w"] / 2, b["w"] / 2)
-            if b["y"] is not None and b["h"] > 0:
-                d["y"] = b["y"] + rng.uniform(-b["h"] / 2, b["h"] / 2)
-            if _span(b) > 0:
-                # Active at a random instant of the window: collapse to that time
-                # so both the token and the round context see "present at t".
-                t = rng.uniform(b["time_from"], b["time_to"])
-                d["time_from"] = d["time_to"] = t
-            sample.append(d)
+    for r in range(n):
+        sample = [dict(b) for b in base]
+        for j, (i, axis) in enumerate(dims):
+            b = base[i]
+            if axis == "x":
+                sample[i]["x"] = b["x"] + (u[r, j] - 0.5) * b["w"]
+            elif axis == "y":
+                sample[i]["y"] = b["y"] + (u[r, j] - 0.5) * b["h"]
+            else:
+                # collapse the window to that instant so token and context agree
+                t = b["time_from"] + u[r, j] * (b["time_to"] - b["time_from"])
+                sample[i]["time_from"] = sample[i]["time_to"] = t
         sets.append(sample)
     return sets
 
@@ -432,13 +455,10 @@ class SitePredictor:
         # A persisted model trained on a different token layout
         if self.gate_net.token_dim != TOKEN_DIM or self.site_net.token_dim != TOKEN_DIM:
             return None
-        # Average over (position, time) sampled inside each utility's box/window;
-        # context is recomputed per sample because the sampled time feeds the gate
+        # Average over (position, time) sampled inside each utility's box/window
         sets = _sampled_utility_sets(utility, _N_SAMPLES)
-        dummy = np.zeros(1)
-        proba = np.zeros(3)  # A, B, NoPlant
-        for sampled in sets:
-            ctx_dict = round_context(
+        ctx_dicts = [
+            round_context(
                 map_id=map_id,
                 team=team,
                 opponent=opponent,
@@ -451,7 +471,19 @@ class SitePredictor:
                 opponent_weapon=opponent_weapon,
                 phase=phase,
             )
-            x_ctx = np.asarray(self.gate_vec.transform([ctx_dict])[0], dtype=float)
+            for sampled in sets
+        ]
+        # the context only moves with the sampled time (never the position), so with
+        # no time window every sample shares one dict
+        if all(c == ctx_dicts[0] for c in ctx_dicts[1:]):
+            row = np.asarray(self.gate_vec.transform(ctx_dicts[:1])[0], dtype=float)
+            x_ctxs = [row] * len(ctx_dicts)
+        else:
+            x_ctxs = [np.asarray(r, dtype=float) for r in self.gate_vec.transform(ctx_dicts)]
+
+        dummy = np.zeros(1)
+        proba = np.zeros(3)  # A, B, NoPlant
+        for sampled, x_ctx in zip(sets, x_ctxs, strict=True):
             tokens = _to_array(round_tokens(map_id, sampled))
             pg = self.gate_net.predict_proba(tokens, x_ctx)  # [plant, NoPlant]
             ps = self.site_net.predict_proba(tokens, dummy)  # [A, B]
