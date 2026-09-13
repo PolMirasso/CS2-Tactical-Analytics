@@ -354,6 +354,7 @@ export interface PerMapMetric {
   accuracy: number | null
   site_accuracy: number | null
   baseline_accuracy: number | null
+  site_baseline_accuracy: number | null
 }
 
 export interface ModelStatusOut {
@@ -365,6 +366,7 @@ export interface ModelStatusOut {
   accuracy: number | null
   site_accuracy: number | null
   baseline_accuracy: number | null
+  site_baseline_accuracy: number | null
   // execution-timing head (rush/default/late given a plant)
   timing_accuracy: number | null
   timing_baseline_accuracy: number | null

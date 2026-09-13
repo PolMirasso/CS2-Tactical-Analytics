@@ -940,6 +940,9 @@ export function ScoutingPage() {
               {ms?.trained && ms.site_accuracy != null && (
                 <span className="text-muted text-xs">
                   {t('scouting.siteAccuracy')}: {pct(ms.site_accuracy)}
+                  {ms.site_baseline_accuracy != null && (
+                    <span className="text-muted"> ({pct(ms.site_baseline_accuracy)})</span>
+                  )}
                 </span>
               )}
               {ms?.trained && ms.timing_accuracy != null && (
@@ -1117,8 +1120,9 @@ function PerMapTable({ rows, maps, tested }: { rows: PerMapMetric[]; maps?: MapO
             <th className={`${head} text-left`}>{t('scouting.map')}</th>
             <th className={head}>{t('scouting.plants')}</th>
             <th className={head}>{t('scouting.okShort')}</th>
-            <th className={head}>{t('scouting.siteAccShort')}</th>
             <th className={head}>{t('scouting.baselineShort')}</th>
+            <th className={head}>{t('scouting.siteAccShort')}</th>
+            <th className={head}>{t('scouting.siteBaselineShort')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1127,8 +1131,9 @@ function PerMapTable({ rows, maps, tested }: { rows: PerMapMetric[]; maps?: MapO
               <td className={`${cell} text-left`}>{name(r.map_id)}</td>
               <td className={cell}>{r.n_plant}</td>
               <td className={`${cell} font-semibold`}>{r.accuracy != null ? pct(r.accuracy) : '—'}</td>
-              <td className={cell}>{r.site_accuracy != null ? pct(r.site_accuracy) : '—'}</td>
               <td className={`${cell} text-muted`}>{r.baseline_accuracy != null ? pct(r.baseline_accuracy) : '—'}</td>
+              <td className={cell}>{r.site_accuracy != null ? pct(r.site_accuracy) : '—'}</td>
+              <td className={`${cell} text-muted`}>{r.site_baseline_accuracy != null ? pct(r.site_baseline_accuracy) : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -1181,6 +1186,10 @@ function ReliabilityDiagram({ bins }: { bins: ReliabilityBin[] }) {
 function Prediction({ result }: { result: PredictOut }) {
   const { t } = useTranslation()
   const baseline = new Map(result.baseline.map((b) => [b.site, b.prob]))
+  const pA = result.sites.find((x) => x.site === 'A')?.prob ?? 0
+  const pB = result.sites.find((x) => x.site === 'B')?.prob ?? 0
+  const pPlant = pA + pB
+  const conditional = result.source === 'model' && pPlant > 0
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
@@ -1227,7 +1236,18 @@ function Prediction({ result }: { result: PredictOut }) {
           </div>
         )
       })}
+      {conditional && (
+        <div className="mt-2 rounded-md border border-border bg-surface-2/40 px-2.5 py-1.5">
+          <span className="text-sm">
+            <span className="text-muted">{t('scouting.ifExecute')}: </span>
+            <strong style={{ color: SITE_COLOR.A }}>A {((pA / pPlant) * 100).toFixed(0)}%</strong>
+            <span className="text-muted"> · </span>
+            <strong style={{ color: SITE_COLOR.B }}>B {((pB / pPlant) * 100).toFixed(0)}%</strong>
+          </span>
+        </div>
+      )}
       <p className="mt-1.5 mb-0 text-xs text-muted">{t('scouting.baselineHint')}</p>
+      {conditional && <p className="mt-1 mb-0 text-xs text-muted">{t('scouting.ifExecuteHint')}</p>}
 
       {result.timing && result.predicted_timing && (
         <div className="mt-3 border-t border-border pt-3">

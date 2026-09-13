@@ -317,6 +317,8 @@
     "modelSource": "Model (neural net)",
     "baseline": "Historical frequency",
     "baselineHint": "The bar is the model probability; the vertical tick is the team's historical frequency (baseline).",
+    "ifExecute": "If they commit",
+    "ifExecuteHint": "Split between A and B assuming they execute: this is the site head's own answer, the one “site accuracy” measures. It holds even when the model is unsure they will commit.",
     "executionTiming": "Execution timing",
     "timingHint": "If they commit, when they'll most likely plant (from the throw time of the drawn utility).",
     "timings": {
@@ -341,6 +343,7 @@
     "plants": "Plants",
     "siteAccShort": "Site acc.",
     "baselineShort": "Baseline",
+    "siteBaselineShort": "Site base.",
     "network": "Network",
     "calibration": "Calibration",
     "reliabilityTitle": "Reliability (confidence vs. accuracy)",
