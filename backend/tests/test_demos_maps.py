@@ -75,11 +75,11 @@ def test_delete_demo(client):
     assert client.get(f"/demos/{demo_id}", headers=auth(token)).status_code == 404
 
 
-def test_delete_demo_removes_kills_and_player_stats(client):
+def test_delete_demo_removes_rounds_and_player_stats(client):
     from sqlalchemy import func, select
 
     from app.db import session_scope
-    from app.domain.models import Kill, PlayerStat, Round, UtilityEvent
+    from app.domain.models import PlayerStat, Round, UtilityEvent
 
     token = register_and_login(client, "deepdelete@example.com")
     up = _upload(client, token, map_id="de_mirage", team="NAVI", visibility="private")
@@ -91,12 +91,12 @@ def test_delete_demo_removes_kills_and_player_stats(client):
                 session.scalar(
                     select(func.count()).select_from(t).where(t.demo_id == demo_id)
                 )
-                for t in (Round, UtilityEvent, Kill, PlayerStat)
+                for t in (Round, UtilityEvent, PlayerStat)
             )
 
     assert all(n > 0 for n in counts())
     assert client.delete(f"/demos/{demo_id}", headers=auth(token)).status_code == 204
-    assert counts() == (0, 0, 0, 0)
+    assert counts() == (0, 0, 0)
 
 
 def test_reparse_all_keeps_uploaded_demo_teams(client):

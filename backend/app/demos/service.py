@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
-from app.domain.models import Demo, HltvTeam, Kill, PlayerStat, Round, User, UtilityEvent
+from app.domain.models import Demo, HltvTeam, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
 from app.parsing.parser import ParseError
 from app.parsing.replay import replay_to_dict
@@ -214,7 +214,6 @@ def parse_and_store(
     # Parse ``demo`` into rounds + utility events. Returns (n_rounds, n_utility)
     # Wipe any prior parse so re-parsing is idempotent
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
-    session.execute(delete(Kill).where(Kill.demo_id == demo.id))
     session.execute(delete(PlayerStat).where(PlayerStat.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
     replay_path(demo.id).unlink(missing_ok=True)
@@ -276,28 +275,6 @@ def parse_and_store(
                 z=u.z,
                 round_time_s=u.round_time_s,
                 team=u.side,
-            )
-        )
-
-    for k in parsed.kills:
-        rid = round_id_by_number.get(k.round_number)
-        if rid is None:
-            continue
-        session.add(
-            Kill(
-                demo_id=demo.id,
-                round_id=rid,
-                round_number=k.round_number,
-                time_s=k.time_s,
-                killer_name=k.killer_name,
-                killer_side=k.killer_side,
-                victim_name=k.victim_name,
-                victim_side=k.victim_side,
-                assister_name=k.assister_name,
-                weapon=k.weapon,
-                headshot=k.headshot,
-                x=k.x,
-                y=k.y,
             )
         )
 
@@ -438,7 +415,6 @@ def delete_demo(session: Session, user: User, demo: Demo) -> None:
     if demo.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete this demo")
     session.execute(delete(UtilityEvent).where(UtilityEvent.demo_id == demo.id))
-    session.execute(delete(Kill).where(Kill.demo_id == demo.id))
     session.execute(delete(PlayerStat).where(PlayerStat.demo_id == demo.id))
     session.execute(delete(Round).where(Round.demo_id == demo.id))
     replay_path(demo.id).unlink(missing_ok=True)

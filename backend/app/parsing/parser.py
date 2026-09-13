@@ -81,17 +81,11 @@ class RoundData:
 
 @dataclass
 class KillData:
-    round_number: int
-    time_s: float
+    """One kill, reduced to what the scoreboard needs."""
     killer_name: str | None
-    killer_side: str | None
     victim_name: str | None
-    victim_side: str | None
     assister_name: str | None
-    weapon: str | None
     headshot: bool
-    x: float | None = None
-    y: float | None = None
 
 
 @dataclass
@@ -330,17 +324,10 @@ def _kills_from_replay(replay) -> list[KillData]:
         for k in r.kills:
             out.append(
                 KillData(
-                    round_number=r.round_number,
-                    time_s=float(k.get("t") or 0.0),
                     killer_name=k.get("atk"),
-                    killer_side=_side(k.get("as")),
                     victim_name=k.get("vic"),
-                    victim_side=_side(k.get("vs")),
                     assister_name=k.get("ast"),
-                    weapon=k.get("wp"),
                     headshot=bool(k.get("hs")),
-                    x=k.get("vx"),
-                    y=k.get("vy"),
                 )
             )
     return out
