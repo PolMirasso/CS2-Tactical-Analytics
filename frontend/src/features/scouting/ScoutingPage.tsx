@@ -19,6 +19,10 @@ import { presetTokens, presetsForMap, type ScoutingPreset } from './presets'
 const UTILS: UtilityType[] = ['smoke', 'flash', 'molotov', 'he']
 const BUY_TYPES: BuyType[] = ['pistol', 'eco', 'force', 'full']
 const PHASES: Phase[] = ['pistol', 'first_half', 'second_half', 'overtime']
+const BOX_AREA_WARN = 1 / 3
+const RADAR_AREA = 1024 * 1024
+const boxArea = (tk: { w: number; h: number }) => (tk.w * tk.h) / RADAR_AREA
+
 const SITE_ORDER: Site[] = ['A', 'B', 'NoPlant']
 const TIMING_ORDER: Timing[] = ['rush', 'default', 'late']
 const BUY_EQUIP: Record<string, number> = {
@@ -253,6 +257,7 @@ export function ScoutingPage() {
 
   // Prediction is one opponent
   const soloTeam = teamIds.length === 1 ? teamIds[0] : undefined
+  const oversized = tokens.filter((tk) => boxArea(tk) > BOX_AREA_WARN)
   const teamLabel = useMemo(
     () => teamIds.map((id) => teams?.find((tm) => tm.id === id)?.name ?? id).join(', '),
     [teams, teamIds],
@@ -850,6 +855,9 @@ export function ScoutingPage() {
                       <span className="flex-1 overflow-hidden text-[13px] text-ellipsis whitespace-nowrap">
                         {t(`scouting.utilTypes.${tk.util_type}`)}
                       </span>
+                      {boxArea(tk) > BOX_AREA_WARN && (
+                        <span className="shrink-0 text-xs text-warn" title={t('scouting.boxTooBigOne')}>⚠</span>
+                      )}
                       <span className="text-xs text-muted tabular-nums">
                         {fmtClock(tk.time_from)}–{fmtClock(tk.time_to)}
                       </span>
@@ -861,6 +869,15 @@ export function ScoutingPage() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+              {oversized.length > 0 && (
+                <div className="mt-2 rounded-md border border-l-4 border-warn bg-warn/8 px-2.5 py-2 text-xs">
+                  <span className="font-semibold text-warn">⚠ </span>
+                  {t('scouting.boxTooBig', {
+                    count: oversized.length,
+                    pct: Math.round(Math.max(...oversized.map(boxArea)) * 100),
+                  })}
                 </div>
               )}
               <button
