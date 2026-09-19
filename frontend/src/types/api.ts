@@ -20,7 +20,7 @@ export type DateRange =
   | 'last_6_months'
   | 'last_12_months'
 export type UtilityType = 'smoke' | 'flash' | 'molotov' | 'he'
-export type Region = 'A' | 'B' | 'Mid'
+export type Region = 'A' | 'B' | 'Mid' | 'Other'
 export type Site = 'A' | 'B' | 'Mid' | 'NoPlant'
 export type BuyType =
   | 'pistol'

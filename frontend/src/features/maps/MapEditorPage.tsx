@@ -6,7 +6,7 @@ import { useMaps } from './hooks'
 
 // Polygons are edited directly in the radar's 1024x1024 pixel space.
 const VIEW = 1024
-const REGIONS: Region[] = ['A', 'B', 'Mid']
+const REGIONS: Region[] = ['A', 'B', 'Mid', 'Other']
 
 type Pt = [number, number]
 interface EditZone {

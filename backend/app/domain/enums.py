@@ -75,6 +75,7 @@ class Region(StrEnum):
     A = "A"
     B = "B"
     MID = "Mid"
+    OTHER = "Other"
 
 
 class DateRange(StrEnum):

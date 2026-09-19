@@ -12,6 +12,7 @@ export const REGION_COLOR: Record<string, string> = {
   A: '#4f8cff',
   B: '#ff5d5d',
   Mid: '#f3c244',
+  Other: '#6b7280',
 }
 
 export const SITE_COLOR: Record<string, string> = {
