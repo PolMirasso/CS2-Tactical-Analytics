@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.domain.enums import DemoSource, DemoStatus, Visibility
 from app.domain.models import Demo, HltvTeam, PlayerStat, Round, User, UtilityEvent
 from app.groups.service import group_peer_ids
+from app.parsing.intent import intended_site
 from app.parsing.parser import ParseError
 from app.parsing.replay import replay_to_dict
 from app.parsing.runner import run_parse
@@ -236,8 +237,16 @@ def parse_and_store(
     demo.team = demo.team or parsed.team
     demo.opponent = demo.opponent or parsed.opponent
 
+    # noplant round
+    replay_rounds: dict[int, dict] = {}
+    if parsed.replay is not None:
+        replay_rounds = {rr["round_number"]: rr for rr in replay_to_dict(parsed.replay)["rounds"]}
+
     round_id_by_number: dict[int, int] = {}
     for r in parsed.rounds:
+        intent = None
+        if r.target_site not in ("A", "B") and r.round_number in replay_rounds:
+            intent = intended_site(parsed.map_id, replay_rounds[r.round_number])
         row = Round(
             demo_id=demo.id,
             round_number=r.round_number,
@@ -251,6 +260,7 @@ def parse_and_store(
             team_weapons=r.team_weapons,
             opponent_weapons=r.opponent_weapons,
             target_site=r.target_site,
+            intent_site=intent,
             plant_time_s=r.plant_time_s,
             winner=r.winner,
             win_reason=r.win_reason,

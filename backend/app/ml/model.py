@@ -221,6 +221,7 @@ class TrainConfig:
     patience: int = 50
     seed: int = 0
     train_frac: float = 1.0
+    use_intent: bool = True 
 
     def net_kwargs(self) -> dict:
         return {
@@ -315,6 +316,7 @@ class SitePredictor:
         tim = (
             [timing_targets[i] for i in keep] if timing_targets is not None else [None] * len(keep)
         )
+        intents = [samples[i].get("intent") for i in keep]
 
         # One outer 80/20 holdout for honest, comparable metrics
         rng = np.random.default_rng(cfg.seed)
@@ -336,9 +338,15 @@ class SitePredictor:
         )
         #  A (0) vs B (1) on plant rounds, map-aware tokens only
         trp = [i for i in tr if is_plant[i]]
-        y_site = np.array([0 if tgt[i] == "A" else 1 for i in trp])
+        site_rows = list(trp)
+        site_y = [0 if tgt[i] == "A" else 1 for i in trp]
+        if cfg.use_intent:
+            extra = [i for i in tr if not is_plant[i] and intents[i] in ("A", "B")]
+            site_rows += extra
+            site_y += [0 if intents[i] == "A" else 1 for i in extra]
+        y_site = np.array(site_y)
         site_net, _, _ = DeepSets.fit(
-            [tokens[i] for i in trp], dummy[trp], y_site, 2, **net_kw,
+            [tokens[i] for i in site_rows], dummy[site_rows], y_site, 2, **net_kw,
         )
 
         # Temperature scaling on the held-out rows: one scalar per net (NLL fit) never moves a binary argmax (site_accuracy unchanged)

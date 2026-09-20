@@ -936,14 +936,14 @@ def test_support_narrows_by_equip_window(client):
     plain = support()
     assert plain["rounds"] > 0
 
-    # Sample CT buys sit at 1500 / 4000 / 6000 / 12000 / 22000.
+    # Sample CT buys sit at 1500 / 4000 / 6000 / 12000 / 22000, but only the pistol one
     full_buys = support(opponent_equip_min=20000)
     assert 0 < full_buys["rounds"] < plain["rounds"]
     assert full_buys["filters"] == ["team", "opp_equip"]
 
-    ecos = support(opponent_equip_min=5000, opponent_equip_max=7000)
-    assert 0 < ecos["rounds"] < plain["rounds"]
-    assert ecos["rounds"] + full_buys["rounds"] < plain["rounds"]
+    pistols = support(opponent_equip_min=3000, opponent_equip_max=5000)
+    assert 0 < pistols["rounds"] < plain["rounds"]
+    assert pistols["rounds"] + full_buys["rounds"] < plain["rounds"]
 
     empty = support(opponent_equip_max=1000)
     assert empty["rounds"] == 0

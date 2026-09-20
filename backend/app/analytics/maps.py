@@ -110,12 +110,21 @@ def list_maps() -> list[GameMap]:
     return list(_MAPS.values())
 
 
-def classify_point(map_id: str, x: float, y: float) -> Zone | None:
+def classify_point(map_id: str, x: float, y: float, z: float | None = None) -> Zone | None:
     game_map = _MAPS.get(map_id)
     if game_map is None:
         return None
-    px, py = to_radar_pixel(map_id, x, y)
+    px, py = _level_radar_pixel(map_id, x, y, z)
     return game_map.zone_at(px, py)
+
+
+def _level_radar_pixel(map_id: str, x: float, y: float, z: float | None) -> tuple[float, float]:
+    """Radar pixel for zone lookup, using the level's own calibration on nuke/vertigo"""
+    lower = _LOWER_LEVEL.get(map_id)
+    if lower is not None and z is not None and z < lower[1]:
+        pos_x, pos_y, scale = lower[0]
+        return (x - pos_x) / scale, (pos_y - y) / scale
+    return to_radar_pixel(map_id, x, y)
 
 
 def to_radar_pixel(map_id: str, x: float, y: float) -> tuple[float, float]:

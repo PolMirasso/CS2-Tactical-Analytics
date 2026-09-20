@@ -57,6 +57,7 @@ def build_dataset(
                     opponent_weapons=r.opponent_weapons,
                     phase=round_phase(r.round_number),
                 ),
+                "intent": r.intent_site,
             }
         )
         targets.append(r.target_site)

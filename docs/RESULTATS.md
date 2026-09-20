@@ -47,14 +47,95 @@ surt de la demo: cada token és una granada real, amb la seva **posició exacta*
 **instant** i la seva **alçada**. No es mesura sobre res dibuixat a mà.
 
 A l'eina, en canvi, l'usuari **dibuixa una àrea i una finestra de temps**, i el model
-marginalitza sobre 24 mostres dins d'aquell requadre; l'alçada hi va sempre **neutra**, perquè
+marginalitza sobre 64 mostres dins d'aquell requadre; l'alçada hi va sempre **neutra**, perquè
 l'usuari no dibuixa alçada. Per tant, en llegir qualsevol número d'aquest document:
 
 - Són el **sostre**: el que dona el model amb l'entrada exacta.
 - Com més gran sigui el requadre dibuixat, més repartida surt la predicció i més s'allunya
   d'aquestes xifres; amb un requadre petit i ben col·locat s'hi acosta.
-- **Quant se n'allunya no està mesurat.** Caldria simular requadres de mides diferents al
-  voltant de cada granada real i tornar a avaluar.
+
+### Quant costa dibuixar un requadre en comptes del punt exacte
+
+Mesurat el **2026-09-12** (abans no ho estava). Es prenen **300 rondes reals amb plant** de les
+324 demos i es **substitueix la posició exacta de cada granada per un requadre centrat en
+ella**, que és el que fa l'usuari quan diu "aquesta utility caurà per aquí". El radar fa 1024
+px, o sigui que 500 px és **mitja pantalla**:
+
+| Requadre | Encert A/B | Desviació de la probabilitat | Senyal conservat |
+|---|---|---|---|
+| punt exacte | **0.843** | — | 100 % |
+| 46 px (el clic mínim de l'eina) | 0.843 | 0.000 | 100 % |
+| 120 px | 0.843 | 0.002 | 100 % |
+| 240 px (¼ del mapa) | 0.840 | 0.009 | 99 % |
+| 500 px (½ del mapa) | **0.823** | 0.037 | **95 %** |
+
+El "senyal conservat" és quant s'allunya la predicció amb requadre de la del punt exacte,
+mesurat contra la distància entre el punt exacte i **no dibuixar cap utility** (el 0 % seria
+"la granada ja no compta per a res").
+
+**La utility no deixa de comptar quan el requadre creix.** Amb mitja pantalla l'encert baixa
+dos punts —dins del soroll de 300 rondes (±2)— i la predicció conserva el **95 %** del senyal.
+El que sí que es perd és precisió en el **número**: la probabilitat es desplaça fins a 0.037.
+
+> **Dues variants que semblaven millors i no ho són.** La sospita era que un requadre gran
+> gasta les mostres en llocs on no hi cau mai res (parets, buits): el **62–88 %** de l'àrea
+> d'un requadre no ha vist mai aquell tipus de granada en 35 758 esdeveniments reals de dust2.
+> Provades totes dues amb el mateix nombre de mostres, mostrejar només on el radar dibuixa, o
+> ponderar per la densitat empírica, **no milloren l'encert** (0.827 i 0.823 contra 0.827 del
+> mostreig pla) i la densitat és la que **més desplaça** la resposta (0.057). O sigui que la
+> dilució no ve de mostrejar el buit: ve que mitja pantalla **de debò** cobreix posicions
+> tàcticament diferents, i promediar-les és el comportament correcte.
+
+**El que sí calia arreglar era l'estimació.** Amb 4 granades el promig és una integral de 12
+dimensions i es feia amb **24 tirades independents**, que s'apelotonen i deixen forats: el
+resultat es movia fins a **0.033** només segons la llavor. Des del 2026-09-12 els punts surten
+d'una **seqüència de baixa discrepància** (Sobol scrambled) i són **64**:
+
+| Requadre | Error abans (24 uniformes) | Error ara (64 Sobol) |
+|---|---|---|
+| 120 px | 0.0018 | 0.0001 |
+| 320 px | 0.0054 | 0.0003 |
+| 500 px | 0.0094 | 0.0005 |
+| 500 px + finestra de 30 s | 0.0126 | 0.0005 |
+
+Sobre 150 rondes reals, el mostreig nou **clava el valor convergit** (el que dona promitjant
+amb 1024 punts) i el vell hi ballava al voltant:
+
+| Requadre | Convergit | Ara (64 Sobol) | Abans (24 uniformes, 5 llavors) |
+|---|---|---|---|
+| 240 px | 0.813 | **0.813** | 0.811 de mitjana, entre 0.793 i 0.820 |
+| 500 px | 0.787 | **0.787** | 0.795 de mitjana, entre 0.787 i 0.813 |
+
+O sigui que **l'encert no puja** —ni havia de pujar— i els números més alts que de vegades
+donava el mostreig vell eren **sort de la llavor**: amb un requadre de mitja pantalla, **6 de
+150 rondes canviaven de site predit** només canviant-la (4 amb 240 px, 1 amb 120 px). Ara això
+no pot passar.
+
+### Per què 64 punts fixos i no un nombre que creixi amb el requadre
+
+| Requadre | 16 punts | 32 | **64** | 128 | 256 |
+|---|---|---|---|---|---|
+| 120 px (d'1 a 14 granades) | ≤0.0009 | ≤0.0009 | **≤0.0010** | ≤0.0005 | ≤0.0004 |
+| 500 px (d'1 a 14 granades) | 0.0015–0.0075 | 0.0003–0.0027 | **0.0001–0.0013** | 0.0001–0.0013 | 0.0001–0.0012 |
+
+**A partir de 64 l'error ja no baixa**: 128 i 256 donen el mateix. I el que el mou és la
+**mida del requadre**, no el nombre de granades — amb 120 px tant li fa que n'hi hagi una com
+catorze, tot i que això multiplica per catorze les dimensions de la integral.
+
+El motiu de fons és que **la superfície que es promitja és suau**. Avaluant P(A) en una
+graella de 16×16 dins d'un requadre de 500 px a dust2 (un punt cada 31 px):
+
+- P(A) va de **0.001 a 0.059** en tot el requadre: el recorrida sencer són 6 punts percentuals.
+- Entre dos punts veïns a 31 px canvia **0.0017** de mitjana (màxim 0.0108).
+- La mitjana real dels 256 punts és **0.0130**; amb 64 punts surt **0.0130**, i amb 16, 0.0129.
+
+No hi ha cap detall fi que calgui resoldre posant-hi més punts: el que calia era que estiguessin
+**ben repartits**, que és exactament el que fallava. Posats a comparar, l'error de 64 punts
+(≤0.0013) és **vuit vegades més fi que el dígit més baix que pinta la interfície**, que ensenya
+percentatges enters. Per això és una constant i no una heurística per mida.
+
+És la mateixa integral —el promig no canvia, només s'estima bé—, així que **cap número
+d'aquest document queda invalidat**. Costa entre 7 i 19 ms per predicció.
 
 ### Dos protocols
 
@@ -290,12 +371,136 @@ rondes) i **de_vertigo**, que segueix a zero demos.
 
 ---
 
-## 7. Com reproduir-ho
+## 7. Les rondes que no van plantar
+
+El **46 % de les rondes acaben sense plant**, i fins ara es feien servir només per al *gate*.
+Però moltes no són "no volien plantar": són "anaven a B i els van matar abans". Això vol dir
+que **la site head només ha après mai d'executes que van sortir bé**, i és un biaix de selecció
+que valia la pena mirar.
+
+### Llegir on anaven
+
+La intenció es recupera del replay, sense tornar a obrir cap `.dem`. Dues lectures, preses a
+**20 s i 12 s abans que acabi la ronda** i que han de **coincidir als dos instants** — un equip
+que executa convergeix sobre un site i s'hi queda, un que fa control de mapa deriva:
+
+| lectura | què mira |
+|---|---|
+| jugadors | regió majoritària dels T vius i fora de spawn, amb marge ≥2 |
+| bomba | on és la bomba: a les mans de qui la porta, o allà on va caure |
+
+Guanya la que decideixi. **Es calibra contra les rondes que SÍ van plantar**, on la resposta es
+coneix:
+
+| lectura | cobertura | precisió |
+|---|---|---|
+| jugadors | 74,3 % | 0,993 |
+| bomba | 70,8 % | 0,983 |
+| **unió** | **83,2 %** | **0,985** |
+
+> Quan totes dues decideixen, **coincideixen 2128 de 2130 vegades (99,9 %)**. Per això no cal
+> decidir quina mana: la unió només afegeix cobertura, no conflictes.
+
+La bomba és el que fa viables les rondes que s'acaben per temps: allà els jugadors només
+resolen el **16,6 %** i la bomba el **72,6 %**. Té sentit — amb el rellotge acabant-se l'equip
+està escampat, però la bomba segueix sent en un lloc concret.
+
+**Recuperades 2341 de les 3090 rondes sense plant (75,8 %)**:
+
+| motiu del final de ronda | llegides | % |
+|---|---|---|
+| `t_killed` (els maten a tots) | 1806 / 2352 | 76,8 % |
+| `ct_killed` (guanyen sense plantar) | 285 / 393 | 72,5 % |
+| `time_ran_out` | 250 / 345 | 72,5 % |
+
+> La lectura fa servir el **futur de la ronda**, així que és una **etiqueta i mai una feature** —
+> el mateix estatus que té l'esdeveniment `bomb_planted` per decidir `target_site`. Les rondes
+> recuperades només entren a l'**entrenament** de la site head; l'avaluació segueix sent sobre
+> plants reals, o sigui que l'objectiu no canvia i els números segueixen sent comparables.
+
+### Quant aporta
+
+Mesurat aparellat: cada llavor entrena els dos braços amb la mateixa inicialització, i l'únic
+que canvia és si la site head veu aquestes rondes (`TrainConfig.use_intent`).
+
+**Deixant equips fora, 8 llavors:**
+
+| | amb | sense |
+|---|---|---|
+| site (A contra B) | **0,8855 ± 0,0048** | 0,8775 ± 0,0037 |
+
+**+0,0080 ± 0,0045 · t = 5,06 · 7 de 8 llavors positives · p = 0,0015**
+
+**Holdout 80/20, 5 particions:**
+
+| partició | 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| delta | +0,0098 | −0,0057 | +0,0095 | +0,0014 | −0,0027 |
+
+**+0,0025 ± 0,0071 · t = 0,79 · p = 0,48** — res.
+
+**Què en surt:**
+
+- **El guany apareix només amb equips que el model no ha vist mai.** Al holdout 80/20 els
+  mateixos equips són a train i a test, així que pot recolzar-se en la seva taxa base i la
+  posició li pesa menys. Amb equips nous aquella drecera desapareix i llegir la posició és
+  l'únic que li queda — i aquestes rondes són posició pura. Encaixa amb el §5: sense posició,
+  l'encert cau al baseline.
+- **El calibratge no en surt perjudicat**: ECE 0,0251 amb contra 0,0279 sense.
+- **El timing no es mou** (0,794 ± 0,014 als dos braços), com ha de ser: el canvi toca només la
+  site head.
+- **El braç `sense` dona 0,8775 i el número publicat al §6 és 0,873.** Que reprodueixi és el
+  control que diu que aquesta bateria és comparable amb l'anterior.
+
+> **Tres llavors no bastaven.** Amb les tres primeres el delta sortia **+0,0043 amb t=1,59**, que
+> no demostra res; amb vuit és **+0,0080 amb t=5,06**. És la mateixa lliçó que la taula de
+> repeticions del §4, on `narrow` semblava la millor configuració amb una sola mesura.
+
+### El biaix de selecció, que resulta que no hi era
+
+La hipòtesi de partida era que la site head, entrenada només amb executes reeixits, llegiria
+pitjor els que van fallar. Es mesura entrenant **només amb plants** i preguntant pels executes
+fallits d'equips no vistos.
+
+Els fallits porten **8,8 granades de mitjana contra 12,5**, així que cal estratificar:
+
+| granades a la ronda | plants | fallits |
+|---|---|---|
+| 1–4 | 0,7845 | 0,7811 |
+| 5–8 | 0,8412 | **0,9067** |
+| 9–12 | 0,8776 | **0,9013** |
+| 13+ | 0,8991 | **0,9359** |
+| **re-pesat a la mateixa distribució** | **0,8591** | **0,8909** |
+
+**Amb utility comparable, el model llegeix un execute que van tallar igual de bé o millor que un
+que va sortir: +0,032.** No hi ha biaix de selecció. Replicat amb dues mides de mostra (626 i
+988 rondes) donant +0,034 i +0,032.
+
+I un límit que val la pena tenir escrit: **el 9,1 % dels executes fallits no tenen ni una
+granada**. Allà el model no té res a llegir i respon sempre el mateix — encerta el 46 %, una
+moneda a l'aire. No és un error, és el sostre del que la utility pot dir.
+
+> **Les taules dels §4, §5 i §6 es van mesurar sense aquestes rondes**, que és el comportament
+> de `use_intent=False`. Descriuen el model tal com estava; el §7 és l'únic que mesura el canvi.
+
+---
+
+## 8. Com reproduir-ho
 
 Les taules es regeneren dels JSON, i els JSON de la base de dades, amb els dos scripts de
 `backend/scripts/`: **`sweep.py`** fa les bateries (`--stage configs | ablations | lto |
 lto_ablations | curve`) i **`sweep_report.py`** en treu les taules en markdown. Els resultats
 crus queden a `data_store/sweep/*.json`.
+
+La comparació del §7 és la configuració `intent_off` contra el defecte, amb `--only` (que ara
+filtra també a l'etapa `configs`, abans només a `lto`):
+
+```bash
+sweep.py --stage configs --seeds 5 --only baseline,intent_off --jobs 6
+for s in 0 1 2 3 4 5 6 7; do
+  sweep.py --stage lto --folds 5 --seed $s --out lto_seed$s --only baseline,intent_off --jobs 6
+done
+```
 
 Comprovació del backprop, que és escrit a mà:
 

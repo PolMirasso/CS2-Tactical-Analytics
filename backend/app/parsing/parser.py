@@ -161,7 +161,8 @@ def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, tuple[str, float |
             site = Site.B.value
         else:
             x, y = row.get("user_X"), row.get("user_Y")
-            zone = classify_point(map_id, x, y) if x is not None and y is not None else None
+            has_xy = x is not None and y is not None
+            zone = classify_point(map_id, x, y, row.get("user_Z")) if has_xy else None
             site = zone.region.value if zone and zone.region.value in (Site.A.value, Site.B.value) else None
         if site is None:
             continue
@@ -567,7 +568,7 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
         x, y = g.get("X"), g.get("Y")
         z = g.get("Z")
         has_pos = x is not None and y is not None
-        zone = classify_point(map_id, x, y) if has_pos else None
+        zone = classify_point(map_id, x, y, z) if has_pos else None
         radar = to_radar_pixel(map_id, x, y) if has_pos else (None, None)
         freeze_end = freeze_by_round.get(rnum, 0)
         round_time = max(0.0, (float(g.get("throw_tick", freeze_end)) - float(freeze_end)) / tickrate)

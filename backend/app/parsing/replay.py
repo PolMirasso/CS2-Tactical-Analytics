@@ -70,6 +70,7 @@ class ReplayRound:
     fires: list[list[float]] = field(default_factory=list)
     # Bomb plant for the round: ``{t, x, y, z, site, expl}`` (world-space), or ``None``.
     bomb: dict | None = None
+    bomb_events: list[dict] = field(default_factory=list)
     # Kill events for the kill feed: {t, atk, as, vic, vs, wp, hs} plus optional air no-scope.
     kills: list[dict] = field(default_factory=list)
     winner: str | None = None  # "ct" | "t"
@@ -101,6 +102,7 @@ def _round_to_dict(r: ReplayRound) -> dict:
         "weapons": r.weapons,
         "fires": r.fires,
         "bomb": r.bomb,
+        "bomb_events": r.bomb_events,
         "kills": r.kills,
         "winner": r.winner,
         "frames": [{"t": round(f.t, 2), "pos": f.pos, "st": f.st} for f in r.frames],
@@ -159,6 +161,9 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
         replay_round.utility = _round_utility(pl, grenades, rnum, freeze_end, tickrate)
         replay_round.fires = _round_fires(pl, demo, rnum, freeze_end, tickrate, replay_round.players)
         replay_round.bomb = _round_bomb(pl, demo, rnum, freeze_end, tickrate)
+        replay_round.bomb_events = _round_bomb_events(
+            pl, demo, rnum, freeze_end, tickrate, replay_round.players
+        )
         replay_round.kills = _round_kills(pl, demo, rnum, freeze_end, tickrate)
         replay_round.winner = str(r.get("winner")).lower() if r.get("winner") else None
         rounds.append(replay_round)
@@ -364,6 +369,38 @@ def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) 
             )
         )
     out.sort(key=lambda u: u.t)
+    return out
+
+
+def _round_bomb_events(pl, demo, rnum: int, freeze_end: float, tick: float, players) -> list[dict]:
+    """Pickups and drops, so the bomb can be followed all round"""
+    idx_of = {p.steamid: i for i, p in enumerate(players)}
+    try:
+        bomb = demo.bomb
+    except Exception:
+        return []
+    if bomb is None or bomb.is_empty() or "round_num" not in bomb.columns:
+        return []
+    if "event" not in bomb.columns or "tick" not in bomb.columns:
+        return []
+    out: list[dict] = []
+    for row in bomb.filter(pl.col("round_num") == rnum).iter_rows(named=True):
+        ev = str(row.get("event") or "")
+        if ev not in ("pickup", "drop"):
+            continue  # plant/detonate/defuse already live in ``bomb``
+        x, y = row.get("X"), row.get("Y")
+        if x is None or y is None:
+            continue
+        z = row.get("Z")
+        out.append({
+            "t": round((float(row["tick"]) - freeze_end) / tick, 2),
+            "e": ev,
+            "x": round(float(x), 1),
+            "y": round(float(y), 1),
+            "z": round(float(z)) if z is not None else None,
+            "p": idx_of.get(str(row.get("steamid"))),
+        })
+    out.sort(key=lambda e: e["t"])
     return out
 
 

@@ -163,7 +163,9 @@ class Round(Base):
     team_weapons: Mapped[str | None] = mapped_column(String, nullable=True)
     opponent_weapons: Mapped[str | None] = mapped_column(String, nullable=True)
     target_site: Mapped[str] = mapped_column(String)
-    # bomb-plant time 
+    # no-plant round predict site
+    intent_site: Mapped[str | None] = mapped_column(String, nullable=True)
+    # bomb-plant time
     plant_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     winner: Mapped[str | None] = mapped_column(String, nullable=True)
     win_reason: Mapped[str | None] = mapped_column(String, nullable=True)

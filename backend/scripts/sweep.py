@@ -40,6 +40,7 @@ CONFIGS: dict[str, TrainConfig] = {
     "lr_1e-2": TrainConfig(lr=1e-2),
     "wd_0": TrainConfig(weight_decay=0.0),
     "wd_1e-3": TrainConfig(weight_decay=1e-3),
+    "intent_off": TrainConfig(use_intent=False),
 }
 
 # Training is a Python loop over rounds, so it does not thread; parallelism is
@@ -227,7 +228,7 @@ def main() -> None:
     )
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--folds", type=int, default=5)
-    ap.add_argument("--only", default="", help="comma-separated config names (lto stage)")
+    ap.add_argument("--only", default="", help="comma-separated config names (configs/lto stages)")
     ap.add_argument("--seed", type=int, default=0, help="net/init seed (lto stage)")
     ap.add_argument("--fracs", default="0.25,0.5,0.75,1.0", help="train fractions (curve)")
     ap.add_argument("--out", default="lto", help="output json basename (lto stage)")
@@ -255,7 +256,9 @@ def main() -> None:
         print(f"\n80/20 holdout, mean±sd over {args.seeds} splits")
         print(f"  {'config':<18}{'site':>14}{'3-class':>14}{'timing':>14}"
               f"{'sbase':>8}{'base':>8}{'time':>8}")
-        res = run_holdout(CONFIGS, args.seeds, args.jobs)
+        only = {c for c in args.only.split(",") if c}
+        chosen = {k: v for k, v in CONFIGS.items() if not only or k in only}
+        res = run_holdout(chosen, args.seeds, args.jobs)
         (OUT / "configs.json").write_text(json.dumps({"meta": {
             "n_rounds": len(samples), "n_teams": meta.get("n_teams"), "maps": maps,
             "seeds": args.seeds}, "results": res}, indent=1))
