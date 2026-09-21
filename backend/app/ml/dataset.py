@@ -39,6 +39,9 @@ def build_dataset(
     teams: set[str] = set()
     for r in rounds:
         util = util_by_round.get(r.id, [])
+        # Utility thrown after the plant is the team holding the site they already took and in the tool you only ever draw the execute
+        if r.plant_time_s is not None:
+            util = [u for u in util if (u.round_time_s or 0.0) <= r.plant_time_s]
         team = r.team_hltv_id or r.team
         opponent = r.opponent_hltv_id or r.opponent
         samples.append(
