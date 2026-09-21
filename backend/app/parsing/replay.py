@@ -139,10 +139,14 @@ def round_meta(replay_dict: dict) -> list[dict]:
 
 
 # awpy path
-def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) -> ReplayData:
+def build_replay(
+    pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float,
+    grenades: dict[int, list[dict]] | None = None,
+) -> ReplayData:
     """Build :class:`ReplayData` from awpy's parsed ``ticks``/``grenades`` frames."""
     step = max(1, round(tickrate / SAMPLE_HZ))
-    grenades = getattr(demo, "grenades", None)
+    if grenades is None:
+        grenades = grenade_events(pl, demo)
 
     rounds: list[ReplayRound] = []
     for r in rounds_df.iter_rows(named=True):
@@ -158,8 +162,10 @@ def build_replay(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) ->
         if rdf.is_empty():
             continue
         replay_round = _build_round(pl, rdf, rnum, freeze_end, tickrate, step)
-        replay_round.utility = _round_utility(pl, grenades, rnum, freeze_end, tickrate)
-        replay_round.fires = _round_fires(pl, demo, rnum, freeze_end, tickrate, replay_round.players)
+        replay_round.utility = _round_utility(grenades.get(rnum, []), freeze_end, tickrate)
+        replay_round.fires = _round_fires(
+            pl, demo, rnum, freeze_end, tickrate, replay_round.players
+        )
         replay_round.bomb = _round_bomb(pl, demo, rnum, freeze_end, tickrate)
         replay_round.bomb_events = _round_bomb_events(
             pl, demo, rnum, freeze_end, tickrate, replay_round.players
@@ -290,7 +296,9 @@ def _build_round(pl, rdf, rnum: int, freeze_end: float, tickrate: float, step: i
     )
 
 
-def _simplify_path(pts: list[tuple[float, float, float]], eps: float = 10.0) -> list[tuple[float, float, float]]:
+def _simplify_path(
+    pts: list[tuple[float, float, float]], eps: float = 10.0
+) -> list[tuple[float, float, float]]:
     """Ramer–Douglas–Peucker on the (x, y) plane, keeping bounce corners."""
     if len(pts) < 3:
         return pts
@@ -316,36 +324,46 @@ def _simplify_path(pts: list[tuple[float, float, float]], eps: float = 10.0) -> 
     return left[:-1] + right
 
 
-def _round_utility(pl, grenades, rnum: int, freeze_end: float, tickrate: float) -> list[UtilityShot]:
-    from app.parsing.parser import _grenade_type  # local import avoids a cycle
+def grenade_events(pl, demo) -> dict[int, list[dict]]:
+    """One row per thrown grenade, by round and in throw order.
 
+    ``grenades`` is a per-tick projectile trajectory (>1M rows); it is collapsed once here
+    and shared by the utility rows and the replay's grenade lines.
+    """
+    grenades = getattr(demo, "grenades", None)
     if grenades is None or grenades.is_empty():
-        return []
-    has_z = "Z" in grenades.columns
+        return {}
+    aggs = [
+        pl.col("grenade_type").first().alias("grenade_type"),
+        pl.col("tick").min().alias("throw_tick"),
+        pl.col("X").alias("xs"),
+        pl.col("Y").alias("ys"),
+    ]
+    if "thrower_steamid" in grenades.columns:
+        aggs.append(pl.col("thrower_steamid").first().alias("thrower_steamid"))
+    if "Z" in grenades.columns:
+        aggs.append(pl.col("Z").alias("zs"))
     try:
-        aggs = [
-            pl.col("grenade_type").first().alias("grenade_type"),
-            pl.col("tick").min().alias("throw_tick"),
-            pl.col("X").alias("xs"),
-            pl.col("Y").alias("ys"),
-        ]
-        if has_z:
-            aggs.append(pl.col("Z").alias("zs"))
         events = (
-            grenades.filter(
-                (pl.col("round_num") == rnum)
-                & pl.col("X").is_not_null()
-                & pl.col("Y").is_not_null()
-            )
+            grenades.filter(pl.col("X").is_not_null() & pl.col("Y").is_not_null())
             .sort("tick")
-            .group_by("entity_id", maintain_order=True)
+            .group_by(["round_num", "entity_id"], maintain_order=True)
             .agg(*aggs)
         )
     except Exception:
-        return []
+        return {}
+    by_round: dict[int, list[dict]] = {}
+    for g in events.iter_rows(named=True):
+        if g.get("round_num") is not None:
+            by_round.setdefault(int(g["round_num"]), []).append(g)
+    return by_round
+
+
+def _round_utility(events: list[dict], freeze_end: float, tickrate: float) -> list[UtilityShot]:
+    from app.parsing.parser import _grenade_type  # local import avoids a cycle
 
     out: list[UtilityShot] = []
-    for g in events.iter_rows(named=True):
+    for g in events:
         util = _grenade_type(g.get("grenade_type"))
         if util is None:
             continue
@@ -404,7 +422,9 @@ def _round_bomb_events(pl, demo, rnum: int, freeze_end: float, tick: float, play
     return out
 
 
-def _round_fires(pl, demo, rnum: int, freeze_end: float, tickrate: float, players) -> list[list[float]]:
+def _round_fires(
+    pl, demo, rnum: int, freeze_end: float, tickrate: float, players
+) -> list[list[float]]:
     """Shot events for one round as ``[player_idx, t]`` aligned to the roster."""
     idx_of = {p.steamid: i for i, p in enumerate(players)}
     try:
@@ -435,7 +455,7 @@ def _round_bomb(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> dict
         bomb = demo.bomb  # awpy cached property over the bomb_* events
     except Exception:
         return None
-    if bomb is None or bomb.is_empty() or "round_num" not in bomb.columns or "event" not in bomb.columns:
+    if bomb is None or bomb.is_empty() or not {"round_num", "event"} <= set(bomb.columns):
         return None
     try:
         sub = bomb.filter(
@@ -478,7 +498,9 @@ def _round_kills(pl, demo, rnum: int, freeze_end: float, tickrate: float) -> lis
     vx_col = next((c for c in ("victim_X", "victim_x", "user_X") if c in cols), None)
     vy_col = next((c for c in ("victim_Y", "victim_y", "user_Y") if c in cols), None)
     ast_col = next((c for c in ("assister_name", "assister") if c in cols), None)
-    air_col = next((c for c in ("attackerinair", "attacker_in_air", "attacker_airborne") if c in cols), None)
+    air_col = next(
+        (c for c in ("attackerinair", "attacker_in_air", "attacker_airborne") if c in cols), None
+    )
     ns_col = next((c for c in ("noscope", "no_scope") if c in cols), None)
     out: list[dict] = []
     for row in kills.filter(pl.col("round_num") == rnum).sort("tick").iter_rows(named=True):
@@ -602,7 +624,9 @@ def build_sample_replay(parsed, *, seed: int = 0) -> ReplayData:
                     util_type=u.util_type,
                     side=u.side,
                     t=min(duration, u.round_time_s),
-                    from_xy=(t_spawn[0] + rng.uniform(-200, 200), t_spawn[1] + rng.uniform(-100, 100)),
+                    from_xy=(
+                        t_spawn[0] + rng.uniform(-200, 200), t_spawn[1] + rng.uniform(-100, 100)
+                    ),
                     to_xy=zc,
                 )
             )

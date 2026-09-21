@@ -51,6 +51,55 @@ def _pool_per_map(folds: list[dict]) -> list[dict]:
     return out
 
 
+def _teams(samples: list[dict], targets: list[str]) -> dict[int, str]:
+    keep = [i for i, t in enumerate(targets) if t in set(SITES)]
+    return {i: str(samples[i]["context"].get("team") or "?") for i in keep}
+
+
+def fold_teams(
+    samples: list[dict], targets: list[str], n_folds: int = DEFAULT_FOLDS
+) -> list[list[str]]:
+    return team_folds(list(_teams(samples, targets).values()), n_folds)
+
+
+def fit_fold(
+    samples: list[dict],
+    targets: list[str],
+    timing_targets: list[str | None] | None,
+    held: list[str],
+    config: TrainConfig | None = None,
+) -> dict:
+    """Train without the ``held`` teams (and their opponents' rounds) and score on them.
+    A fold that cannot train comes back with a ``reason``."""
+    teams = _teams(samples, targets)
+    opponents = {i: str(samples[i]["context"].get("opponent") or "?") for i in teams}
+    ctxs = [s["context"] for s in samples]
+    group = set(held)
+    test = [i for i in teams if teams[i] in group]
+    train = [i for i in teams if teams[i] not in group and opponents[i] not in group]
+    row = {"teams": sorted(group), "n_teams": len(group), "n_train": len(train)}
+
+    if len(train) < MIN_ROUNDS or not test:
+        return {**row, "reason": "too few training rounds"}
+    predictor = SitePredictor.train(
+        [samples[i] for i in train],
+        [targets[i] for i in train],
+        {"n_rounds": len(train), "n_teams": len({teams[i] for i in train})},
+        [timing_targets[i] for i in train] if timing_targets is not None else None,
+        config=config,
+    )
+    if not predictor.trained:
+        return {**row, "reason": "no A/B/NoPlant split in the training rounds"}
+
+    probs = predictor.proba3_rows([samples[i] for i in test])
+    p3 = {i: probs[k] for k, i in enumerate(test)}
+    base = _base_rate([ctxs[i] for i in train], [targets[i] for i in train])
+    site_base = _base_rate(
+        [ctxs[i] for i in train], [targets[i] for i in train], only={"A", "B"}
+    )
+    return {**row, **evaluate_rows(p3, targets, ctxs, test, base, site_base)}
+
+
 def leave_teams_out(
     samples: list[dict],
     targets: list[str],
@@ -58,41 +107,18 @@ def leave_teams_out(
     n_folds: int = DEFAULT_FOLDS,
     config: TrainConfig | None = None,
 ) -> dict:
-    keep = [i for i, t in enumerate(targets) if t in set(SITES)]
-    teams = {i: str(samples[i]["context"].get("team") or "?") for i in keep}
-    opponents = {i: str(samples[i]["context"].get("opponent") or "?") for i in keep}
-    ctxs = [s["context"] for s in samples]
+    rows = [
+        fit_fold(samples, targets, timing_targets, held, config)
+        for held in fold_teams(samples, targets, n_folds)
+    ]
+    return summarise_folds(samples, targets, rows)
 
-    folds: list[dict] = []
-    skipped: list[dict] = []
-    for held in team_folds([teams[i] for i in keep], n_folds):
-        group = set(held)
-        test = [i for i in keep if teams[i] in group]
-        train = [i for i in keep if teams[i] not in group and opponents[i] not in group]
-        row = {"teams": sorted(group), "n_teams": len(group), "n_train": len(train)}
 
-        if len(train) < MIN_ROUNDS or not test:
-            skipped.append({**row, "reason": "too few training rounds"})
-            continue
-        predictor = SitePredictor.train(
-            [samples[i] for i in train],
-            [targets[i] for i in train],
-            {"n_rounds": len(train), "n_teams": len({teams[i] for i in train})},
-            [timing_targets[i] for i in train] if timing_targets is not None else None,
-            config=config,
-        )
-        if not predictor.trained:
-            skipped.append({**row, "reason": "no A/B/NoPlant split in the training rounds"})
-            continue
-
-        probs = predictor.proba3_rows([samples[i] for i in test])
-        p3 = {i: probs[k] for k, i in enumerate(test)}
-        base = _base_rate([ctxs[i] for i in train], [targets[i] for i in train])
-        site_base = _base_rate(
-            [ctxs[i] for i in train], [targets[i] for i in train], only={"A", "B"}
-        )
-        folds.append({**row, **evaluate_rows(p3, targets, ctxs, test, base, site_base)})
-
+def summarise_folds(samples: list[dict], targets: list[str], rows: list[dict]) -> dict:
+    """Pool per-fold rows (from :func:`fit_fold`) into the leave-teams-out result."""
+    teams = _teams(samples, targets)
+    folds = [r for r in rows if "reason" not in r]
+    skipped = [r for r in rows if "reason" in r]
     return {
         "n_folds": len(folds),
         "n_skipped": len(skipped),

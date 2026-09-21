@@ -4,6 +4,8 @@ import threading
 import time
 from datetime import UTC, date, datetime, timedelta
 
+import pytest
+
 import app.hltv.client as client
 from app.config import get_settings
 from app.domain.enums import DateRange
@@ -237,22 +239,37 @@ def test_download_job_is_always_public(client, monkeypatch):
         session.delete(session.get(DownloadJob, resp.json()["id"]))
 
 
-def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):
+class _FakeResp:
+    def __init__(self, body: bytes, status_error: Exception | None = None) -> None:
+        self.body, self.status_error, self.closed = body, status_error, False
+
+    def raise_for_status(self) -> None:
+        if self.status_error is not None:
+            raise self.status_error
+
+    def iter_content(self, chunk_size=None):
+        yield self.body
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeSession:
+    def __init__(self, resp: _FakeResp) -> None:
+        self.resp = resp
+
+    def get(self, url, timeout=None, stream=False):
+        return self.resp
+
+
+@pytest.mark.parametrize("resp", [
+    _FakeResp(b"not a rar archive"),
+    _FakeResp(b"", status_error=RuntimeError("503")),
+], ids=["bad_archive", "http_error"])
+def test_download_and_extract_cleans_workdir_on_failure(monkeypatch, resp):
     from pathlib import Path
 
-    import pytest
-
-    class FakeResp:
-        content = b"not a rar archive"
-
-        def raise_for_status(self) -> None:
-            return None
-
-    class FakeSession:
-        def get(self, url, timeout=None):
-            return FakeResp()
-
-    monkeypatch.setattr(client, "_impersonated_session", lambda: FakeSession())
+    monkeypatch.setattr(client, "_impersonated_session", lambda: _FakeSession(resp))
 
     made: list[str] = []
     real_mkdtemp = client.tempfile.mkdtemp
@@ -268,6 +285,7 @@ def test_download_and_extract_cleans_workdir_on_failure(monkeypatch):
         client._download_and_extract("http://x/demo.rar", "123")
 
     assert made and not Path(made[0]).exists()
+    assert resp.closed
 
 
 def test_backfill_repairs_the_wrong_match_date(monkeypatch):

@@ -17,7 +17,8 @@ from app.ml.features import SITES, TIMINGS, TOKEN_DIM, _attr, round_context, rou
 MIN_ROUNDS = 20
 HOLDOUT_FRAC = 0.2
 _WEIGHT_DECAY = 1e-4
-# Set pooling over the round's utility tokens: mean (baseline), sum (keeps cardinality) or attention (learned per-grenade weights)
+# Set pooling over the round's utility tokens: mean (baseline), sum (keeps cardinality) or
+# attention (learned per-grenade weights)
 _POOLING = "attention"
 # How many landing points to draw inside each drawn box at inference. The model
 # is point-trained, so the drawn box means "lands somewhere in this area" and the
@@ -170,7 +171,10 @@ def evaluate_rows(
         )
 
     def _base_acc(rs: list[int]) -> float | None:
-        ok = [int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i]) for i in rs]
+        ok = [
+            int(tbl.get(f"{ctxs[i].get('map')}|{ctxs[i].get('team')}", gmode) == tgt[i])
+            for i in rs
+        ]
         return float(np.mean(ok)) if ok else None
 
     def _site_base_acc(rs: list[int]) -> float | None:
@@ -243,7 +247,8 @@ class TrainConfig:
 
 @dataclass
 class SitePredictor:
-    # Two stages, kept apart so context can't drown the position signal: a context-driven gate (plant vs NoPlant) + a position-only site head (A vs B)
+    # Two stages, kept apart so context can't drown the position signal: a context-driven gate
+    # (plant vs NoPlant) + a position-only site head (A vs B)
 
     gate_net: DeepSets | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
     gate_vec: object | None = None
@@ -302,7 +307,8 @@ class SitePredictor:
             baseline_accuracy=baseline_acc,
         )
 
-        # both stages need signal: ≥2 plant sites (A & B) for the site head and some NoPlant rounds for the gate
+        # both stages need signal: ≥2 plant sites (A & B) for the site head and some NoPlant
+        # rounds for the gate
         seen = set(targets)
         classes = [s for s in SITES if s in seen]
         if len(samples) < MIN_ROUNDS or not {"A", "B"} <= seen or "NoPlant" not in seen:
@@ -349,7 +355,8 @@ class SitePredictor:
             [tokens[i] for i in site_rows], dummy[site_rows], y_site, 2, **net_kw,
         )
 
-        # Temperature scaling on the held-out rows: one scalar per net (NLL fit) never moves a binary argmax (site_accuracy unchanged)
+        # Temperature scaling on the held-out rows: one scalar per net (NLL fit) never moves a
+        # binary argmax (site_accuracy unchanged)
         vap = [i for i in va if is_plant[i]]
         gate_logits = np.array([gate_net.predict_logits(tokens[i], x_ctx[i]) for i in va])
         gate_net.temperature = DeepSets.fit_temperature(gate_logits, y_gate[va])
@@ -358,7 +365,8 @@ class SitePredictor:
             y_site_va = np.array([0 if tgt[i] == "A" else 1 for i in vap])
             site_net.temperature = DeepSets.fit_temperature(site_logits, y_site_va)
 
-        # Third head — execution timing given a plant. Trains only when the plant rounds carry timing labels
+        # Third head — execution timing given a plant. Trains only when the plant rounds carry
+        # timing labels
         trp_t = [i for i in trp if tim[i] is not None]
         timing_classes = [c for c in TIMINGS if c in {tim[i] for i in trp_t}]
         if len(timing_classes) >= 2 and len(trp_t) >= 10:
@@ -404,7 +412,8 @@ class SitePredictor:
                 ok.append(int(np.argmax(p) == idx3[tgt[i]]))
             return conf, ok
 
-        # Keep the temperatures only if they cut the held-out ECE (a scalar can misfit a tiny holdout); else T=1, so after is never worse than before
+        # Keep the temperatures only if they cut the held-out ECE (a scalar can misfit a tiny
+        # holdout); else T=1, so after is never worse than before
         ece_before, _ = _reliability(*_conf_correct(False))
         ece_after, bins_after = _reliability(*_conf_correct(True))
         if ece_after > ece_before:
@@ -413,7 +422,8 @@ class SitePredictor:
         self.ece, self.reliability = ece_after, bins_after
         self.ece_uncalibrated = ece_before
 
-        # Measured with the final temperatures (what model_proba serves): gate T can shift the plant/NoPlant boundary, so 3-class acc is post-calibration.
+        # Measured with the final temperatures (what model_proba serves): gate T can shift the
+        # plant/NoPlant boundary, so 3-class acc is post-calibration.
         p3 = {i: proba3(i) for i in va}
         base = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr])
         site_base = _base_rate([ctxs[i] for i in tr], [tgt[i] for i in tr], only={"A", "B"})

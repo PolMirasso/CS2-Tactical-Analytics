@@ -122,7 +122,9 @@ def _flaresolverr_get(url: str, *, attempts: int = 3) -> str:
     with _flaresolverr_gate():
         for attempt in range(attempts):
             try:
-                resp = requests.post(endpoint, json=payload, timeout=settings.request_timeout_s + 30)
+                resp = requests.post(
+                    endpoint, json=payload, timeout=settings.request_timeout_s + 30
+                )
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
@@ -333,20 +335,26 @@ def _download_and_extract(
         demo_url: str, match_id: str, map_id: str | None = None
 ) -> tuple[Path, list[Path]]:
     settings = get_settings()
+    work = Path(tempfile.mkdtemp(prefix=f"hltv-{match_id}-"))
+    archive = work / "demo.rar"
     try:
         import rarfile
 
         session = _impersonated_session()
-        resp = session.get(demo_url, timeout=settings.demo_download_timeout_s)
-        resp.raise_for_status()
+        # streamed to disk: the archive is ~1 GB
+        resp = session.get(demo_url, timeout=settings.demo_download_timeout_s, stream=True)
+        try:
+            resp.raise_for_status()
+            with archive.open("wb") as fh:
+                for chunk in resp.iter_content(chunk_size=1 << 20):
+                    fh.write(chunk)
+        finally:
+            resp.close()
     except Exception as exc:
+        shutil.rmtree(work, ignore_errors=True)
         raise HLTVError(f"demo download failed: {exc}") from exc
 
-    work = Path(tempfile.mkdtemp(prefix=f"hltv-{match_id}-"))
     try:
-        archive = work / "demo.rar"
-        archive.write_bytes(resp.content)
-
         try:
             with rarfile.RarFile(archive) as rf:
                 members = rf.namelist()

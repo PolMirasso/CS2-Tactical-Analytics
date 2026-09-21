@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 import sys
@@ -17,7 +16,7 @@ from app.db import _ensure, init_db
 from app.domain.models import User
 from app.ml.dataset import build_dataset
 from app.ml.model import MIN_ROUNDS, SitePredictor, TrainConfig
-from app.ml.validation import leave_teams_out
+from app.ml.validation import fit_fold, fold_teams, summarise_folds
 
 OUT = Path("/app/data_store/sweep")
 
@@ -50,11 +49,10 @@ _POOL: dict = {}
 
 
 def _fit(task: tuple) -> tuple:
-    """One task in a forked worker: ``(key, kind, payload)``.
+    """One training in a forked worker: ``(key, kind, payload)``.
 
-    A task carries a LIST of configs so that an ablation deep-copies the pool
-    once and then reuses it for every seed — otherwise each seed would hold its
-    own copy of the whole dataset.
+    Every (config, seed) and every (config, fold) is its own task, so ablations
+    keep all the workers busy too. An ablated task copies only the tokens.
     """
     key, kind, payload = task
     samples = _POOL["samples"]
@@ -62,10 +60,9 @@ def _fit(task: tuple) -> tuple:
         samples = ablate(samples, payload["ablation"])
     targets, timing, meta = _POOL["targets"], _POOL["timing"], _POOL["meta"]
     if kind == "lto":
-        return key, leave_teams_out(samples, targets, timing,
-                                    n_folds=payload["folds"], config=payload["configs"][0])
-    return key, [_row(SitePredictor.train(samples, targets, meta, timing, config=c))
-                 for c in payload["configs"]]
+        return key, fit_fold(samples, targets, timing, payload["held"], payload["config"])
+    return key, _row(SitePredictor.train(samples, targets, meta, timing,
+                                         config=payload["config"]))
 
 
 def _map_tasks(tasks: list[tuple], jobs: int) -> dict:
@@ -87,8 +84,9 @@ def _load() -> tuple[list[dict], list[str], list, dict]:
 
 
 def ablate(samples: list[dict], kind: str) -> list[dict]:
-    """Return a copy of ``samples`` with one signal removed or leaked."""
-    out = copy.deepcopy(samples)
+    """Return a copy of ``samples`` with one signal removed or leaked. Only the tokens
+    are copied: the rest of each sample is shared, read-only."""
+    out = [{**s, "tokens": [list(t) for t in s["tokens"]]} for s in samples]
     rng = np.random.default_rng(0)
 
     if kind == "none":
@@ -182,21 +180,13 @@ def _fmt(v: float | None, sd: float | None = None) -> str:
 
 def run_holdout(cfgs: dict, seeds: int, jobs: int,
                 ablation_of: dict[str, str] | None = None) -> dict:
-    """80/20 holdout for each config, repeated over `seeds` splits.
-
-    Normally one task per (config, seed), so the pool load-balances. An ablation
-    row instead gets a single task holding every seed, so the mutilated copy of
-    the pool is built once per row and not once per seed (see `_fit`).
-    """
+    """80/20 holdout for each config, repeated over `seeds` splits."""
     abl = ablation_of or {}
-    tasks = []
-    for name, base in cfgs.items():
-        seeded = [TrainConfig(**{**base.__dict__, "seed": s}) for s in range(seeds)]
-        if name in abl:
-            tasks.append((name, "holdout", {"ablation": abl[name], "configs": seeded}))
-        else:
-            tasks += [((name, s), "holdout", {"configs": [c]})
-                      for s, c in enumerate(seeded)]
+    tasks = [
+        ((name, s), "holdout",
+         {"ablation": abl.get(name), "config": TrainConfig(**{**base.__dict__, "seed": s})})
+        for name, base in cfgs.items() for s in range(seeds)
+    ]
 
     t0 = time.time()
     done = _map_tasks(tasks, jobs)
@@ -204,7 +194,7 @@ def run_holdout(cfgs: dict, seeds: int, jobs: int,
 
     out = {}
     for name, base in cfgs.items():
-        runs = done[name] if name in abl else [done[(name, s)][0] for s in range(seeds)]
+        runs = [done[(name, s)] for s in range(seeds)]
         out[name] = {"label": base.label(), "runs": runs, "seconds": elapsed}
         acc, acc_sd = _agg(runs, "accuracy")
         site, site_sd = _agg(runs, "site_accuracy")
@@ -218,6 +208,21 @@ def run_holdout(cfgs: dict, seeds: int, jobs: int,
         )
     print(f"  ({len(tasks)} runs in {elapsed:.0f}s on {jobs} workers)", flush=True)
     return out
+
+
+def run_lto(cfgs: dict, folds: int, jobs: int,
+            ablation_of: dict[str, str] | None = None) -> dict:
+    """Leave-teams-out for each config, one task per (config, fold)."""
+    abl = ablation_of or {}
+    samples, targets = _POOL["samples"], _POOL["targets"]
+    held = fold_teams(samples, targets, folds)
+    done = _map_tasks(
+        [((name, k), "lto", {"ablation": abl.get(name), "held": h, "config": cfg})
+         for name, cfg in cfgs.items() for k, h in enumerate(held)],
+        jobs,
+    )
+    return {name: summarise_folds(samples, targets, [done[(name, k)] for k in range(len(held))])
+            for name in cfgs}
 
 
 def main() -> None:
@@ -285,13 +290,13 @@ def main() -> None:
         n_keep = sum(1 for t in targets if t in ("A", "B", "NoPlant"))
         t0 = time.time()
         done = _map_tasks(
-            [((f, sd), "holdout", {"configs": [TrainConfig(seed=sd, train_frac=f)]})
+            [((f, sd), "holdout", {"config": TrainConfig(seed=sd, train_frac=f)})
              for f in fracs for sd in range(args.seeds)],
             args.jobs,
         )
         elapsed = round(time.time() - t0, 1)
         for f in fracs:
-            runs = [done[(f, sd)][0] for sd in range(args.seeds)]
+            runs = [done[(f, sd)] for sd in range(args.seeds)]
             n_tr = round(n_keep * 0.8 * f)
             res[str(f)] = {"frac": f, "n_train": n_tr, "runs": runs,
                            "seconds": elapsed}
@@ -314,11 +319,8 @@ def main() -> None:
         )
         res = {}
         t0 = time.time()
-        done = _map_tasks(
-            [(kind, "lto", {"ablation": kind, "folds": args.folds,
-                            "configs": [TrainConfig()]}) for kind, _ in ABLATIONS],
-            args.jobs,
-        )
+        done = run_lto({kind: TrainConfig() for kind, _ in ABLATIONS}, args.folds, args.jobs,
+                       ablation_of={kind: kind for kind, _ in ABLATIONS})
         elapsed = round(time.time() - t0, 1)
         for kind, desc in ABLATIONS:
             cv = done[kind]
@@ -343,10 +345,7 @@ def main() -> None:
         res = {}
         cfgs = {n: TrainConfig(**{**CONFIGS[n].__dict__, "seed": args.seed}) for n in names}
         t0 = time.time()
-        done = _map_tasks(
-            [(n, "lto", {"folds": args.folds, "configs": [c]}) for n, c in cfgs.items()],
-            args.jobs,
-        )
+        done = run_lto(cfgs, args.folds, args.jobs)
         elapsed = round(time.time() - t0, 1)
         for name in names:
             cfg, cv = cfgs[name], done[name]

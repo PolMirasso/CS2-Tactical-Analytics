@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.domain.enums import BuyType, Site, UtilityType
 from app.domain.phases import REGULATION_HALF, is_pistol_round
 from app.domain.weapons import weapons_present
-from app.parsing.replay import ReplayData, build_replay, build_sample_replay
+from app.parsing.replay import ReplayData, build_replay, build_sample_replay, grenade_events
 
 TICKRATE = 64
 
@@ -163,7 +163,8 @@ def _planted_sites(demo, rounds_df, map_id: str) -> dict[int, tuple[str, float |
             x, y = row.get("user_X"), row.get("user_Y")
             has_xy = x is not None and y is not None
             zone = classify_point(map_id, x, y, row.get("user_Z")) if has_xy else None
-            site = zone.region.value if zone and zone.region.value in (Site.A.value, Site.B.value) else None
+            in_site = zone and zone.region.value in (Site.A.value, Site.B.value)
+            site = zone.region.value if in_site else None
         if site is None:
             continue
         for rnum, start, end in windows:
@@ -290,8 +291,9 @@ def _parse_with_awpy(
             )
         )
 
-    utility = _extract_utility(pl, demo, rounds_df, ticks_df, map_id, tickrate)
-    replay = build_replay(pl, demo, rounds_df, ticks_df, map_id, tickrate)
+    grenades = grenade_events(pl, demo)
+    utility = _extract_utility(pl, rounds_df, ticks_df, grenades, map_id, tickrate)
+    replay = build_replay(pl, demo, rounds_df, ticks_df, map_id, tickrate, grenades)
     kills = _kills_from_replay(replay)
     player_stats = _player_stats(kills, len(rounds), _extract_damage(pl, demo))
     _assign_player_teams(player_stats, replay, rounds)
@@ -527,9 +529,10 @@ def _mode_clan(rows) -> str | None:
         return None
 
 
-def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float) -> list[UtilData]:
-    grenades = getattr(demo, "grenades", None)
-    if grenades is None or grenades.is_empty():
+def _extract_utility(
+    pl, rounds_df, ticks_df, grenades: dict[int, list[dict]], map_id: str, tickrate: float
+) -> list[UtilData]:
+    if not grenades:
         return []
 
     freeze_by_round = {
@@ -538,54 +541,34 @@ def _extract_utility(pl, demo, rounds_df, ticks_df, map_id: str, tickrate: float
     }
     side_lookup = _build_side_lookup(pl, ticks_df)
 
-    # ``grenades`` is a per-tick projectile trajectory (>1M rows); collapse it to
-    # one event per thrown grenade, keeping the resting/detonation position (last
-    # known X/Y) and the throw time (first tick).
-    try:
-        events = (
-            grenades.filter(pl.col("X").is_not_null() & pl.col("Y").is_not_null())
-            .sort("tick")
-            .group_by(["round_num", "entity_id"])
-            .agg(
-                pl.col("grenade_type").first().alias("grenade_type"),
-                pl.col("thrower_steamid").first().alias("thrower_steamid"),
-                pl.col("tick").min().alias("throw_tick"),
-                pl.col("X").last().alias("X"),
-                pl.col("Y").last().alias("Y"),
-                pl.col("Z").last().alias("Z") if "Z" in grenades.columns else pl.lit(None).alias("Z"),
-            )
-        )
-    except Exception:
-        return []
-
     out: list[UtilData] = []
-    for g in events.iter_rows(named=True):
-        rnum = g.get("round_num")
-        util = _grenade_type(g.get("grenade_type"))
-        if rnum is None or util is None:
-            continue
-        rnum = int(rnum)
-        x, y = g.get("X"), g.get("Y")
-        z = g.get("Z")
-        has_pos = x is not None and y is not None
-        zone = classify_point(map_id, x, y, z) if has_pos else None
-        radar = to_radar_pixel(map_id, x, y) if has_pos else (None, None)
-        freeze_end = freeze_by_round.get(rnum, 0)
-        round_time = max(0.0, (float(g.get("throw_tick", freeze_end)) - float(freeze_end)) / tickrate)
-        side = side_lookup.get((rnum, g.get("thrower_steamid")), "")
-        out.append(
-            UtilData(
-                round_number=rnum,
-                util_type=util.value,
-                zone_id=zone.id if zone else None,
-                region=zone.region.value if zone else None,
-                round_time_s=round_time,
-                side=side,
-                radar_x=radar[0],
-                radar_y=radar[1],
-                z=float(z) if z is not None else None,
+    for rnum, events in grenades.items():
+        for g in events:
+            util = _grenade_type(g.get("grenade_type"))
+            if util is None:
+                continue
+            # resting/detonation position = last known point of the trajectory
+            x, y = g["xs"][-1], g["ys"][-1]
+            z = g["zs"][-1] if g.get("zs") else None
+            zone = classify_point(map_id, x, y, z)
+            radar = to_radar_pixel(map_id, x, y)
+            freeze_end = freeze_by_round.get(rnum, 0)
+            throw_tick = float(g.get("throw_tick", freeze_end))
+            round_time = max(0.0, (throw_tick - float(freeze_end)) / tickrate)
+            side = side_lookup.get((rnum, g.get("thrower_steamid")), "")
+            out.append(
+                UtilData(
+                    round_number=rnum,
+                    util_type=util.value,
+                    zone_id=zone.id if zone else None,
+                    region=zone.region.value if zone else None,
+                    round_time_s=round_time,
+                    side=side,
+                    radar_x=radar[0],
+                    radar_y=radar[1],
+                    z=float(z) if z is not None else None,
+                )
             )
-        )
     return out
 
 
@@ -695,7 +678,9 @@ def generate_sample(
         )
         # Utility lands mostly in the region the team is executing toward.
         exec_region = {Site.A: "A", Site.B: "B", Site.NO_PLANT: "Mid"}[target]
-        n_util = {BuyType.FULL_ECO: 0, BuyType.ECO: rng.randint(0, 2), BuyType.PISTOL: rng.randint(1, 2)}.get(
+        n_util = {
+            BuyType.FULL_ECO: 0, BuyType.ECO: rng.randint(0, 2), BuyType.PISTOL: rng.randint(1, 2)
+        }.get(
             buy, rng.randint(3, 6)
         )
         for _ in range(n_util):

@@ -217,13 +217,14 @@ coneix la intenció (§7), i sobre la utility fins al plant (§2).
 | Site sobre **equips no vistos** | **0.891** ±0.003 | 0.510 | deixant equips fora, 5 folds, 8 llavors |
 | ECE (calibratge) | 0.045 → **0.035** | — | holdout, 5 particions |
 
-> **El model que serveix `/scouting` encara és el del 2026-08-30**, entrenat abans del filtre i
-> de les rondes sense plant. La seva targeta ensenya 0.625 de 3 classes, que està inflat (§8).
-> Fins que no es reentreni, aquesta taula descriu el model que sortirà en reentrenar, no el que
-> hi ha.
+> **El model que serveix `/scouting` és aquest**, reentrenat el 2026-09-21 (673 s). La seva
+> targeta ensenya una sola partició, la seed 0 del §2: site 0.907, 3 classes 0.631, timing 0.881.
+> Són números d'una partició; els d'aquesta taula són la mitjana de cinc.
 
 El timing puja 9 punts respecte de la versió anterior (0.792), i **no és que el cap hagi
-millorat**: el §8 explica què llegeix. El desglossat per mapa és al §6.
+millorat**: el §8 explica què llegeix. El seu rival de debò no és la classe més freqüent (0.583)
+sinó una regla d'una línia, "última granada + 9 s", que dona **0.868** a les mateixes particions.
+El desglossat per mapa és al §6.
 
 ---
 
@@ -504,28 +505,24 @@ p = 0,001**
 
 ### El biaix de selecció, que resulta que no hi era
 
-> Mesurat el **2026-09-19**, abans del filtre, i no refet. Entrena una site head **només amb
-> plants** (la dieta d'abans) i té el seu propi arnès. El filtre només treu utility posterior al
-> plant, que els executes fallits no tenen, així que els fallits es mesuren igual; el que canvia
-> és el 6 % de la utility dels plants d'entrenament.
-
 La hipòtesi de partida era que la site head, entrenada només amb executes reeixits, llegiria
-pitjor els que van fallar. Es mesura entrenant **només amb plants** i preguntant pels executes
-fallits d'equips no vistos.
+pitjor els que van fallar. Es mesura entrenant **només amb plants** (la dieta d'abans del §7)
+i preguntant per 989 executes fallits d'equips no vistos. Té el seu propi arnès: 3 llavors × 5
+folds, només la site head, i les etiquetes dels fallits surten de la lectura dels jugadors.
 
-Els fallits porten **8,8 granades de mitjana contra 12,5**, així que cal estratificar:
+Els fallits porten **8,8 granades de mitjana contra 11,7**, així que cal estratificar:
 
 | granades a la ronda | plants | fallits |
 |---|---|---|
-| 1–4 | 0.785 | 0.781 |
-| 5–8 | 0.841 | **0.907** |
-| 9–12 | 0.878 | **0.901** |
-| 13+ | 0.899 | **0.936** |
-| **re-pesat a la mateixa distribució** | **0.859** | **0.891** |
+| 1–4 | 0.773 | 0.767 |
+| 5–8 | 0.841 | **0.921** |
+| 9–12 | 0.888 | **0.899** |
+| 13+ | 0.920 | **0.955** |
+| **re-pesat a la mateixa distribució** | **0.866** | **0.897** |
 
 **Amb utility comparable, el model llegeix un execute que van tallar igual de bé o millor que un
-que va sortir: +0.032.** No hi ha biaix de selecció. Replicat amb dues mides de mostra (626 i
-988 rondes) donant +0.034 i +0.032.
+que va sortir: +0.030.** No hi ha biaix de selecció. Refet el 2026-09-21 amb el tall al plant;
+abans donava +0.032, i amb una mostra més petita (626 rondes) +0.034.
 
 I un límit que val la pena tenir escrit: **el 9,1 % dels executes fallits no tenen ni una
 granada**. Allà el model no té res a llegir i respon sempre el mateix — encerta el 46 %, una
@@ -556,8 +553,23 @@ per aguantar el site ja pres no és una pista d'on s'executarà, és soroll. **E
 granada llançada després del plant vol dir, per definició, que hi ha hagut plant.
 
 **El 3 classes estava inflat 2,6 punts.** Al holdout, sobre les mateixes 5 particions, baixa de
-0.631 a 0.614. És el número que baixa en aquesta versió del document; el 0.625 de la targeta
-del model servit (§3) i el 0.619 de la corba anterior eren inflats.
+0.631 a 0.614. És el número que baixa en aquesta versió del document; el 0.625 que ensenyava
+la targeta del model servit fins al 21-09 i el 0.619 de la corba anterior eren inflats.
+
+**El tall només es fa a les rondes amb plant**, perquè a les altres no hi ha instant on tallar,
+i això podria deixar al gate la pista contrària: "utility tardana → no planten". Comprovat amb
+una regressió logística sobre el resum temporal de cada ronda (nombre de granades, primer
+instant, instant mitjà i últim), 5 folds:
+
+| tall | AUC plant/NoPlant | última granada, mediana: plant · NoPlant |
+|---|---|---|
+| cap (la fuga) | 0.704 | 75,5 s · 55,6 s |
+| **només a les rondes amb plant (l'actual)** | **0.659** | 65,0 s · 55,6 s |
+| a totes: les NoPlant, en un instant de plant del mateix mapa a l'atzar | 0.750 | 65,0 s · 39,9 s |
+
+L'actual és el que **menys** separa les classes, i l'última granada segueix sent més tardana a
+les rondes amb plant: la pista que queda apunta al fenomen real (a les NoPlant els T moren
+abans), no a l'artefacte. És un proxy lineal, no el gate.
 
 ### El timing: puja, però no perquè el cap sàpiga més
 
@@ -570,7 +582,8 @@ una mediana de **9,2 s** després (quartils 5,1 i 14,5 s). Una regla d'una líni
 | regla: etiqueta de (última granada + 9 s), sobre els 3585 plants | 0.774 | **0.866** |
 | cap de timing, holdout | 0.794 | **0.880** |
 
-**El cap de timing treu 1,4 punts a la regla.** No és una fuga en el sentit del
+Sobre **les mateixes 5 particions** del holdout, la regla dona **0.868** i el cap **0.880**:
+**el cap hi afegeix 1,2 punts**, a les cinc particions. No és una fuga en el sentit del
 gate —a l'eina també es dibuixa només l'execute, i si es dibuixa quan cau, el timing en surt
 gairebé sol—, però vol dir que el 0.880 és **"quan dibuixes l'execute"** i no una lectura de la
 tàctica. És coherent amb el §5: sense temps el timing cau al baseline, i sense posició no es
