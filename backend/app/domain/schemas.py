@@ -347,7 +347,7 @@ class UtilityInput(BaseModel):
     util_type: str  # smoke / flash / molotov / he
     zone: str | None = None
     region: str | None = None
-# position in 1024-space radar pixels (drives the DeepSets model)
+# position in 1024-space radar pixels (drives the GCN model)
     x: float | None = None
     y: float | None = None
     # drawn box size (1024-space)

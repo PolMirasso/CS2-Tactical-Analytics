@@ -180,7 +180,7 @@ class UtilityEvent(Base):
     util_type: Mapped[str] = mapped_column(String)
     zone: Mapped[str | None] = mapped_column(String, nullable=True)
     region: Mapped[str | None] = mapped_column(String, nullable=True)
-    # position in 1024-space radar pixels (drives the DeepSets model)
+    # position in 1024-space radar pixels (drives the GCN model)
     radar_x: Mapped[float | None] = mapped_column(Float, nullable=True)
     radar_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     # detonation world height; separates upper/lower on two-level maps (nuke)
