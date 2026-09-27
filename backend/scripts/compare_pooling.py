@@ -1,4 +1,4 @@
-"""Compare the three DeepSets poolings on the current dataset (offline).
+"""Compare the three GCN readout poolings on the current dataset (offline).
 
 Trains SitePredictor once per pooling on the SAME 80/20 held-out split (train()
 seeds the split with 0), so the rows are a fair head-to-head. Prints 3-class
@@ -13,7 +13,7 @@ import app.ml.model as M
 from app.db import _ensure, init_db
 from app.domain.models import User
 from app.ml.dataset import build_dataset
-from app.ml.deepsets import POOLINGS
+from app.ml.gcn import POOLINGS
 
 
 def main() -> None:

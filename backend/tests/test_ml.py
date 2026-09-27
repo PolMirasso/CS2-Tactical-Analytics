@@ -4,8 +4,8 @@ import io
 
 import numpy as np
 
-from app.ml.deepsets import ACTIVATIONS, POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
+from app.ml.gcn import ACTIVATIONS, GCN, GRAPHS, POOLINGS, _softmax, adjacency
 from app.ml.model import (
     HOLDOUT_FRAC,
     SitePredictor,
@@ -139,15 +139,25 @@ def test_round_context_weapon_flags():
     assert multi["w_ct_awp"] == 0.5
 
 
-# deepSets pooling (fwd/bwd) + temperature calibration
+# GCN (fwd/bwd) + temperature calibration. Test tokens are 5-dim, so the graph reads its
+# (x, y, t, z) from the first four
+_COORDS = {"graph_coords": (0, 1, 2, 3)}
+
+
 def _finite_diff_grad_ok(
-    pooling: str, activation: str = "relu", phi_depth: int = 2, rho_depth: int = 2
+    pooling: str,
+    activation: str = "relu",
+    phi_depth: int = 2,
+    rho_depth: int = 2,
+    graph: str = "space_time",
 ) -> None:
     """Every param's analytic grad matches central finite differences of the loss."""
     rng = np.random.default_rng(1)
-    net = DeepSets._init(
+    # wide kernels: random tokens would otherwise leave every node without neighbours
+    net = GCN._init(
         5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=phi_depth, rho_depth=rho_depth,
-        activation=activation, pooling=pooling, seed=1,
+        activation=activation, pooling=pooling, graph=graph, sigma_s=1.0, sigma_t=1.0,
+        seed=1, **_COORDS,
     )
     tokens = rng.standard_normal((4, 5))
     ctx = rng.standard_normal(4)
@@ -157,7 +167,7 @@ def _finite_diff_grad_ok(
     def loss() -> float:
         return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
 
-    where = (pooling, activation, phi_depth, rho_depth)
+    where = (pooling, activation, phi_depth, rho_depth, graph)
     eps = 1e-6
     for k, p in net.params.items():
         flat, g = p.ravel(), grads[k].ravel()
@@ -189,20 +199,73 @@ def test_backprop_matches_finite_differences_at_other_depths():
         _finite_diff_grad_ok("attention", phi_depth=phi_depth, rho_depth=rho_depth)
 
 
+def test_backprop_matches_finite_differences_for_every_graph():
+    for graph in GRAPHS:
+        _finite_diff_grad_ok("attention", graph=graph)
+
+
+def test_adjacency_links_close_grenades_and_is_normalised():
+    # x, y, t, z: two grenades together, one far on the radar, one far in time
+    tokens = np.array([
+        [0.50, 0.50, 0.30, 0.5],
+        [0.52, 0.51, 0.31, 0.5],
+        [0.90, 0.10, 0.30, 0.5],
+        [0.50, 0.50, 0.80, 0.5],
+    ])
+    coords = (0, 1, 2, 3)
+    st = adjacency(tokens, "space_time", coords, 0.1, 0.05)
+    assert np.allclose(st, st.T)
+    assert st[0, 1] > 0.3
+    assert st[0, 2] < 1e-6 and st[0, 3] < 1e-6
+    assert adjacency(tokens, "space", coords, 0.1, 0.05)[0, 3] > 0.3
+    assert adjacency(tokens, "time", coords, 0.1, 0.05)[0, 2] > 0.3
+    assert np.allclose(adjacency(tokens, "full", coords, 0.1, 0.05), 1 / 4)
+    # nuke: same pixel, different level ⇒ not neighbours
+    lv = np.array([[0.5, 0.5, 0.3, 0.0], [0.5, 0.5, 0.3, 1.0]])
+    assert adjacency(lv, "space", coords, 0.1, 0.05)[0, 1] < 1e-6
+
+
+def test_gcn_is_permutation_invariant():
+    rng = np.random.default_rng(3)
+    net = GCN._init(5, 2, 2, pooling="attention", sigma_s=1.0, sigma_t=1.0, seed=0, **_COORDS)
+    tokens = rng.standard_normal((6, 5))
+    ctx = rng.standard_normal(2)
+    perm = rng.permutation(6)
+    assert np.allclose(net.predict_logits(tokens, ctx), net.predict_logits(tokens[perm], ctx))
+
+
+def test_far_grenades_are_not_mixed():
+    net = GCN._init(5, 1, 2, pooling="mean", graph="space", seed=0, **_COORDS)
+    near = np.array([[0.50, 0.50, 0.3, 0.5, 1.0], [0.52, 0.50, 0.3, 0.5, 0.0]])
+    far = np.array([[0.50, 0.50, 0.3, 0.5, 1.0], [0.95, 0.05, 0.3, 0.5, 0.0]])
+    far2 = np.array([[0.50, 0.50, 0.3, 0.5, 1.0], [0.05, 0.95, 0.3, 0.5, 0.0]])
+    # far apart ⇒ each node only sees itself; close ⇒ they mix
+    assert np.allclose(net._adjacency(far), np.eye(2), atol=1e-6)
+    assert np.allclose(net._adjacency(far2), np.eye(2), atol=1e-6)
+    assert not np.allclose(net._adjacency(near), np.eye(2), atol=1e-3)
+
+
+def test_train_config_label_names_the_graph():
+    from app.ml.model import TrainConfig
+
+    assert TrainConfig().label().startswith("gcn[space_time]2x32/24")
+    assert TrainConfig(graph="full").net_kwargs()["graph"] == "full"
+
+
 def test_layers_string_reports_depth_and_activation():
-    net = DeepSets._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=3,
-                         activation="tanh", pooling="attention", seed=1)
+    net = GCN._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=3,
+                    activation="tanh", pooling="attention", seed=1)
     assert net.phi_depth == 3
     assert net.rho_depth == 2
-    assert net.layers == "φ5→7→7→6 · attention · ρ8→3 · tanh"
+    assert net.layers == "gcn[space_time]5→7→7→6 · attention · ρ8→3 · tanh"
 
 
 def test_sum_pool_keeps_cardinality_and_attention_is_normalised():
     z2 = np.ones((3, 6))
-    pooled_sum, _ = DeepSets._init(5, 4, 2, d_embed=6, pooling="sum")._pool(z2)
+    pooled_sum, _ = GCN._init(5, 4, 2, d_embed=6, pooling="sum")._pool(z2)
     assert np.allclose(pooled_sum, 3.0)
 
-    net = DeepSets._init(5, 4, 2, d_embed=6, pooling="attention", seed=0)
+    net = GCN._init(5, 4, 2, d_embed=6, pooling="attention", seed=0)
     z2 = np.random.default_rng(0).standard_normal((5, 6))
     net.params["w_att"] = z2[0].copy()
     pooled, (_, _, (_, att)) = net._pool(z2)
@@ -218,13 +281,13 @@ def test_fit_temperature_softens_overconfident_logits():
     for i in range(n):
         cls = y[i] if rng.random() < 0.7 else 1 - y[i]  
         logits[i, cls] = 6.0 
-    t = DeepSets.fit_temperature(logits, y)
+    t = GCN.fit_temperature(logits, y)
     assert t > 1.0 
-    assert DeepSets._nll(logits, y, t) < DeepSets._nll(logits, y, 1.0)
+    assert GCN._nll(logits, y, t) < GCN._nll(logits, y, 1.0)
 
 
 def test_temperature_preserves_binary_argmax():
-    net = DeepSets._init(5, 3, 2, seed=0)
+    net = GCN._init(5, 3, 2, seed=0, **_COORDS)
     rng = np.random.default_rng(0)
     tokens, ctx = rng.standard_normal((3, 5)), rng.standard_normal(3)
     before = int(np.argmax(net.predict_proba(tokens, ctx)))

@@ -40,6 +40,15 @@ CONFIGS: dict[str, TrainConfig] = {
     "wd_0": TrainConfig(weight_decay=0.0),
     "wd_1e-3": TrainConfig(weight_decay=1e-3),
     "intent_off": TrainConfig(use_intent=False),
+    # which grenades are neighbours ("baseline" is space_time)
+    "graph_space": TrainConfig(graph="space"),
+    "graph_time": TrainConfig(graph="time"),
+    "graph_full": TrainConfig(graph="full"),
+    # how wide a neighbourhood is (defaults: 0.1 ≈ 100 px, 6 s)
+    "sigma_s_0.05": TrainConfig(sigma_s=0.05),
+    "sigma_s_0.2": TrainConfig(sigma_s=0.2),
+    "sigma_t_3": TrainConfig(sigma_t_s=3.0),
+    "sigma_t_12": TrainConfig(sigma_t_s=12.0),
 }
 
 # Training is a Python loop over rounds, so it does not thread; parallelism is
@@ -236,7 +245,7 @@ def main() -> None:
     ap.add_argument("--only", default="", help="comma-separated config names (configs/lto stages)")
     ap.add_argument("--seed", type=int, default=0, help="net/init seed (lto stage)")
     ap.add_argument("--fracs", default="0.25,0.5,0.75,1.0", help="train fractions (curve)")
-    ap.add_argument("--out", default="lto", help="output json basename (lto stage)")
+    ap.add_argument("--out", default="", help="output json basename (configs/lto stages)")
     ap.add_argument("--jobs", type=int, default=1, help="parallel worker processes")
     args = ap.parse_args()
 
@@ -264,7 +273,7 @@ def main() -> None:
         only = {c for c in args.only.split(",") if c}
         chosen = {k: v for k, v in CONFIGS.items() if not only or k in only}
         res = run_holdout(chosen, args.seeds, args.jobs)
-        (OUT / "configs.json").write_text(json.dumps({"meta": {
+        (OUT / f"{args.out or 'configs'}.json").write_text(json.dumps({"meta": {
             "n_rounds": len(samples), "n_teams": meta.get("n_teams"), "maps": maps,
             "seeds": args.seeds}, "results": res}, indent=1))
 
@@ -357,7 +366,7 @@ def main() -> None:
                 f"{_fmt(cv['baseline_accuracy']):>10}{cv['n_rounds']:>8}{cv['n_plant']:>7}",
                 flush=True,
             )
-        (OUT / f"{args.out}.json").write_text(json.dumps({"meta": {
+        (OUT / f"{args.out or 'lto'}.json").write_text(json.dumps({"meta": {
             "n_rounds": len(samples), "n_teams": meta.get("n_teams"), "maps": maps,
             "folds": args.folds, "seed": args.seed}, "results": res}, indent=1))
 

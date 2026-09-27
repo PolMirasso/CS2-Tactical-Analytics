@@ -1,19 +1,6 @@
-# Refs https://arxiv.org/abs/1703.06114 y https://arxiv.org/abs/1612.00593
-"""DeepSets site classifier (pure NumPy): predict the plant site from a round's
-set of utility, no matter how many grenades or in what order.
-
-    site = ρ( pool_i φ(token_i) ⊕ context )
-
-From the papers (lightly adapted):
-  Deep Sets - "a function f(X) [...] is invariant to the permutation of instances
-  in X, iff it can be decomposed in the form ρ(Σ_{x∈X} φ(x))."
-  PointNet - "the key [...] is the use of a single symmetric function, max
-  pooling [...] invariant to input permutation."
-
-So: a shared encoder φ embeds each grenade token, a symmetric pool over the set
-makes it order/count-invariant, the pooled vector is concatenated with the round
-context, and the head ρ outputs per-site scores. Trained with hand-written
-backprop + Adam - no GPU/torch needed; the sets are tiny so CPU trains in <1 s.
+# Refs https://arxiv.org/abs/1609.02907, https://arxiv.org/abs/1703.06114
+"""GCN site classifier (pure NumPy): predict the plant site from the graph of a round's
+utility, no matter how many grenades or in what order.
 """
 
 from __future__ import annotations
@@ -23,6 +10,28 @@ from dataclasses import dataclass
 import numpy as np
 
 POOLINGS = ("mean", "sum", "attention")
+GRAPHS = ("space_time", "space", "time", "full")
+
+
+def adjacency(
+    tokens: np.ndarray,
+    graph: str,
+    coords: tuple[int, int, int, int],
+    sigma_s: float,
+    sigma_t: float,
+) -> np.ndarray:
+    ix, iy, it, iz = coords
+    nt = tokens.shape[0]
+    a = np.ones((nt, nt))
+    if graph in ("space_time", "space"):
+        d = tokens[:, [ix, iy, iz]]
+        d2 = ((d[:, None, :] - d[None, :, :]) ** 2).sum(axis=-1)
+        a *= np.exp(-d2 / (2 * sigma_s**2))
+    if graph in ("space_time", "time"):
+        t = tokens[:, it]
+        a *= np.exp(-((t[:, None] - t[None, :]) ** 2) / (2 * sigma_t**2))
+    inv = 1.0 / np.sqrt(a.sum(axis=1))
+    return a * inv[:, None] * inv[None, :]
 
 
 def _relu(z: np.ndarray) -> np.ndarray:
@@ -67,7 +76,7 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
 
 
 @dataclass
-class DeepSets:
+class GCN:
     params: dict[str, np.ndarray]
     n_classes: int
     token_dim: int
@@ -78,6 +87,10 @@ class DeepSets:
     pooling: str = "mean"
     temperature: float = 1.0
     activation: str = "relu"
+    graph: str = "space_time"
+    graph_coords: tuple[int, int, int, int] = (4, 5, 6, 7)
+    sigma_s: float = 0.1
+    sigma_t: float = 0.05
 
     # init
     @classmethod
@@ -94,14 +107,16 @@ class DeepSets:
         rho_depth: int = 2,
         activation: str = "relu",
         pooling: str = "mean",
+        graph: str = "space_time",
+        graph_coords: tuple[int, int, int, int] = (4, 5, 6, 7),
+        sigma_s: float = 0.1,
+        sigma_t: float = 0.05,
         seed: int = 0,
-    ) -> DeepSets:
-        """φ: token_dim →(h_phi ×phi_depth-1)→ d_embed;
+    ) -> GCN:
+        """Graph convolutions: token_dim →(h_phi ×phi_depth-1)→ d_embed, each one Â·H·W;
         ρ: d_embed+ctx →(h_rho ×rho_depth-1)→ n_classes.
 
-        The last layer of each block is linear. At the defaults (depth 2/2, relu)
-        the params are the same keys, shapes and RNG draws as before the depth/
-        activation knobs existed, so an already-persisted model still loads.
+        The last layer of each block is linear.
         """
         if pooling not in POOLINGS:
             raise ValueError(f"unknown pooling {pooling!r}, expected one of {POOLINGS}")
@@ -111,6 +126,8 @@ class DeepSets:
             )
         if phi_depth < 1 or rho_depth < 1:
             raise ValueError("phi_depth and rho_depth must be >= 1")
+        if graph not in GRAPHS:
+            raise ValueError(f"unknown graph {graph!r}, expected one of {GRAPHS}")
         rng = np.random.default_rng(seed)
 
         # He for the rectifiers, Xavier for tanh
@@ -134,7 +151,8 @@ class DeepSets:
             params["b_att"] = np.zeros(())
         return cls(
             params, n_classes, token_dim, ctx_dim, d_embed, h_phi, h_rho,
-            pooling=pooling, activation=activation,
+            pooling=pooling, activation=activation, graph=graph,
+            graph_coords=tuple(graph_coords), sigma_s=sigma_s, sigma_t=sigma_t,
         )
 
     @property
@@ -156,9 +174,12 @@ class DeepSets:
         phi += [self.params[f"W{i}"].shape[1] for i in range(1, self.phi_depth + 1)]
         rho = [self.params[f"U{i}"].shape[1] for i in range(1, self.rho_depth + 1)]
         return (
-            "φ" + "→".join(str(d) for d in phi) + f" · {pool} · "
+            f"gcn[{self.graph}]" + "→".join(str(d) for d in phi) + f" · {pool} · "
             "ρ" + "→".join(str(d) for d in rho) + f" · {act}"
         )
+
+    def _adjacency(self, tokens: np.ndarray) -> np.ndarray:
+        return adjacency(tokens, self.graph, self.graph_coords, self.sigma_s, self.sigma_t)
 
     # pooling
     def _pool(self, z2: np.ndarray):
@@ -198,13 +219,15 @@ class DeepSets:
 
         if tokens.shape[0] > 0:
             a, phi_cache = tokens, []
+            adj = self._adjacency(tokens)
             for i in range(1, n_phi + 1):
+                a = adj @ a
                 z = a @ p[f"W{i}"] + p[f"b{i}"]
                 phi_cache.append((a, z))
                 a = act(z) if i < n_phi else z
             pooled, pcache = self._pool(a)
         else:
-            phi_cache = None
+            phi_cache = adj = None
             pooled, pcache = np.zeros(self.d_embed), ("mean", 0, None)
 
         a, rho_cache = np.concatenate([pooled, ctx]), []
@@ -212,7 +235,7 @@ class DeepSets:
             z = a @ p[f"U{i}"] + p[f"c{i}"]
             rho_cache.append((a, z))
             a = act(z) if i < n_rho else z
-        return a, (tokens, phi_cache, rho_cache, pcache)
+        return a, (adj, phi_cache, rho_cache, pcache)
 
     def predict_logits(self, tokens: np.ndarray, ctx: np.ndarray) -> np.ndarray:
         logits, _ = self._forward(tokens, ctx)
@@ -226,7 +249,7 @@ class DeepSets:
     # per-sample cross-entropy gradient (data term only; weight decay is in ``fit``)
     def _backward_one(self, tokens: np.ndarray, ctx: np.ndarray, y: int):
         logits, cache = self._forward(tokens, ctx)
-        _, phi_cache, rho_cache, pcache = cache
+        adj, phi_cache, rho_cache, pcache = cache
         _, dact = self._act()
         probs = _softmax(logits)
         grads = {k: np.zeros_like(v) for k, v in self.params.items()}
@@ -252,7 +275,7 @@ class DeepSets:
                     d = d * dact(z)
                 grads[f"W{i}"] += a_prev.T @ d
                 grads[f"b{i}"] += d.sum(axis=0)
-                d = d @ self.params[f"W{i}"].T
+                d = adj.T @ (d @ self.params[f"W{i}"].T)
             for k, g in pool_grads.items():
                 grads[k] += g
 
@@ -272,9 +295,6 @@ class DeepSets:
     def fit_temperature(
         logits: np.ndarray, y: np.ndarray, *, lo: float = 0.05, hi: float = 10.0, iters: int = 60
     ) -> float:
-        """Scalar T that minimises NLL(logits/T) on (logits, y). NLL is convex in
-        1/T, so a golden-section search on T finds the single minimum. Returns 1.0
-        when there is nothing to fit."""
         logits = np.asarray(logits, dtype=float)
         y = np.asarray(y)
         if len(y) < 2 or logits.ndim != 2:
@@ -282,16 +302,16 @@ class DeepSets:
         gr = (np.sqrt(5.0) - 1.0) / 2.0
         a, b = lo, hi
         c, d = b - gr * (b - a), a + gr * (b - a)
-        fc, fd = DeepSets._nll(logits, y, c), DeepSets._nll(logits, y, d)
+        fc, fd = GCN._nll(logits, y, c), GCN._nll(logits, y, d)
         for _ in range(iters):
             if fc < fd:
                 b, d, fd = d, c, fc
                 c = b - gr * (b - a)
-                fc = DeepSets._nll(logits, y, c)
+                fc = GCN._nll(logits, y, c)
             else:
                 a, c, fc = c, d, fd
                 d = a + gr * (b - a)
-                fd = DeepSets._nll(logits, y, d)
+                fd = GCN._nll(logits, y, d)
         return float((a + b) / 2.0)
 
     # training
@@ -315,7 +335,8 @@ class DeepSets:
         rho_depth: int = 2,
         activation: str = "relu",
         seed: int = 0,
-    ) -> tuple[DeepSets, float, np.ndarray]:
+        **arch_kw,
+    ) -> tuple[GCN, float, np.ndarray]:
         """Fit on (token_sets, ctx, y) returns (model, validation_accuracy, val_idx)
         val_idx = rows held out for validation (empty when the set is too small to split)
         """
@@ -324,7 +345,7 @@ class DeepSets:
             token_sets[0].shape[1] if n else 7, ctx.shape[1], n_classes,
             h_phi=h_phi, d_embed=d_embed, h_rho=h_rho,
             phi_depth=phi_depth, rho_depth=rho_depth, activation=activation,
-            pooling=pooling, seed=seed,
+            pooling=pooling, seed=seed, **arch_kw,
         )
 
         rng = np.random.default_rng(seed)

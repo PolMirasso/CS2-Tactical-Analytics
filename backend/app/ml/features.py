@@ -28,6 +28,8 @@ _OPENING_WINDOW_S = 15.0
 
 # per-utility token = [smoke, flash, molotov, he, x01, y01, t01, z_lvl, map one-hot]
 TOKEN_DIM = len(_UTILS) + 4 + len(_MAP_ORDER)
+# where (x01, y01, t01, z_lvl) sit in the token: the GCN builds its edges from them
+TOKEN_COORDS = tuple(len(_UTILS) + k for k in range(4))
 
 _Z_LVL_NEUTRAL = 0.5
 
@@ -173,7 +175,7 @@ def round_context(
     opponent_weapon: str | Iterable[str] | None = None,
     phase: str | None = None,
 ) -> dict[str, float | str]:
-    """Round-level context fed to the DeepSets head alongside the pooled set.
+    """Round-level context fed to the GCN head alongside the pooled set.
     Categorical keys (map/team/opponent/buy/opp_buy/phase) stay strings for the
     DictVectorizer to one-hot; the rest are normalised scalars
     """
