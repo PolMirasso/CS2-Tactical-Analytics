@@ -150,6 +150,7 @@ def _finite_diff_grad_ok(
     phi_depth: int = 2,
     rho_depth: int = 2,
     graph: str = "space_time",
+    residual: bool = False,
 ) -> None:
     """Every param's analytic grad matches central finite differences of the loss."""
     rng = np.random.default_rng(1)
@@ -157,7 +158,7 @@ def _finite_diff_grad_ok(
     net = GCN._init(
         5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=phi_depth, rho_depth=rho_depth,
         activation=activation, pooling=pooling, graph=graph, sigma_s=1.0, sigma_t=1.0,
-        seed=1, **_COORDS,
+        residual=residual, seed=1, **_COORDS,
     )
     tokens = rng.standard_normal((4, 5))
     ctx = rng.standard_normal(4)
@@ -167,7 +168,7 @@ def _finite_diff_grad_ok(
     def loss() -> float:
         return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
 
-    where = (pooling, activation, phi_depth, rho_depth, graph)
+    where = (pooling, activation, phi_depth, rho_depth, graph, residual)
     eps = 1e-6
     for k, p in net.params.items():
         flat, g = p.ravel(), grads[k].ravel()
@@ -202,6 +203,27 @@ def test_backprop_matches_finite_differences_at_other_depths():
 def test_backprop_matches_finite_differences_for_every_graph():
     for graph in GRAPHS:
         _finite_diff_grad_ok("attention", graph=graph)
+
+
+def test_residual_backprop_matches_finite_differences():
+    for phi_depth in (1, 2, 3):
+        for graph in GRAPHS:
+            _finite_diff_grad_ok("attention", phi_depth=phi_depth, graph=graph, residual=True)
+
+
+def test_residual_keeps_a_node_apart_from_its_neighbours():
+    # plain GCN under a full graph: every node is the round's mean ⇒ the order is lost
+    rng = np.random.default_rng(4)
+    tokens = rng.standard_normal((3, 5))
+    plain = GCN._init(5, 1, 2, pooling="attention", graph="full", seed=0, **_COORDS)
+    res = GCN._init(5, 1, 2, pooling="attention", graph="full", residual=True, seed=0,
+                    **_COORDS)
+    _, (_, plain_cache, _, _) = plain._forward(tokens, np.zeros(1))
+    _, (_, res_cache, _, _) = res._forward(tokens, np.zeros(1))
+    z_plain, z_res = plain_cache[-1][2], res_cache[-1][2]
+    assert np.allclose(z_plain, z_plain[0])
+    assert not np.allclose(z_res, z_res[0])
+    assert res.layers.startswith("gcn[full+res]")
 
 
 def test_adjacency_links_close_grenades_and_is_normalised():
@@ -250,6 +272,7 @@ def test_train_config_label_names_the_graph():
 
     assert TrainConfig().label().startswith("gcn[space_time]2x32/24")
     assert TrainConfig(graph="full").net_kwargs()["graph"] == "full"
+    assert TrainConfig(residual=True).label().startswith("gcn[space_time+res]2x32/24")
 
 
 def test_layers_string_reports_depth_and_activation():

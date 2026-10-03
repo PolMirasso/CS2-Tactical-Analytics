@@ -1,7 +1,7 @@
 # Resultats empírics: GCN contra DeepSets
 
-> GCN substitueix DeepSets (el model es descriu a [`GCN.md`](GCN.md)). **488 entrenaments en 10,7 h** amb 12
-> workers Comprovat: la llavor 0 del holdout dona **exactament** el mateix que una prova
+> GCN substitueix DeepSets (el model es descriu a [`GCN.md`](GCN.md)). **488 entrenaments**.
+> Comprovat: la llavor 0 del holdout dona **exactament** el mateix que una prova
 > aïllada feta el dia abans, o sigui que la partició 80/20 és la mateixa que la de DeepSets.
 >
 > Els JSON crus són a `data_store/sweep/`; els de DeepSets, a
@@ -18,7 +18,8 @@
 7. [Corba d'aprenentatge](#7-corba-daprenentatge)
 8. [Les rondes que no van plantar](#8-les-rondes-que-no-van-plantar)
 9. [Què no s'ha refet](#9-què-no-sha-refet)
-10. [Com reproduir-ho](#10-com-reproduir-ho)
+10. [La variant residual: l'estabilitat](#10-la-variant-residual-lestabilitat)
+11. [Com reproduir-ho](#11-com-reproduir-ho)
 
 ---
 
@@ -47,6 +48,10 @@ Tres coses que sí que diu la bateria:
   ±0.010 contra ±0.005 al holdout). No ho compensa amb res.
 - **Calibra millor**: l'ECE després de la temperatura baixa a 0.026 (DeepSets 0.035). És
   l'únic punt on guanya, i no mou cap encert.
+
+> **La inestabilitat té causa i remei** (§10, 2026-10-03): cada capa promitjava la posició
+> de cada granada amb la de les veïnes. Amb una connexió residual la desviació baixa de
+> ±0.0068 a **±0.0022**, al nivell de DeepSets, i l'encert queda igual (0.891).
 
 **Lectura per a la memòria.** La GCN afegeix exactament el que DeepSets no té: que cada
 granada es llegeixi amb les que cauen al costat i a la vegada. Que no millori vol dir que
@@ -314,7 +319,74 @@ comparable, llegeix un execute tallat igual de bé o millor que un que va sortir
 
 ---
 
-## 10. Com reproduir-ho
+## 10. La variant residual: l'estabilitat
+
+Mesurat el **2026-10-03**, arran de la pregunta del director de si canviant capes o
+arquitectura la GCN seria més estable.
+
+**L'amplada i la profunditat ja estaven mesurades** (§4): cap variant millora la mitjana, i la
+més estable amb equips fora és la més estreta (`narrow`, ±0.001 en 3 repeticions), no la més
+ampla. Més capes vol dir veïns de veïns, o sigui més barreja.
+
+**La hipòtesi**: a la GCN cada capa fa `Â·H` **abans** dels pesos, així que des de la primera
+capa la posició exacta de cada granada queda promitjada amb la de les veïnes. I la posició és
+el senyal (§5: el 84 % del guany). Ho apuntaven `full`, que ho barreja tot i és el pitjor
+(−7,8 punts), i `space`, que perd 2,4.
+
+**La variant**: cada capa conserva també les dades del mateix node amb uns pesos propis,
+`H' = σ(Â·H·W + H·S + b)` (a l'estil de GraphSAGE). En el pitjor cas la xarxa pot aprendre
+`W = 0` i torna a ser exactament un DeepSets. Porta una matriu `S` per capa (+1344
+paràmetres al codificador); a la §4 vuit vegades més paràmetres no compren res, així que la
+diferència no ve d'aquí. `TrainConfig(residual=True)`, config `residual` de `sweep.py`, amb
+comprovació per diferències finites a 1–3 capes i als 4 grafs.
+
+### Deixant equips fora, 8 llavors aparellades
+
+La llavor 0 repeteix també la GCN sense residual com a control: dona **0.8923 exacte**, igual
+que a la bateria del 28-09, o sigui que les dades no han canviat i les tres files són
+comparables.
+
+| llavor | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | mitjana |
+|---|---|---|---|---|---|---|---|---|---|
+| DeepSets | 0.8862 | 0.8868 | 0.8934 | 0.8895 | 0.8923 | 0.8929 | 0.8907 | 0.8943 | 0.8908 ±0.0030 |
+| GCN | 0.8923 | 0.8745 | 0.8862 | 0.8890 | 0.8971 | 0.8934 | 0.8909 | 0.8862 | 0.8887 ±0.0068 |
+| **GCN residual** | 0.8943 | 0.8876 | 0.8890 | 0.8898 | 0.8921 | 0.8918 | 0.8909 | 0.8932 | **0.8911 ±0.0022** |
+
+- **L'estabilitat torna**: la desviació baixa de 0.0068 a 0.0022, i el rang entre llavors de
+  2,3 punts (0.8745–0.8971) a 0,7 (0.8876–0.8943). Queda al nivell de DeepSets (0.0030).
+  Prova F, GCN contra residual: p = 0,004; amb Levene, que és robusta a valors extrems,
+  p = 0,11, perquè bona part de la variància de la GCN ve de la llavor 1.
+- **L'encert no es mou**: residual − DeepSets **+0.0003**, t = 0,25, 4 de 8. Residual − GCN
+  +0.0024, t = 1,21.
+- **Nuke i train tampoc** (mitjana de les 8 llavors): 0.786 i 0.830, contra 0.782 i 0.828 de
+  DeepSets.
+
+### Holdout 80/20, 5 particions
+
+| | GCN residual | GCN | DeepSets |
+|---|---|---|---|
+| site (A/B) | 0.902 ±0.012 | 0.896 ±0.010 | 0.899 ±0.005 |
+| 3 classes | 0.618 ±0.013 | 0.609 ±0.013 | 0.614 ±0.011 |
+| timing | 0.881 ±0.006 | 0.874 ±0.008 | 0.880 ±0.006 |
+| ECE (abans → després) | 0.029 → **0.020** | 0.044 → 0.026 | 0.045 → 0.035 |
+
+La residual recupera el timing i el 3 classes que la GCN perdia i és la millor calibrada. Al
+holdout la desviació no baixa, però aquí barreja l'atzar de l'entrenament amb el canvi de
+partició; la que respon a l'estabilitat és la taula de dalt, on els equips de test són sempre
+els mateixos.
+
+**Lectura.** La inestabilitat de la GCN no era de l'arquitectura en general sinó d'una cosa
+concreta: perdre la posició pròpia de cada granada en barrejar-la. Deixant que cada granada
+la conservi, la GCN és tan estable com DeepSets i igual d'encertada. Confirma la §1: la
+relació entre granades no aporta senyal que la posició no porti ja. Ara el graf no destorba,
+però tampoc ajuda.
+
+Runner: `data_store/run_residual.sh`; comparació: `data_store/compare_residual.py` (només dins
+el contenidor). JSON: `sweep/configs_residual.json` i `sweep/ltoR_seed*.json`.
+
+---
+
+## 11. Com reproduir-ho
 
 A la branca `arch/gcn`, copiant `sweep.py` i `sweep_report.py` al contenidor. El runner sencer
 és `/app/run_gcn_battery.sh` (només dins el contenidor): les mateixes ordres de
@@ -322,18 +394,18 @@ A la branca `arch/gcn`, copiant `sweep.py` i `sweep_report.py` al contenidor. El
 repeticions, les 8 llavors aparellades i `bias_experiment_gcn.py` (el de DeepSets amb la
 importació canviada).
 
-Cost mesurat, 12 workers:
+Entrenaments per etapa:
 
-| Etapa | Entrenaments | Wall |
-|---|---|---|
-| `configs` (26 × 5) | 130 | 4,45 h |
-| `ablations` (6 × 3) | 18 | 0,5 h |
-| `lto` (26 × 5 folds) | 130 | 2,2 h |
-| `lto_ablations`, `curve` | 45 | 0,6 h |
-| repeticions (7 × 5 × 2) | 70 | 0,95 h |
-| 8 llavors aparellades (2 × 5 × 8) | 80 | 1,2 h |
-| biaix de selecció | 15 | 0,7 h |
-| **Total** | **~488** | **10,7 h** |
+| Etapa | Entrenaments |
+|---|---|
+| `configs` (26 × 5) | 130 |
+| `ablations` (6 × 3) | 18 |
+| `lto` (26 × 5 folds) | 130 |
+| `lto_ablations`, `curve` | 45 |
+| repeticions (7 × 5 × 2) | 70 |
+| 8 llavors aparellades (2 × 5 × 8) | 80 |
+| biaix de selecció | 15 |
+| **Total** | **~488** |
 
 Les taules es regeneren amb:
 

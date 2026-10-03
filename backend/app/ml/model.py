@@ -239,11 +239,14 @@ class TrainConfig:
     graph: str = "space_time"
     sigma_s: float = 0.1
     sigma_t_s: float = 6.0
+    # each graph layer also keeps the grenade's own features (Â·H·W + H·S)
+    residual: bool = False
 
     def net_kwargs(self) -> dict:
         return {
             "graph": self.graph, "graph_coords": TOKEN_COORDS,
             "sigma_s": self.sigma_s, "sigma_t": self.sigma_t_s / ROUND_TIME_S,
+            "residual": self.residual,
             "pooling": self.pooling or _POOLING,
             "weight_decay": self.weight_decay if self.weight_decay is not None else _WEIGHT_DECAY,
             "h_phi": self.h_phi, "d_embed": self.d_embed, "h_rho": self.h_rho,
@@ -255,7 +258,8 @@ class TrainConfig:
     def label(self) -> str:
         kw = self.net_kwargs()
         return (
-            f"gcn[{self.graph}]{self.phi_depth}x{self.h_phi}/{self.d_embed} "
+            f"gcn[{self.graph}{'+res' if self.residual else ''}]"
+            f"{self.phi_depth}x{self.h_phi}/{self.d_embed} "
             f"rho{self.rho_depth}x{self.h_rho} "
             f"{self.activation} {kw['pooling']} lr{self.lr:g} wd{kw['weight_decay']:g}"
         )

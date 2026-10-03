@@ -49,6 +49,8 @@ CONFIGS: dict[str, TrainConfig] = {
     "sigma_s_0.2": TrainConfig(sigma_s=0.2),
     "sigma_t_3": TrainConfig(sigma_t_s=3.0),
     "sigma_t_12": TrainConfig(sigma_t_s=12.0),
+    # the node keeps its own features and the graph only adds to them
+    "residual": TrainConfig(residual=True),
 }
 
 # Training is a Python loop over rounds, so it does not thread; parallelism is
