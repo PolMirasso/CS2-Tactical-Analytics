@@ -173,7 +173,7 @@ def round_context(
     opponent_weapon: str | Iterable[str] | None = None,
     phase: str | None = None,
 ) -> dict[str, float | str]:
-    """Round-level context fed to the DeepSets head alongside the pooled set.
+    """Round-level context fed to the Set Transformer head alongside the pooled set.
     Categorical keys (map/team/opponent/buy/opp_buy/phase) stay strings for the
     DictVectorizer to one-hot; the rest are normalised scalars
     """

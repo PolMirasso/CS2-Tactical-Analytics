@@ -4,7 +4,6 @@ import io
 
 import numpy as np
 
-from app.ml.deepsets import ACTIVATIONS, POOLINGS, DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, round_context, round_tokens, timing_label
 from app.ml.model import (
     HOLDOUT_FRAC,
@@ -14,6 +13,7 @@ from app.ml.model import (
     _sampled_utility_sets,
     evaluate_rows,
 )
+from app.ml.transformer import ACTIVATIONS, POOLINGS, SetTransformer, _softmax
 from app.ml.validation import leave_teams_out, team_folds
 from tests.conftest import auth, register_and_login
 
@@ -139,15 +139,17 @@ def test_round_context_weapon_flags():
     assert multi["w_ct_awp"] == 0.5
 
 
-# deepSets pooling (fwd/bwd) + temperature calibration
+# Set Transformer (fwd/bwd) + pooling + temperature calibration
 def _finite_diff_grad_ok(
-    pooling: str, activation: str = "relu", phi_depth: int = 2, rho_depth: int = 2
+    pooling: str, activation: str = "relu", phi_depth: int = 2, rho_depth: int = 2,
+    n_heads: int = 2, layer_norm: bool = True,
 ) -> None:
     """Every param's analytic grad matches central finite differences of the loss."""
     rng = np.random.default_rng(1)
-    net = DeepSets._init(
+    net = SetTransformer._init(
         5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=phi_depth, rho_depth=rho_depth,
-        activation=activation, pooling=pooling, seed=1,
+        activation=activation, pooling=pooling, n_heads=n_heads, layer_norm=layer_norm,
+        seed=1,
     )
     tokens = rng.standard_normal((4, 5))
     ctx = rng.standard_normal(4)
@@ -157,7 +159,7 @@ def _finite_diff_grad_ok(
     def loss() -> float:
         return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
 
-    where = (pooling, activation, phi_depth, rho_depth)
+    where = (pooling, activation, phi_depth, rho_depth, n_heads, layer_norm)
     eps = 1e-6
     for k, p in net.params.items():
         flat, g = p.ravel(), grads[k].ravel()
@@ -184,25 +186,66 @@ def test_backprop_matches_finite_differences_for_every_activation():
 
 
 def test_backprop_matches_finite_differences_at_other_depths():
-    # the last layer of each block is linear, so depth 1 means "no hidden layer"
+    # phi_depth = number of SABs; the last ρ layer is linear
     for phi_depth, rho_depth in ((1, 1), (1, 2), (2, 1), (3, 2), (2, 3), (3, 3)):
         _finite_diff_grad_ok("attention", phi_depth=phi_depth, rho_depth=rho_depth)
 
 
+def test_backprop_matches_finite_differences_for_heads_and_layer_norm():
+    for n_heads in (1, 2, 3, 6):
+        for layer_norm in (True, False):
+            _finite_diff_grad_ok("attention", n_heads=n_heads, layer_norm=layer_norm)
+
+
+def test_heads_must_split_the_width():
+    import pytest
+
+    with pytest.raises(ValueError):
+        SetTransformer._init(5, 4, 2, d_embed=6, n_heads=4)
+
+
+def test_set_transformer_is_permutation_invariant():
+    rng = np.random.default_rng(3)
+    net = SetTransformer._init(5, 4, 3, d_embed=8, n_heads=2, pooling="attention", seed=3)
+    tokens, ctx = rng.standard_normal((6, 5)), rng.standard_normal(4)
+    perm = rng.permutation(6)
+    assert np.allclose(net.predict_logits(tokens, ctx), net.predict_logits(tokens[perm], ctx))
+    # the encoder itself is equivariant: permuting the set permutes its rows
+    z, _ = net._encode(tokens)
+    zp, _ = net._encode(tokens[perm])
+    assert np.allclose(z[perm], zp)
+
+
+def test_grenades_interact_before_pooling():
+    # unlike DeepSets, a grenade's embedding depends on the rest of the set
+    rng = np.random.default_rng(4)
+    net = SetTransformer._init(5, 4, 2, d_embed=8, n_heads=2, seed=4)
+    tokens = rng.standard_normal((3, 5))
+    alone, _ = net._encode(tokens[:1])
+    with_others, _ = net._encode(tokens)
+    assert not np.allclose(alone[0], with_others[0])
+
+
+def test_empty_set_uses_zero_embedding():
+    net = SetTransformer._init(5, 4, 2, seed=0)
+    p = net.predict_proba(np.zeros((0, 5)), np.ones(4))
+    assert p.shape == (2,) and abs(p.sum() - 1.0) < 1e-9
+
+
 def test_layers_string_reports_depth_and_activation():
-    net = DeepSets._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=3,
-                         activation="tanh", pooling="attention", seed=1)
+    net = SetTransformer._init(5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=3,
+                               activation="tanh", pooling="attention", n_heads=2, seed=1)
     assert net.phi_depth == 3
     assert net.rho_depth == 2
-    assert net.layers == "φ5→7→7→6 · attention · ρ8→3 · tanh"
+    assert net.layers == "settf[3×sab·2h+ln]5→6/7 · attention · ρ8→3 · tanh"
 
 
 def test_sum_pool_keeps_cardinality_and_attention_is_normalised():
     z2 = np.ones((3, 6))
-    pooled_sum, _ = DeepSets._init(5, 4, 2, d_embed=6, pooling="sum")._pool(z2)
+    pooled_sum, _ = SetTransformer._init(5, 4, 2, d_embed=6, n_heads=2, pooling="sum")._pool(z2)
     assert np.allclose(pooled_sum, 3.0)
 
-    net = DeepSets._init(5, 4, 2, d_embed=6, pooling="attention", seed=0)
+    net = SetTransformer._init(5, 4, 2, d_embed=6, n_heads=2, pooling="attention", seed=0)
     z2 = np.random.default_rng(0).standard_normal((5, 6))
     net.params["w_att"] = z2[0].copy()
     pooled, (_, _, (_, att)) = net._pool(z2)
@@ -218,13 +261,13 @@ def test_fit_temperature_softens_overconfident_logits():
     for i in range(n):
         cls = y[i] if rng.random() < 0.7 else 1 - y[i]  
         logits[i, cls] = 6.0 
-    t = DeepSets.fit_temperature(logits, y)
+    t = SetTransformer.fit_temperature(logits, y)
     assert t > 1.0 
-    assert DeepSets._nll(logits, y, t) < DeepSets._nll(logits, y, 1.0)
+    assert SetTransformer._nll(logits, y, t) < SetTransformer._nll(logits, y, 1.0)
 
 
 def test_temperature_preserves_binary_argmax():
-    net = DeepSets._init(5, 3, 2, seed=0)
+    net = SetTransformer._init(5, 3, 2, seed=0)
     rng = np.random.default_rng(0)
     tokens, ctx = rng.standard_normal((3, 5)), rng.standard_normal(3)
     before = int(np.argmax(net.predict_proba(tokens, ctx)))

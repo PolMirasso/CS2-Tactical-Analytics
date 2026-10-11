@@ -9,8 +9,8 @@ from functools import lru_cache
 
 import numpy as np
 
-from app.ml.deepsets import DeepSets, _softmax
 from app.ml.features import SITES, TIMINGS, TOKEN_DIM, _attr, round_context, round_tokens
+from app.ml.transformer import SetTransformer, _softmax
 
 # Below this many rounds (or < 2 distinct sites) we don't fit the net and serve
 # the historical base rate instead — too little signal to learn anything.
@@ -225,10 +225,14 @@ class TrainConfig:
     patience: int = 50
     seed: int = 0
     train_frac: float = 1.0
-    use_intent: bool = True 
+    use_intent: bool = True
+    # Set Transformer: attention heads per SAB (d_embed must split evenly) and post-LN
+    n_heads: int = 4
+    layer_norm: bool = True
 
     def net_kwargs(self) -> dict:
         return {
+            "n_heads": self.n_heads, "layer_norm": self.layer_norm,
             "pooling": self.pooling or _POOLING,
             "weight_decay": self.weight_decay if self.weight_decay is not None else _WEIGHT_DECAY,
             "h_phi": self.h_phi, "d_embed": self.d_embed, "h_rho": self.h_rho,
@@ -240,7 +244,8 @@ class TrainConfig:
     def label(self) -> str:
         kw = self.net_kwargs()
         return (
-            f"phi{self.phi_depth}x{self.h_phi}/{self.d_embed} rho{self.rho_depth}x{self.h_rho} "
+            f"sab{self.phi_depth}x{self.n_heads}h{'+ln' if self.layer_norm else ''}"
+            f"/{self.h_phi}/{self.d_embed} rho{self.rho_depth}x{self.h_rho} "
             f"{self.activation} {kw['pooling']} lr{self.lr:g} wd{kw['weight_decay']:g}"
         )
 
@@ -250,11 +255,11 @@ class SitePredictor:
     # Two stages, kept apart so context can't drown the position signal: a context-driven gate
     # (plant vs NoPlant) + a position-only site head (A vs B)
 
-    gate_net: DeepSets | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
+    gate_net: SetTransformer | None = None  # 0 = plant (A/B), 1 = NoPlant — context + tokens
     gate_vec: object | None = None
-    site_net: DeepSets | None = None  # 0 = A, 1 = B
+    site_net: SetTransformer | None = None  # 0 = A, 1 = B
     # execution timing given a plant (rush/default/late)
-    timing_net: DeepSets | None = None
+    timing_net: SetTransformer | None = None
     timing_classes: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
     trained_at: datetime | None = None
@@ -339,7 +344,7 @@ class SitePredictor:
 
         # plant (0) vs NoPlant (1), on context + tokens
         y_gate = np.array([0 if p else 1 for p in is_plant])
-        gate_net, _, _ = DeepSets.fit(
+        gate_net, _, _ = SetTransformer.fit(
             [tokens[i] for i in tr], x_ctx[tr], y_gate[tr], 2, **net_kw,
         )
         #  A (0) vs B (1) on plant rounds, map-aware tokens only
@@ -351,7 +356,7 @@ class SitePredictor:
             site_rows += extra
             site_y += [0 if intents[i] == "A" else 1 for i in extra]
         y_site = np.array(site_y)
-        site_net, _, _ = DeepSets.fit(
+        site_net, _, _ = SetTransformer.fit(
             [tokens[i] for i in site_rows], dummy[site_rows], y_site, 2, **net_kw,
         )
 
@@ -359,11 +364,11 @@ class SitePredictor:
         # binary argmax (site_accuracy unchanged)
         vap = [i for i in va if is_plant[i]]
         gate_logits = np.array([gate_net.predict_logits(tokens[i], x_ctx[i]) for i in va])
-        gate_net.temperature = DeepSets.fit_temperature(gate_logits, y_gate[va])
+        gate_net.temperature = SetTransformer.fit_temperature(gate_logits, y_gate[va])
         if vap:
             site_logits = np.array([site_net.predict_logits(tokens[i], dummy[i]) for i in vap])
             y_site_va = np.array([0 if tgt[i] == "A" else 1 for i in vap])
-            site_net.temperature = DeepSets.fit_temperature(site_logits, y_site_va)
+            site_net.temperature = SetTransformer.fit_temperature(site_logits, y_site_va)
 
         # Third head — execution timing given a plant. Trains only when the plant rounds carry
         # timing labels
@@ -371,14 +376,14 @@ class SitePredictor:
         timing_classes = [c for c in TIMINGS if c in {tim[i] for i in trp_t}]
         if len(timing_classes) >= 2 and len(trp_t) >= 10:
             ti = {c: k for k, c in enumerate(timing_classes)}
-            timing_net, _, _ = DeepSets.fit(
+            timing_net, _, _ = SetTransformer.fit(
                 [tokens[i] for i in trp_t], dummy[trp_t],
                 np.array([ti[tim[i]] for i in trp_t]), len(timing_classes), **net_kw,
             )
             vap_t = [i for i in vap if tim[i] is not None]
             if vap_t:
                 t_logits = np.array([timing_net.predict_logits(tokens[i], dummy[i]) for i in vap_t])
-                timing_net.temperature = DeepSets.fit_temperature(
+                timing_net.temperature = SetTransformer.fit_temperature(
                     t_logits, np.array([ti[tim[i]] for i in vap_t])
                 )
                 self.timing_accuracy = float(np.mean([
