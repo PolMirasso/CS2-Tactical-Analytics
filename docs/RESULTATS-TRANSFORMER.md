@@ -2,7 +2,8 @@
 
 > El Set Transformer substitueix DeepSets (el model es descriu a
 > [`TRANSFORMER.md`](TRANSFORMER.md)). **60 entrenaments**, el 2026-10-11: les 8 llavors
-> aparellades amb equips no vistos i 4 configuracions al holdout. Comprovat: la llavor 0 del
+> aparellades amb equips no vistos i 4 configuracions al holdout. **160 més** el 2026-10-15:
+> quatre variants per frenar l'atenció, a les mateixes 8 llavors (§5). Comprovat: la llavor 0 del
 > holdout dona exactament el mateix que la prova de fum aïllada, o sigui que la partició 80/20
 > és la mateixa que la de DeepSets i la GCN.
 >
@@ -51,6 +52,11 @@ que decideixo jo, la xarxa aprèn quant mira cada granada a cada altra. Si la re
 granades portés senyal, aquí hauria de sortir. No surt, i la flexibilitat extra es paga amb
 equips que no ha vist. Confirma el que deia la GCN: **la posició de cada granada ja porta el
 senyal, i fer-les interactuar no hi afegeix res.**
+
+**Intents de millorar-ho (§5).** Frenant l'atenció de quatre maneres, la millor (un sol SAB)
+puja a 0.888 i guanya el Transformer per defecte a les 8 llavors, però contra DeepSets només
+empata (−0.003, t = −1,9, 2 de 8). Amb una porta que comença a 0, la xarxa la deixa gairebé
+tancada. Tancat com a segon resultat negatiu.
 
 ---
 
@@ -168,7 +174,88 @@ Comparat amb la GCN: allà els pesos entre granades els fixava un kernel d'espai
 el pitjor cas podia aprendre a ignorar-los (la residual). Aquí la xarxa els pot ajustar a les
 dades lliurement, i amb unes 3.600 rondes amb plant ho fa massa.
 
-**Estic mirant com millorar-ho** 
+### Intents de millorar-ho (2026-10-15)
+
+Si el problema és sobreajust a combinacions de granades de cada equip, el remei és frenar
+l'atenció, no donar-li més capacitat. Quatre variants, totes amb equips no vistos i les mateixes
+8 llavors aparellades que DeepSets (**160 entrenaments**, 5 h 30 min):
+
+| Config | Què canvia | Per què |
+|---|---|---|
+| `gate0` | la branca d'atenció passa per un `α` après que comença a 0 (`TRANSFORMER.md` §2) | el bloc arrenca sent DeepSets i només barreja granades si les dades ho demanen |
+| `wd_1e-3` | weight decay 10 vegades més gran | regularitzar totes les matrius, l'atenció inclosa |
+| `phi1` | un sol SAB en comptes de dos | menys interacció i la meitat de paràmetres al codificador |
+| `narrow` | amplades 12/16 en comptes de 24/32 | menys capacitat a tot arreu |
+
+**Cap arriba a DeepSets.** Les tres que frenen l'atenció milloren el Transformer per defecte;
+la que només en treu mida, l'empitjora:
+
+| llavor | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | mitjana |
+|---|---|---|---|---|---|---|---|---|---|
+| DeepSets | 0.8862 | 0.8868 | 0.8934 | 0.8895 | 0.8923 | 0.8929 | 0.8907 | 0.8943 | **0.8908 ±0.0030** |
+| ST per defecte | 0.8854 | 0.8653 | 0.8809 | 0.8778 | 0.8695 | 0.8803 | 0.8876 | 0.8879 | 0.8793 ±0.0083 |
+| `gate0` | 0.8809 | 0.8826 | 0.8826 | 0.8806 | 0.8820 | 0.8854 | 0.8854 | 0.8840 | 0.8829 ±0.0018 |
+| `wd_1e-3` | 0.8845 | 0.8795 | 0.8840 | 0.8803 | 0.8817 | 0.8815 | 0.8895 | 0.8834 | 0.8831 ±0.0032 |
+| **`phi1`** | 0.8884 | 0.8884 | 0.8881 | 0.8865 | 0.8817 | 0.8929 | 0.8881 | 0.8890 | **0.8879 ±0.0031** |
+| `narrow` | 0.8834 | 0.8600 | 0.8672 | 0.8611 | 0.8672 | 0.8706 | 0.8633 | 0.8717 | 0.8681 ±0.0075 |
+
+Aparellat (t amb 7 g.l.; el llindar de p = 0,05 és |t| = 2,36):
+
+| Variant | − DeepSets | t | guanya | − ST per defecte | t | guanya | 3 classes (DS 0.600) |
+|---|---|---|---|---|---|---|---|
+| `gate0` | −0.0078 | −8,4 | 0 de 8 | +0.0036 | 1,3 | 5 de 8 | 0.598 · t = −1,7 |
+| `wd_1e-3` | −0.0077 | −5,3 | 0 de 8 | +0.0037 | 1,7 | 6 de 8 | 0.598 · t = −0,7 |
+| **`phi1`** | **−0.0029** | −1,9 | 2 de 8 | **+0.0086** | 3,2 | **8 de 8** | **0.602** · t = +0,7 |
+| `narrow` | −0.0227 | −7,7 | 0 de 8 | −0.0113 | −4,0 | 0 de 8 | 0.591 · t = −3,7 |
+
+- **`phi1` és la millor i la més propera a DeepSets**: guanya el Transformer per defecte a les
+  8 llavors i queda 0,3 punts per sota de DeepSets, sense diferència significativa
+  (p ≈ 0,10). A 3 classes fins i tot el supera per poc (0.602 contra 0.600, no significatiu). Però
+  només guanya DeepSets a 2 llavors de 8: en el millor dels casos **empata, no millora**.
+- **`gate0` i `wd_1e-3` treuen la variància** (±0.002–0.003, com DeepSets) però es queden a
+  −0,8 punts, i aquí la diferència sí que és clara (0 de 8).
+- **`narrow` confirma que no és la mida**: treu més paràmetres que `phi1` i perd encara més
+  (−2,3 punts), mentre que treure només un SAB millora. El que fa mal és la segona capa
+  d'interacció, no els paràmetres.
+
+**Per mapa** (mitjana de les 8 llavors), on el Transformer per defecte més perdia:
+
+| Mapa | plants | DeepSets | ST per defecte | `gate0` | `wd_1e-3` | `phi1` | `narrow` |
+|---|---|---|---|---|---|---|---|
+| de_overpass | 162 | 0.927 | 0.845 | 0.906 | 0.896 | **0.915** | 0.887 |
+| de_train | 262 | 0.828 | 0.806 | 0.804 | 0.789 | **0.838** | 0.749 |
+| de_anubis | 366 | 0.890 | 0.861 | 0.879 | 0.876 | 0.875 | 0.856 |
+| de_nuke | 435 | 0.782 | 0.772 | 0.781 | 0.782 | 0.783 | 0.764 |
+| de_dust2 | 879 | 0.923 | 0.925 | 0.918 | 0.925 | 0.924 | 0.915 |
+
+`phi1` recupera gairebé tot overpass (de 0.845 a 0.915) i supera DeepSets a train. Anubis
+continua 1,5 punts per sota. Als altres mapes (ancient, cache, inferno, mirage) totes les
+variants queden a ±1 punt de DeepSets.
+
+**La porta `α` de `gate0`** (mitjana de 5 folds × 8 llavors; 0 vol dir que la capa és DeepSets):
+
+| Cap | SAB 1 | SAB 2 | \|α\| màxim |
+|---|---|---|---|
+| gate (planta o no) | −0.003 ±0.018 | +0.001 ±0.016 | 0.05 |
+| timing | +0.012 ±0.058 | −0.017 ±0.106 | 0.20 |
+| site (A o B) | +0.029 ±0.179 | −0.104 ±0.116 | 0.35 |
+
+**La mateixa xarxa decideix no fer servir l'atenció.** Als caps de gate i timing la porta no es
+mou de 0. Només el cap de site l'obre una mica, sobretot al segon SAB, amb un signe que canvia
+d'un fold a un altre. I quan l'obre, perd 0,8 punts contra DeepSets: el que aprèn de la
+interacció entre granades no es transfereix a equips nous.
+
+### Veredicte
+
+**Segon resultat negatiu, tancat.** Cap de les quatre variants arriba a DeepSets. La millor
+(`phi1`) només hi empata, i ho fa traient interacció: com menys atenció, més s'acosta a
+DeepSets, que n'és el cas límit (atenció zero). La porta après ho diu directament, quedant a
+prop de 0. Coincideix amb la GCN: **la posició de cada granada ja porta el senyal, i fer-les
+interactuar no hi afegeix res**. Amb aquesta tendència, el dropout a l'atenció (l'última
+candidata) com a molt acostaria el model a DeepSets, no el passaria. No s'ha provat.
+
+JSON a `sweep_tf/ltoV_seed*.json`; runner `data_store/run_tf2.sh`; comparació
+`data_store/compare_tf2.py`.
 
 
 ---
@@ -189,4 +276,12 @@ Unes 4 h 40 min amb ~15 workers. La comparació aparellada amb DeepSets i la GCN
 
 ```bash
 docker exec -e PYTHONPATH=/app cs2-backend-dev python3 /app/data_store/compare_tf.py
+```
+
+Les variants del §5 amb `data_store/run_tf2.sh`: `--stage lto --folds 5 --seed N --only
+gate0,wd_1e-3,phi1,narrow --jobs 6`, N = 0…7, tres llavors en paral·lel (160 entrenaments,
+5 h 30 min amb la CPU limitada a ~900 MHz). La comparació:
+
+```bash
+docker exec cs2-backend-dev python3 /app/data_store/compare_tf2.py
 ```
