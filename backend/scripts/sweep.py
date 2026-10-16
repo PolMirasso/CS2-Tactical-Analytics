@@ -44,6 +44,7 @@ CONFIGS: dict[str, TrainConfig] = {
     "heads_1": TrainConfig(n_heads=1),
     "heads_2": TrainConfig(n_heads=2),
     "no_ln": TrainConfig(layer_norm=False),
+    "gate0": TrainConfig(attn_gate=True),
 }
 
 # Training is a Python loop over rounds, so it does not thread; parallelism is

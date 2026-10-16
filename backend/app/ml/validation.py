@@ -97,6 +97,11 @@ def fit_fold(
     site_base = _base_rate(
         [ctxs[i] for i in train], [targets[i] for i in train], only={"A", "B"}
     )
+    gates = {name: net.gates for name, net in (("gate", predictor.gate_net),
+             ("site", predictor.site_net), ("timing", predictor.timing_net))
+             if net is not None and net.gates}
+    if gates:
+        row["attn_gates"] = gates
     return {**row, **evaluate_rows(p3, targets, ctxs, test, base, site_base)}
 
 

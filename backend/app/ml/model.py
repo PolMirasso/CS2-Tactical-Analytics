@@ -229,10 +229,12 @@ class TrainConfig:
     # Set Transformer: attention heads per SAB (d_embed must split evenly) and post-LN
     n_heads: int = 4
     layer_norm: bool = True
+    # attention branch scaled by a learned gate that starts at 0 (each SAB begins as DeepSets)
+    attn_gate: bool = False
 
     def net_kwargs(self) -> dict:
         return {
-            "n_heads": self.n_heads, "layer_norm": self.layer_norm,
+            "n_heads": self.n_heads, "layer_norm": self.layer_norm, "attn_gate": self.attn_gate,
             "pooling": self.pooling or _POOLING,
             "weight_decay": self.weight_decay if self.weight_decay is not None else _WEIGHT_DECAY,
             "h_phi": self.h_phi, "d_embed": self.d_embed, "h_rho": self.h_rho,
@@ -245,6 +247,7 @@ class TrainConfig:
         kw = self.net_kwargs()
         return (
             f"sab{self.phi_depth}x{self.n_heads}h{'+ln' if self.layer_norm else ''}"
+            f"{'+gate' if self.attn_gate else ''}"
             f"/{self.h_phi}/{self.d_embed} rho{self.rho_depth}x{self.h_rho} "
             f"{self.activation} {kw['pooling']} lr{self.lr:g} wd{kw['weight_decay']:g}"
         )

@@ -142,15 +142,19 @@ def test_round_context_weapon_flags():
 # Set Transformer (fwd/bwd) + pooling + temperature calibration
 def _finite_diff_grad_ok(
     pooling: str, activation: str = "relu", phi_depth: int = 2, rho_depth: int = 2,
-    n_heads: int = 2, layer_norm: bool = True,
+    n_heads: int = 2, layer_norm: bool = True, attn_gate: bool = False,
 ) -> None:
     """Every param's analytic grad matches central finite differences of the loss."""
     rng = np.random.default_rng(1)
     net = SetTransformer._init(
         5, 4, 3, h_phi=7, d_embed=6, h_rho=8, phi_depth=phi_depth, rho_depth=rho_depth,
         activation=activation, pooling=pooling, n_heads=n_heads, layer_norm=layer_norm,
-        seed=1,
+        attn_gate=attn_gate, seed=1,
     )
+    # off zero, or the attention weights would get no gradient to check
+    for k in net.params:
+        if k[:2] == "Ga":
+            net.params[k] = np.array(0.7)
     tokens = rng.standard_normal((4, 5))
     ctx = rng.standard_normal(4)
     y = 2
@@ -159,7 +163,7 @@ def _finite_diff_grad_ok(
     def loss() -> float:
         return float(-np.log(_softmax(net.predict_logits(tokens, ctx))[y] + 1e-12))
 
-    where = (pooling, activation, phi_depth, rho_depth, n_heads, layer_norm)
+    where = (pooling, activation, phi_depth, rho_depth, n_heads, layer_norm, attn_gate)
     eps = 1e-6
     for k, p in net.params.items():
         flat, g = p.ravel(), grads[k].ravel()
@@ -195,6 +199,25 @@ def test_backprop_matches_finite_differences_for_heads_and_layer_norm():
     for n_heads in (1, 2, 3, 6):
         for layer_norm in (True, False):
             _finite_diff_grad_ok("attention", n_heads=n_heads, layer_norm=layer_norm)
+
+
+def test_backprop_matches_finite_differences_with_attention_gate():
+    for layer_norm in (True, False):
+        for phi_depth in (1, 2):
+            _finite_diff_grad_ok("attention", phi_depth=phi_depth, layer_norm=layer_norm,
+                                 attn_gate=True)
+
+
+def test_gated_attention_starts_as_deepsets():
+    rng = np.random.default_rng(4)
+    net = SetTransformer._init(5, 4, 2, d_embed=8, n_heads=2, attn_gate=True, seed=4)
+    tokens = rng.standard_normal((3, 5))
+    alone, _ = net._encode(tokens[:1])
+    with_others, _ = net._encode(tokens)
+    assert np.allclose(alone[0], with_others[0])
+    net.params["Ga1"] = np.array(0.5)
+    with_others, _ = net._encode(tokens)
+    assert not np.allclose(alone[0], with_others[0])
 
 
 def test_heads_must_split_the_width():

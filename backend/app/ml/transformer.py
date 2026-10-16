@@ -91,6 +91,7 @@ class SetTransformer:
     activation: str = "relu"
     n_heads: int = 4
     layer_norm: bool = True
+    attn_gate: bool = False
 
     # init
     @classmethod
@@ -109,6 +110,7 @@ class SetTransformer:
         pooling: str = "mean",
         n_heads: int = 4,
         layer_norm: bool = True,
+        attn_gate: bool = False,
         seed: int = 0,
     ) -> SetTransformer:
         """Encoder: token_dim →E→ d_embed, then phi_depth SABs of width d_embed with
@@ -143,6 +145,9 @@ class SetTransformer:
             params[f"Wo{i}"], params[f"bo{i}"] = w(d, d, 1.0), np.zeros(d)
             params[f"Wf{i}"], params[f"bf{i}"] = w(d, h_phi), np.zeros(h_phi)
             params[f"Wg{i}"], params[f"bg{i}"] = w(h_phi, d, 1.0), np.zeros(d)
+            if attn_gate:
+                # ReZero: starts at 0, so each SAB begins as DeepSets
+                params[f"Ga{i}"] = np.zeros(())
             if layer_norm:
                 for j in (1, 2):
                     params[f"ln{j}g{i}"], params[f"ln{j}b{i}"] = np.ones(d), np.zeros(d)
@@ -157,6 +162,7 @@ class SetTransformer:
         return cls(
             params, n_classes, token_dim, ctx_dim, d_embed, h_phi, h_rho,
             pooling=pooling, activation=activation, n_heads=n_heads, layer_norm=layer_norm,
+            attn_gate=attn_gate,
         )
 
     @property
@@ -167,13 +173,18 @@ class SetTransformer:
     def rho_depth(self) -> int:
         return sum(1 for k in self.params if k[:1] == "U" and k[1:].isdigit())
 
+    @property
+    def gates(self) -> list[float]:
+        return [float(self.params[f"Ga{i}"]) for i in range(1, self.phi_depth + 1)
+                if f"Ga{i}" in self.params]
+
     def _act(self):
         return ACTIVATIONS[self.activation]
 
     @property
     def layers(self) -> str:
         rho = [self.params[f"U{i}"].shape[1] for i in range(1, self.rho_depth + 1)]
-        ln = "+ln" if self.layer_norm else ""
+        ln = ("+ln" if self.layer_norm else "") + ("+gate" if self.attn_gate else "")
         return (
             f"settf[{self.phi_depth}×sab·{self.n_heads}h{ln}]"
             f"{self.token_dim}→{self.d_embed}/{self.h_phi} · {self.pooling} · "
@@ -201,7 +212,8 @@ class SetTransformer:
             att = np.exp(s - s.max(axis=-1, keepdims=True))
             att /= att.sum(axis=-1, keepdims=True)
             o = (att @ vh).transpose(1, 0, 2).reshape(n, d)
-            m = a + o @ p[f"Wo{i}"] + p[f"bo{i}"]
+            br = o @ p[f"Wo{i}"] + p[f"bo{i}"]
+            m = a + (p[f"Ga{i}"] * br if self.attn_gate else br)
             ln1 = ln2 = None
             if self.layer_norm:
                 m, ln1 = _layer_norm(m, p[f"ln1g{i}"], p[f"ln1b{i}"])
@@ -210,7 +222,7 @@ class SetTransformer:
             out = m + gf @ p[f"Wg{i}"] + p[f"bg{i}"]
             if self.layer_norm:
                 out, ln2 = _layer_norm(out, p[f"ln2g{i}"], p[f"ln2b{i}"])
-            cache.append((a, qh, kh, vh, att, o, m, ln1, zf, gf, ln2))
+            cache.append((a, qh, kh, vh, att, o, br, m, ln1, zf, gf, ln2))
             a = out
         return a, cache
 
@@ -228,7 +240,7 @@ class SetTransformer:
             return m.transpose(1, 0, 2).reshape(n, dm)
 
         for i in range(self.phi_depth, 0, -1):
-            a, qh, kh, vh, att, o, m, ln1, zf, gf, ln2 = cache[i - 1]
+            a, qh, kh, vh, att, o, br, m, ln1, zf, gf, ln2 = cache[i - 1]
             if self.layer_norm:
                 d, dg, db = _layer_norm_backward(d, p[f"ln2g{i}"], ln2)
                 grads[f"ln2g{i}"] += dg
@@ -243,9 +255,13 @@ class SetTransformer:
                 d, dg, db = _layer_norm_backward(d, p[f"ln1g{i}"], ln1)
                 grads[f"ln1g{i}"] += dg
                 grads[f"ln1b{i}"] += db
-            grads[f"Wo{i}"] += o.T @ d
-            grads[f"bo{i}"] += d.sum(axis=0)
-            doh = heads(d @ p[f"Wo{i}"].T)
+            db = d
+            if self.attn_gate:
+                grads[f"Ga{i}"] += (d * br).sum()
+                db = d * p[f"Ga{i}"]
+            grads[f"Wo{i}"] += o.T @ db
+            grads[f"bo{i}"] += db.sum(axis=0)
+            doh = heads(db @ p[f"Wo{i}"].T)
             datt = doh @ vh.transpose(0, 2, 1)
             dvh = att.transpose(0, 2, 1) @ doh
             # softmax jacobian per row, then the 1/√d_h of the scores
@@ -420,8 +436,9 @@ class SetTransformer:
         val_idx = idx[:n_val]
         tr_idx = idx[n_val:] if n_val else idx
 
-        # matrices only: biases, LayerNorm gains and the attention readout are not decayed
-        weight_keys = tuple(k for k in model.params if k[:1] in ("W", "U", "E"))
+        # matrices and the attention gate only: biases, LayerNorm gains and the attention
+        # readout are not decayed
+        weight_keys = tuple(k for k in model.params if k[:1] in ("W", "U", "E", "G"))
         m = {k: np.zeros_like(v) for k, v in model.params.items()}
         v = {k: np.zeros_like(v) for k, v in model.params.items()}
         b1m, b2m = 0.9, 0.999
