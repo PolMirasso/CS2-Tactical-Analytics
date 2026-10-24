@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
 from app.domain.phases import round_phase
+from app.ml.clef import clef_state
 from app.ml.features import round_context, round_tokens, timing_label
 
 
@@ -61,6 +62,7 @@ def build_dataset(
                     phase=round_phase(r.round_number),
                 ),
                 "intent": r.intent_site,
+                "clef": clef_state(r.map_id, util),
             }
         )
         targets.append(r.target_site)
