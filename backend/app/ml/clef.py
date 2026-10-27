@@ -4,6 +4,7 @@ import json
 import urllib.request
 
 from app.analytics.maps import get_map
+from app.domain.phases import round_phase
 from app.ml.features import (
     _TIMING_LATE_MIN_S,
     _TIMING_RUSH_MAX_S,
@@ -18,33 +19,52 @@ DEFAULT_MODEL = "clef-2k"
 
 _ABOUT = "(grenade type, callout where it landed, seconds into the round)"
 
-QUESTIONS: dict[str, dict] = {
-    "site": {
-        "type": "choice",
-        "instructions": f"Given the T side's utility this round {_ABOUT}, "
-                        "which bombsite are they executing on?",
-        "criteria": {"A": "Bombsite A", "B": "Bombsite B"},
-    },
-    "plant": {
-        "type": "choice",
-        "instructions": f"Given the T side's utility this round {_ABOUT}, "
-                        "will they plant the bomb?",
-        "criteria": {
-            "plant": "They commit to a site and plant the bomb",
-            "no_plant": "They don't plant: save, eco, or an execute that fails or is abandoned",
-        },
-    },
-    "timing": {
-        "type": "choice",
-        "instructions": f"Given the T side's utility this round {_ABOUT}, "
-                        "if they plant, when in the round do they plant?",
-        "criteria": {
-            "rush": f"Plant within the first {_TIMING_RUSH_MAX_S:.0f} s of the round",
-            "default": f"Plant between {_TIMING_RUSH_MAX_S:.0f} and {_TIMING_LATE_MIN_S:.0f} s",
-            "late": f"Plant after {_TIMING_LATE_MIN_S:.0f} s",
-        },
-    },
+_BUY = {
+    "pistol": "pistol round",
+    "full_eco": "full eco (saving)",
+    "eco": "eco",
+    "ak_hero": "eco plus one AK-47",
+    "m4_hero": "eco plus one M4",
+    "awp_hero": "eco plus one AWP",
+    "force": "force buy",
+    "full": "full buy",
 }
+
+
+def questions(*, context: bool = False, shots: bool = False) -> dict[str, dict]:
+    """The three choice questions; ``context``/``shots`` name the extra inputs in the prompt"""
+    given = f"the T side's utility this round {_ABOUT}"
+    if context:
+        given += ", the score and both teams' economy"
+    if shots:
+        given += ", and how similar rounds by other teams on this map ended"
+    return {
+        "site": {
+            "type": "choice",
+            "instructions": f"Given {given}, which bombsite are they executing on?",
+            "criteria": {"A": "Bombsite A", "B": "Bombsite B"},
+        },
+        "plant": {
+            "type": "choice",
+            "instructions": f"Given {given}, will they plant the bomb?",
+            "criteria": {
+                "plant": "They commit to a site and plant the bomb",
+                "no_plant": "They don't plant: save, eco, or an execute that fails or is abandoned",
+            },
+        },
+        "timing": {
+            "type": "choice",
+            "instructions": f"Given {given}, if they plant, when in the round do they plant?",
+            "criteria": {
+                "rush": f"Plant within the first {_TIMING_RUSH_MAX_S:.0f} s of the round",
+                "default": f"Plant between {_TIMING_RUSH_MAX_S:.0f} and {_TIMING_LATE_MIN_S:.0f} s",
+                "late": f"Plant after {_TIMING_LATE_MIN_S:.0f} s",
+            },
+        },
+    }
+
+
+QUESTIONS = questions()
 
 
 def clef_state(map_id: str | None, utility) -> dict:
@@ -67,6 +87,47 @@ def clef_state(map_id: str | None, utility) -> dict:
         "side": "T (attackers)",
         "utility_thrown_by_T_so_far": grenades,
     }
+
+
+def clef_round(
+    *,
+    round_number: int,
+    team: str | None,
+    opponent: str | None,
+    buy_type: str | None,
+    equip_value: int | None,
+    opponent_buy_type: str | None,
+    opponent_equip_value: int | None,
+    score: tuple[int, int],
+) -> dict:
+    """Match situation and both sides' economy at freeze-time end"""
+    def side(name, buy, equip):
+        return {"team": name or "?", "buy": _BUY.get(buy, buy or "?"),
+                "equipment_value": equip}
+    return {
+        "round": round_number,
+        "phase": round_phase(round_number).replace("_", " "),
+        "score_T_vs_CT": f"{score[0]}-{score[1]}",
+        "T": side(team, buy_type, equip_value),
+        "CT": side(opponent, opponent_buy_type, opponent_equip_value),
+    }
+
+
+def clef_example(state: dict, target: str, intent: str | None,
+                 plant_time_s: float | None, round_info: dict | None = None) -> dict:
+    """A labelled round in a compact form, so several fit in the context"""
+    if target in ("A", "B"):
+        outcome = f"planted {target} at {plant_time_s:.0f} s"
+    elif intent in ("A", "B"):
+        outcome = f"no plant (went towards {intent})"
+    else:
+        outcome = "no plant"
+    utility = [f"{g['type']} {g['callout']} {g['time_s']}s"
+               for g in state["utility_thrown_by_T_so_far"]]
+    example: dict = {"utility": utility, "outcome": outcome}
+    if round_info:
+        example["buys"] = f"T {round_info['T']['buy']}, CT {round_info['CT']['buy']}"
+    return example
 
 
 def ask(

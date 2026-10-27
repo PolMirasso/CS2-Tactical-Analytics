@@ -6,6 +6,7 @@ import json
 import sys
 import time
 import urllib.error
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -14,13 +15,12 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import _ensure, init_db
 from app.domain.models import User
-from app.ml.clef import DEFAULT_HOST, DEFAULT_MODEL, ask
+from app.ml.clef import DEFAULT_HOST, DEFAULT_MODEL, ask, clef_example, questions
 from app.ml.dataset import build_dataset
 from app.ml.features import SITES, TIMINGS
 from app.ml.model import HOLDOUT_FRAC, _base_rate, _reliability, evaluate_rows
 from app.ml.validation import _teams, fold_teams, summarise_folds
 
-OUT = get_settings().data_dir / "sweep_clef"
 _IDX3 = {"A": 0, "B": 1, "NoPlant": 2}
 
 
@@ -49,31 +49,104 @@ def _read_answers(path: Path) -> dict[int, dict]:
     return {r["i"]: r for r in rows}
 
 
-def run_ask(samples, targets, path: Path, host: str, model: str, limit: int | None) -> None:
+def _out(context: bool, shots: int, pick: str) -> Path:
+    name = "sweep_clef" + ("_ctx" if context else "")
+    if shots:
+        name += f"_k{shots}" + ("_rand" if pick == "random" else "")
+    return get_settings().data_dir / name
+
+
+def _bag(state: dict) -> Counter:
+    return Counter((g["type"], g["callout"]) for g in state["utility_thrown_by_T_so_far"])
+
+
+def _similarity(a: Counter, b: Counter) -> float:
+    union = sum((a | b).values())
+    return sum((a & b).values()) / union if union else 1.0
+
+
+def _fold_pools(samples, targets, folds: int) -> dict[int, tuple[int, list[int]]]:
+    """Each leave-teams-out test round with its fold and that fold's training rounds"""
+    teams = _teams(samples, targets)
+    opp = {i: str(samples[i]["context"].get("opponent") or "?") for i in teams}
+    out = {}
+    for k, held in enumerate(fold_teams(samples, targets, folds)):
+        group = set(held)
+        train = [i for i in teams if teams[i] not in group and opp[i] not in group]
+        out.update({i: (k, train) for i in teams if teams[i] in group})
+    return out
+
+
+def _examples(i, samples, targets, pool, shots: int, pick: str, bags,
+              context: bool) -> list[dict]:
+    """Labelled rounds from the fold's training teams, same map; the closest goes last"""
+    m = samples[i]["context"].get("map")
+    pool = [j for j in pool if samples[j]["context"].get("map") == m]
+    if pick == "random":
+        rng = np.random.default_rng(i)
+        chosen = [pool[k] for k in rng.choice(len(pool), min(shots, len(pool)), replace=False)]
+    else:
+        chosen = sorted(pool, key=lambda j: (-_similarity(bags[i], bags[j]), j))[:shots][::-1]
+    return [clef_example(samples[j]["clef"], targets[j], samples[j]["intent"],
+                         samples[j]["plant_time_s"],
+                         samples[j]["clef_round"] if context else None) for j in chosen]
+
+
+def build_states(samples, targets, context: bool, shots: int, pick: str,
+                 folds: int) -> dict[int, tuple[dict, int | None]]:
+    """Clef's input per round, with the leave-teams-out fold it was built for when it has shots"""
+    pools = _fold_pools(samples, targets, folds) if shots else {}
+    bags = {i: _bag(s["clef"]) for i, s in enumerate(samples)} if shots else {}
+    out = {}
+    for i in _keep(targets):
+        base = samples[i]["clef"]
+        state = {k: v for k, v in base.items() if k != "utility_thrown_by_T_so_far"}
+        fold = None
+        if shots:
+            if i not in pools:
+                continue
+            fold, pool = pools[i]
+            state["labelled_rounds_by_other_teams_on_this_map"] = _examples(
+                i, samples, targets, pool, shots, pick, bags, context)
+        if context:
+            state["this_round"] = samples[i]["clef_round"]
+        state["utility_thrown_by_T_so_far"] = base["utility_thrown_by_T_so_far"]
+        out[i] = (state, fold)
+    return out
+
+
+def run_ask(samples, targets, states, qs, path: Path, host: str, model: str, num_ctx: int,
+            limit: int | None) -> None:
     done = _read_answers(path)
     for i, r in done.items():
-        if r["digest"] != _digest(samples[i]["clef"]):
-            sys.exit(f"answers.jsonl row {i} no longer matches the dataset (re-parsed?)")
+        if i not in states or r["digest"] != _digest(states[i][0]):
+            sys.exit(f"{path.name} row {i} no longer matches the dataset (re-parsed?)")
     order = [int(k) for k in np.random.default_rng(0).permutation(_keep(targets))]
-    todo = [i for i in order if i not in done][:limit]
+    todo = [i for i in order if i in states and i not in done][:limit]
     print(f"{len(done)} done, {len(todo)} to ask ({host}, {model})", flush=True)
 
     t0 = time.time()
     with path.open("a") as fh:
         for n, i in enumerate(todo, 1):
+            state, fold = states[i]
             for attempt in range(3):
                 try:
                     t = time.time()
-                    out = ask(samples[i]["clef"], host=host, model=model)
+                    out = ask(state, host=host, model=model, questions=qs)
                     break
                 except (urllib.error.URLError, TimeoutError) as e:
                     if attempt == 2:
                         raise
                     print(f"  round {i}: {e}, retrying", flush=True)
                     time.sleep(30)
+            # Ollama truncates an over-long prompt silently
+            if out["usage"].get("input_tokens", 0) >= 0.95 * num_ctx:
+                sys.exit(f"round {i}: {out['usage']['input_tokens']} input tokens, close to "
+                         f"num_ctx {num_ctx}; use a model variant with a bigger num_ctx")
             fh.write(json.dumps({
-                "i": i, "digest": _digest(samples[i]["clef"]),
+                "i": i, "digest": _digest(state),
                 "map": samples[i]["context"].get("map"), "target": targets[i], "model": model,
+                **({"fold": fold} if fold is not None else {}),
                 "seconds": round(time.time() - t, 2), **out,
             }) + "\n")
             fh.flush()
@@ -160,25 +233,30 @@ def _fmt(v: float | None) -> str:
     return "     —" if v is None else f"{v:.3f}"
 
 
-def run_score(samples, targets, timing, path: Path, seeds: int, folds: int) -> None:
+def run_score(samples, targets, timing, path: Path, seeds: int, folds: int, shots: int) -> None:
     answers = _read_answers(path)
     if not answers:
         sys.exit(f"no answers in {path}")
+    out_dir = path.parent
     p3 = {i: _p3(r) for i, r in answers.items()}
     pred_t = {i: _timing(r) for i, r in answers.items()}
     n_keep = len(_keep(targets))
     secs = [r["seconds"] for r in answers.values()]
     print(f"{len(answers)}/{n_keep} rounds answered · {np.median(secs):.1f} s/round median")
 
-    runs = holdout(samples, targets, timing, p3, pred_t, seeds)
+    # The shots come from one leave-teams-out fold's training teams, which the 80/20 splits don't respect
+    runs = [] if shots else holdout(samples, targets, timing, p3, pred_t, seeds)
     def mean(key):
         vals = [r[key] for r in runs if r.get(key) is not None]
         return (float(np.mean(vals)), float(np.std(vals))) if vals else (None, None)
-    print(f"\n80/20 holdout, {seeds} splits (answered rounds of each 20%)")
-    for key in ("site_accuracy", "site_baseline_accuracy", "accuracy", "baseline_accuracy",
-                "timing_accuracy", "timing_baseline_accuracy", "ece"):
-        m, sd = mean(key)
-        print(f"  {key:<26}{_fmt(m)}" + (f" ±{sd:.3f}" if sd is not None else ""))
+    if runs:
+        print(f"\n80/20 holdout, {seeds} splits (answered rounds of each 20%)")
+        for key in ("site_accuracy", "site_baseline_accuracy", "accuracy", "baseline_accuracy",
+                    "timing_accuracy", "timing_baseline_accuracy", "ece"):
+            m, sd = mean(key)
+            print(f"  {key:<26}{_fmt(m)}" + (f" ±{sd:.3f}" if sd is not None else ""))
+    else:
+        print("\n80/20 holdout skipped: the shots are only leak-free under leave-teams-out")
 
     cv = leave_teams_out(samples, targets, p3, folds)
     print(f"\nLeave-teams-out, {folds} folds")
@@ -193,30 +271,43 @@ def run_score(samples, targets, timing, path: Path, seeds: int, folds: int) -> N
     meta = {"n_rounds": len(samples), "n_answered": len(answers), "n_keep": n_keep,
             "model": next(iter(answers.values())).get("model"),
             "median_seconds": float(np.median(secs))}
-    (OUT / "holdout.json").write_text(json.dumps(
-        {"meta": {**meta, "seeds": seeds}, "results": {"clef": {"runs": runs}}}, indent=1))
-    (OUT / "lto.json").write_text(json.dumps(
+    if runs:
+        (out_dir / "holdout.json").write_text(json.dumps(
+            {"meta": {**meta, "seeds": seeds}, "results": {"clef": {"runs": runs}}}, indent=1))
+    (out_dir / "lto.json").write_text(json.dumps(
         {"meta": {**meta, "folds": folds}, "results": {"clef": {"cv": cv}}}, indent=1))
-    print(f"\nwrote {OUT}")
+    print(f"\nwrote {out_dir}")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", default="ask", choices=("ask", "score"))
+    ap.add_argument("--stage", default="ask", choices=("ask", "score", "show"))
     ap.add_argument("--host", default=DEFAULT_HOST)
     ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--num-ctx", type=int, default=2048, help="the model variant's num_ctx")
+    ap.add_argument("--context", action="store_true", help="add round, score and economy")
+    ap.add_argument("--shots", type=int, default=0,
+                    help="labelled rounds of the same map from the fold's training teams")
+    ap.add_argument("--pick", default="similar", choices=("similar", "random"))
     ap.add_argument("--limit", type=int, default=None, help="ask at most this many rounds")
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--folds", type=int, default=5)
     args = ap.parse_args()
 
     samples, targets, timing, _ = _load()
-    OUT.mkdir(parents=True, exist_ok=True)
-    path = OUT / "answers.jsonl"
-    if args.stage == "ask":
-        run_ask(samples, targets, path, args.host, args.model, args.limit)
-    else:
-        run_score(samples, targets, timing, path, args.seeds, args.folds)
+    out = _out(args.context, args.shots, args.pick)
+    path = out / "answers.jsonl"
+    if args.stage == "score":
+        run_score(samples, targets, timing, path, args.seeds, args.folds, args.shots)
+        return
+    states = build_states(samples, targets, args.context, args.shots, args.pick, args.folds)
+    qs = questions(context=args.context, shots=args.shots > 0)
+    if args.stage == "show":
+        i = int(np.random.default_rng(0).permutation(list(states))[0])
+        print(json.dumps({"state": states[i][0], "questions": qs}, indent=1, ensure_ascii=False))
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    run_ask(samples, targets, states, qs, path, args.host, args.model, args.num_ctx, args.limit)
 
 
 if __name__ == "__main__":

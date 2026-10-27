@@ -5,8 +5,21 @@ from sqlalchemy.orm import Session
 
 from app.domain.models import Demo, Round, User, UtilityEvent
 from app.domain.phases import round_phase
-from app.ml.clef import clef_state
+from app.ml.clef import clef_round, clef_state
 from app.ml.features import round_context, round_tokens, timing_label
+
+
+def _scores(rounds: list[Round]) -> dict[int, tuple[int, int]]:
+    """Rounds won so far by each round's T and CT team"""
+    wins: dict[tuple[int, str | None], int] = {}
+    out: dict[int, tuple[int, int]] = {}
+    for r in sorted(rounds, key=lambda r: (r.demo_id, r.round_number)):
+        t, ct = r.team_hltv_id or r.team, r.opponent_hltv_id or r.opponent
+        out[r.id] = (wins.get((r.demo_id, t), 0), wins.get((r.demo_id, ct), 0))
+        if r.winner in ("t", "ct"):
+            key = (r.demo_id, t if r.winner == "t" else ct)
+            wins[key] = wins.get(key, 0) + 1
+    return out
 
 
 def build_dataset(
@@ -34,6 +47,7 @@ def build_dataset(
     ):
         util_by_round.setdefault(u.round_id, []).append(u)
 
+    scores = _scores(rounds)
     samples: list[dict] = []
     targets: list[str] = []
     timing_targets: list[str | None] = []
@@ -63,6 +77,17 @@ def build_dataset(
                 ),
                 "intent": r.intent_site,
                 "clef": clef_state(r.map_id, util),
+                "clef_round": clef_round(
+                    round_number=r.round_number,
+                    team=r.team or team,
+                    opponent=r.opponent or opponent,
+                    buy_type=r.buy_type,
+                    equip_value=r.equip_value,
+                    opponent_buy_type=r.opponent_buy_type,
+                    opponent_equip_value=r.opponent_equip_value,
+                    score=scores[r.id],
+                ),
+                "plant_time_s": r.plant_time_s,
             }
         )
         targets.append(r.target_site)
