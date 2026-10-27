@@ -4,7 +4,6 @@ import json
 import urllib.request
 
 from app.analytics.maps import get_map
-from app.domain.phases import round_phase
 from app.ml.features import (
     _TIMING_LATE_MIN_S,
     _TIMING_RUSH_MAX_S,
@@ -35,7 +34,7 @@ def questions(*, context: bool = False, shots: bool = False) -> dict[str, dict]:
     """The three choice questions; ``context``/``shots`` name the extra inputs in the prompt"""
     given = f"the T side's utility this round {_ABOUT}"
     if context:
-        given += ", the score and both teams' economy"
+        given += ", the phase of the match and both teams' economy and weapons"
     if shots:
         given += ", and how similar rounds by other teams on this map ended"
     return {
@@ -91,25 +90,25 @@ def clef_state(map_id: str | None, utility) -> dict:
 
 def clef_round(
     *,
-    round_number: int,
+    phase: str,
     team: str | None,
     opponent: str | None,
     buy_type: str | None,
     equip_value: int | None,
     opponent_buy_type: str | None,
     opponent_equip_value: int | None,
-    score: tuple[int, int],
+    team_weapons: str | None,
+    opponent_weapons: str | None,
 ) -> dict:
-    """Match situation and both sides' economy at freeze-time end"""
-    def side(name, buy, equip):
+    """The round context the other models get: phase, teams, and both sides' economy and weapons"""
+    def side(name, buy, equip, weapons):
         return {"team": name or "?", "buy": _BUY.get(buy, buy or "?"),
-                "equipment_value": equip}
+                "equipment_value": equip,
+                "weapons": ", ".join(w for w in (weapons or "").split(",") if w) or "?"}
     return {
-        "round": round_number,
-        "phase": round_phase(round_number).replace("_", " "),
-        "score_T_vs_CT": f"{score[0]}-{score[1]}",
-        "T": side(team, buy_type, equip_value),
-        "CT": side(opponent, opponent_buy_type, opponent_equip_value),
+        "phase": phase.replace("_", " "),
+        "T": side(team, buy_type, equip_value, team_weapons),
+        "CT": side(opponent, opponent_buy_type, opponent_equip_value, opponent_weapons),
     }
 
 

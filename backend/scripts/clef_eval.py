@@ -159,7 +159,7 @@ def run_ask(jobs, qs, path: Path, host: str, model: str, num_ctx: int,
                 "seconds": round(time.time() - t, 2), **out,
             }) + "\n")
             fh.flush()
-            if n % 25 == 0 or n == len(todo):
+            if n <= 5 or n % 25 == 0 or n == len(todo):
                 rate = (time.time() - t0) / n
                 print(f"  {n}/{len(todo)} · {rate:.1f} s/round · "
                       f"~{rate * (len(todo) - n) / 3600:.1f} h left", flush=True)
