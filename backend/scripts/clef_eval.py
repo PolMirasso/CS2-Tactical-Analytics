@@ -42,11 +42,14 @@ def _digest(state: dict) -> str:
     return hashlib.sha1(json.dumps(state, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def _read_answers(path: Path) -> dict[int, dict]:
+def _read_jsonl(path: Path) -> list[dict]:
     if not path.exists():
-        return {}
-    rows = (json.loads(line) for line in path.read_text().splitlines() if line.strip())
-    return {r["i"]: r for r in rows}
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def _read_answers(path: Path) -> dict[int, dict]:
+    return {r["i"]: r for r in _read_jsonl(path)}
 
 
 def _out(context: bool, shots: int, pick: str) -> Path:
@@ -115,24 +118,32 @@ def build_states(samples, targets, context: bool, shots: int, pick: str,
     return out
 
 
-def run_ask(samples, targets, states, qs, path: Path, host: str, model: str, num_ctx: int,
+def build_jobs(samples, targets, states) -> list[dict]:
+    """The rounds in the order they are asked, each with the fields its answer row keeps"""
+    order = [int(k) for k in np.random.default_rng(0).permutation(_keep(targets))]
+    return [{"i": i, "digest": _digest(states[i][0]), "map": samples[i]["context"].get("map"),
+             "target": targets[i], **({"fold": states[i][1]} if states[i][1] is not None else {}),
+             "state": states[i][0]} for i in order if i in states]
+
+
+def run_ask(jobs, qs, path: Path, host: str, model: str, num_ctx: int,
             limit: int | None) -> None:
     done = _read_answers(path)
+    digests = {j["i"]: j["digest"] for j in jobs}
     for i, r in done.items():
-        if i not in states or r["digest"] != _digest(states[i][0]):
+        if r["digest"] != digests.get(i):
             sys.exit(f"{path.name} row {i} no longer matches the dataset (re-parsed?)")
-    order = [int(k) for k in np.random.default_rng(0).permutation(_keep(targets))]
-    todo = [i for i in order if i in states and i not in done][:limit]
+    todo = [j for j in jobs if j["i"] not in done][:limit]
     print(f"{len(done)} done, {len(todo)} to ask ({host}, {model})", flush=True)
 
     t0 = time.time()
     with path.open("a") as fh:
-        for n, i in enumerate(todo, 1):
-            state, fold = states[i]
+        for n, job in enumerate(todo, 1):
+            i = job["i"]
             for attempt in range(3):
                 try:
                     t = time.time()
-                    out = ask(state, host=host, model=model, questions=qs)
+                    out = ask(job["state"], host=host, model=model, questions=qs)
                     break
                 except (urllib.error.URLError, TimeoutError) as e:
                     if attempt == 2:
@@ -144,9 +155,7 @@ def run_ask(samples, targets, states, qs, path: Path, host: str, model: str, num
                 sys.exit(f"round {i}: {out['usage']['input_tokens']} input tokens, close to "
                          f"num_ctx {num_ctx}; use a model variant with a bigger num_ctx")
             fh.write(json.dumps({
-                "i": i, "digest": _digest(state),
-                "map": samples[i]["context"].get("map"), "target": targets[i], "model": model,
-                **({"fold": fold} if fold is not None else {}),
+                **{k: v for k, v in job.items() if k != "state"}, "model": model,
                 "seconds": round(time.time() - t, 2), **out,
             }) + "\n")
             fh.flush()
@@ -281,7 +290,7 @@ def run_score(samples, targets, timing, path: Path, seeds: int, folds: int, shot
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", default="ask", choices=("ask", "score", "show"))
+    ap.add_argument("--stage", default="ask", choices=("ask", "score", "show", "export"))
     ap.add_argument("--host", default=DEFAULT_HOST)
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--num-ctx", type=int, default=2048, help="the model variant's num_ctx")
@@ -290,13 +299,24 @@ def main() -> None:
                     help="labelled rounds of the same map from the fold's training teams")
     ap.add_argument("--pick", default="similar", choices=("similar", "random"))
     ap.add_argument("--limit", type=int, default=None, help="ask at most this many rounds")
+    ap.add_argument("--offline", action="store_true",
+                    help="ask from the variant's exported prompts.jsonl, without the DB")
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--folds", type=int, default=5)
     args = ap.parse_args()
 
-    samples, targets, timing, _ = _load()
     out = _out(args.context, args.shots, args.pick)
     path = out / "answers.jsonl"
+    if args.offline:
+        # Another machine's DB returns the rounds in another order, so it asks from the export
+        if args.stage != "ask":
+            sys.exit("--offline only works with --stage ask")
+        jobs = _read_jsonl(out / "prompts.jsonl")
+        qs = json.loads((out / "questions.json").read_text())
+        run_ask(jobs, qs, path, args.host, args.model, args.num_ctx, args.limit)
+        return
+
+    samples, targets, timing, _ = _load()
     if args.stage == "score":
         run_score(samples, targets, timing, path, args.seeds, args.folds, args.shots)
         return
@@ -306,8 +326,14 @@ def main() -> None:
         i = int(np.random.default_rng(0).permutation(list(states))[0])
         print(json.dumps({"state": states[i][0], "questions": qs}, indent=1, ensure_ascii=False))
         return
+    jobs = build_jobs(samples, targets, states)
     out.mkdir(parents=True, exist_ok=True)
-    run_ask(samples, targets, states, qs, path, args.host, args.model, args.num_ctx, args.limit)
+    if args.stage == "export":
+        (out / "prompts.jsonl").write_text("".join(json.dumps(j) + "\n" for j in jobs))
+        (out / "questions.json").write_text(json.dumps(qs, indent=1))
+        print(f"wrote {len(jobs)} prompts to {out}")
+        return
+    run_ask(jobs, qs, path, args.host, args.model, args.num_ctx, args.limit)
 
 
 if __name__ == "__main__":
