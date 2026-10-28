@@ -2,19 +2,55 @@
 
 > Clef és el model de decisió de Cloudflare (27B, servit amb Ollama), la proposta de Jordi.
 > Respon preguntes tancades amb una probabilitat per opció. **No s'entrena**: rep cada ronda com a
-> text i contesta zero-shot. **6675 rondes, totes preguntades**, del 2026-10-24 al 2026-10-26
-> (29 h de càlcul a la CPU). S'avaluen amb **les mateixes particions** que DeepSets, la GCN i el
-> Set Transformer. Comprovat: els baselines surten idèntics (A/B 0.533, 3 classes 0.450, timing
-> 0.583 al holdout; A/B 0.510 amb equips no vistos), o sigui que les rondes de test són les
-> mateixes.
+> text i hi contesta. **Tres tandes de 6675 rondes, totes preguntades**:
 >
-> Els JSON crus són a `data_store/sweep_clef/` (`answers.jsonl` amb la resposta de cada ronda,
-> `holdout.json`, `lto.json`); els de DeepSets, a `data_store/sweep_deepsets_2026-09-21/`.
+> | Tanda | Què rep | On | Temps |
+> |---|---|---|---|
+> | zero-shot (§1–§5) | només l'utility, amb callouts | CPU del portàtil, 2026-10-24 → 26 | 29 h |
+> | + context (§6) | + el mateix context que els altres models | RTX 5080, 2026-10-28 | 2 h 13 min |
+> | + context + 8 exemples (§6) | + 8 rondes etiquetades d'altres equips | RTX 5080, 2026-10-28 | 2 h 50 min |
+>
+> S'avaluen amb **les mateixes particions** que DeepSets, la GCN i el Set Transformer.
+> Comprovat: els baselines surten idèntics (A/B 0.533, 3 classes 0.450, timing 0.583 al holdout;
+> A/B 0.510 amb equips no vistos), o sigui que les rondes de test són les mateixes.
+>
+> Els JSON crus són a `data_store/sweep_clef/`, `sweep_clef_ctx/` i `sweep_clef_ctx_k8/`
+> (`answers.jsonl` amb la resposta de cada ronda, `lto.json`, `holdout.json`); els de DeepSets, a
+> `data_store/sweep_deepsets_2026-09-21/`.
 
 
 ---
 
-## 1. La resposta curta
+## 0. Les tres tandes, de cop
+
+Equips no vistos (5 folds, 3585 plants), llevat d'on diu holdout:
+
+| | zero-shot | + context | + context + 8 exemples | DeepSets |
+|---|---|---|---|---|
+| A contra B, **equips no vistos** | 0.721 | 0.708 | **0.823** | **0.891 ±0.003** |
+| A contra B, holdout | 0.721 ±0.007 | 0.710 ±0.008 | no es mesura (§6) | 0.899 ±0.005 |
+| 3 classes, equips no vistos | 0.441 | 0.477 | 0.551 | 0.600 ±0.005 |
+| 3 classes, holdout | 0.435 ±0.010 | 0.476 ±0.013 | no es mesura | 0.614 ±0.011 |
+| Timing, totes les rondes amb plant | 0.731 | 0.737 | 0.772 | 0.880 ±0.006 (holdout) |
+| AUC del site | 0.808 | 0.796 | 0.885 | |
+| AUC del plant | 0.584 | 0.604 | 0.649 | |
+| Rondes on diu «plant» | 99,8 % | 76 % | 77 % | (n'hi ha el 53,7 %) |
+| ECE, totes les rondes | 0.229 | 0.222 | 0.215 | 0.045 → 0.035 (holdout) |
+| Temps per ronda (mediana) | 13,2 s (CPU) | 0,79 s (GPU) | 1,20 s (GPU) | |
+
+Baselines: A/B 0.510, 3 classes 0.463 (equips no vistos); timing, regla «última granada + 9 s» 0.868.
+
+**Control sense LLM:** fer votar els mateixos 8 exemples (el site que més es repeteix) dona
+**0.805** al site i 0.641 d'AUC al plant. Clef hi afegeix 1,8 i 0,8 punts (§6).
+
+**Lectura per a la memòria.** Amb la mateixa informació que els altres models, Clef no millora
+el site (0.708). Amb exemples puja 10 punts, però gairebé tot ho fa la tria dels exemples: Clef
+copia la votació en el 89 % dels plants. Ni així arriba a DeepSets (−6,8 punts). **El senyal és a
+les dades**, i quan l'LLM les rep, el que fa és sobretot reproduir-les.
+
+---
+
+## 1. La resposta curta (zero-shot)
 
 **Clef perd de molt contra DeepSets.** Sap llegir alguna cosa de l'utility (21 punts per
 sobre del baseline a site), però queda **17 punts per sota** d'un model de ~1.400 paràmetres
@@ -226,8 +262,9 @@ guany). Aquesta bateria **no separa** les dues causes: no es pot dir quanta pèr
 de posició a callout i quanta d'ésser zero-shot. Per separar-les caldria entrenar DeepSets amb
 el callout en lloc de la posició.
 
-**No té context.** Sense economia, equip ni marcador, la pregunta de plant és inútil (AUC 0.58).
-A DeepSets el context és el que decideix el gate.
+**No té context.** Sense economia ni equips, la pregunta de plant és inútil (AUC 0.58). A
+DeepSets el context és el que decideix el gate. Amb el context (§6) deixa de dir sempre que
+plantaran, però l'AUC només puja a 0.60.
 
 **No sobreajusta, però és perquè no s'ajusta.** La caiguda de holdout a equips no vistos:
 
@@ -250,10 +287,125 @@ fer servir com a tals a `/scouting` sense recalibrar-les.
 **Tercer resultat negatiu, tancat.** Es queda DeepSets. Un LLM amb coneixement del joc llegeix
 la utility millor que l'atzar, però no s'acosta a un model petit entrenat amb les dades, i ho fa
 sent molt més car: 13 s per ronda a la CPU (29 h per a tot el dataset), contra mil·lisegons.
+Les dues tandes del §6 no ho canvien.
 
 ---
 
-## 6. Com reproduir-ho
+## 6. Amb context i amb exemples
+
+Dues tandes més, per veure si la distància venia de **no tenir context** o de **no haver vist
+les dades**. Es fan a l'RTX 5080 del PC de casa (16 GB; hi cap el 65 % del model, 12,9 de 19,8 GB),
+amb `num_ctx 4096`. L'utility és la mateixa que a la tanda zero-shot.
+
+### Què hi afegeix cada tanda
+
+**+ context**: el mateix context que reben DeepSets, la GCN i el Set Transformer
+(`round_context`): fase, equips, compra, valor de l'equip i armes de cada bàndol. **Ni marcador
+ni número de ronda**, que els altres models no veuen. Una ronda real:
+
+```json
+"this_round": {"phase": "first half",
+ "T":  {"team": "Natus Vincere", "buy": "full eco (saving)", "equipment_value": 2000,
+        "weapons": "glock, deagle"},
+ "CT": {"team": "Team Vitality", "buy": "full buy", "equipment_value": 22350,
+        "weapons": "usp_s, p2000, dualies, famas, m4a4, m4a1_s"}}
+```
+
+**+ 8 exemples**: abans de la ronda, 8 rondes del mateix mapa amb com van acabar, en forma
+compacta:
+
+```json
+{"utility": ["smoke Sniper's Nest 0s", "smoke Mid 0s", "flash Mid 8s", "smoke Stairs 59s",
+             "molotov Stairs 62s", "flash Stairs 71s", "molotov B Short 77s"],
+ "outcome": "planted A at 80 s", "buys": "T full buy, CT full buy"}
+```
+
+- **Sense fuites.** Surten dels equips d'entrenament del fold d'equips no vistos de la ronda
+  (sense els equips del test ni les seves rondes com a rival). Per això aquesta tanda **només
+  es puntua amb equips no vistos**: al holdout 80/20 els exemples podrien venir de rondes de test.
+- **Els més semblants.** Els 8 amb més granades en comú (tipus + callout, Jaccard), amb el més
+  semblant al final. Els empats es desfan per índex: és determinista.
+- Mida: 1714 tokens d'entrada de mediana (1135–2024 entre el p10 i el p90, màxim 2340), contra
+  742 de la tanda amb context.
+
+### Resultats per fold
+
+| Fold | plants | zero-shot | + context | + 8 exemples | DeepSets |
+|---|---|---|---|---|---|
+| 1 | 750 | 0.741 | 0.723 | 0.839 | 0.899 |
+| 2 | 755 | 0.738 | 0.721 | 0.842 | 0.894 |
+| 3 | 712 | 0.695 | 0.681 | 0.803 | 0.865 |
+| 4 | 701 | 0.696 | 0.690 | 0.803 | 0.882 |
+| 5 | 667 | 0.735 | 0.723 | 0.825 | 0.891 |
+| **Conjunt** | 3585 | **0.721** | **0.708** | **0.823** | 0.886 (llavor 0) |
+
+Amb exemples guanya als 5 folds (+10 punts de mitjana), però queda per sota de DeepSets a tots.
+
+### El context: arregla el plant, no el site
+
+| | zero-shot | + context |
+|---|---|---|
+| Diu «plant» | 99,8 % | 76 % |
+| P(plant) mitjana, rondes amb plant | 0.790 | 0.705 |
+| P(plant) mitjana, rondes sense plant | 0.757 | 0.587 |
+| AUC del plant | 0.584 | 0.604 |
+| 3 classes, equips no vistos | 0.441 · per sota del baseline | **0.477 · per sobre (0.463)** |
+| Site, equips no vistos | 0.721 | 0.708 |
+
+Ara separa una mica les rondes sense plant i les 3 classes passen el baseline. Però l'AUC de 0.60 és molt lluny del que treu DeepSets del mateix context. Al site
+no hi aporta res: hi perd 1,3 punts, dins del que varia d'un fold a un altre.
+
+### Els exemples: el guany és de la tria, no de Clef
+
+Mateixos 8 exemples, tres maneres de decidir el site:
+
+| | site, equips no vistos |
+|---|---|
+| L'exemple més semblant | 0.755 |
+| **Votació dels 8** (empats, 230 de 3585, compten com a mig encert) | **0.805** |
+| Clef amb els 8 | 0.823 |
+| DeepSets | 0.891 |
+
+- **Clef tria el site de la votació al 89,4 % dels plants** (2999 de 3355 sense empat). Quan
+  se n'aparta (356), encerta el 54,2 %: poc més que tirar una moneda.
+- Al plant passa el mateix: la proporció dels 8 que van plantar ja dona 0.641 d'AUC; Clef, 0.649.
+- La confiança millora: està segur (≥ 0.9) al 70 % dels plants i hi encerta el 88 %.
+- El timing puja de 0.737 a 0.772, segurament perquè els exemples porten el segon del plant. Continua lluny
+  de la regla (0.868).
+
+Per mapa:
+
+| Mapa | plants | zero-shot | + context | votació dels 8 | + 8 exemples | DeepSets |
+|---|---|---|---|---|---|---|
+| de_dust2 | 879 | 0.833 | 0.809 | 0.871 | 0.890 | 0.923 |
+| de_mirage | 531 | 0.638 | 0.665 | **0.841** | **0.825** | 0.919 |
+| de_nuke | 435 | 0.589 | 0.593 | 0.633 | 0.676 | 0.782 |
+| de_ancient | 418 | 0.667 | 0.675 | 0.785 | 0.813 | 0.896 |
+| de_anubis | 366 | 0.650 | 0.582 | 0.776 | 0.787 | 0.890 |
+| de_inferno | 340 | 0.762 | 0.721 | 0.825 | 0.838 | 0.913 |
+| de_train | 262 | 0.691 | 0.676 | 0.769 | 0.802 | 0.828 |
+| de_cache | 192 | 0.833 | 0.839 | 0.872 | 0.885 | 0.917 |
+| de_overpass | 162 | 0.877 | 0.846 | 0.849 | 0.883 | 0.927 |
+
+- **Mirage passa de 0.638 a 0.825**, el salt més gran: el que li faltava era veure com hi
+  executen aquests equips. Però és l'únic mapa on **Clef fa pitjor que la votació** (−1,6).
+- **Nuke continua sent el pitjor** (0.676), ara també per a la votació (0.633): el callout no
+  diu l'alçada, i les rondes semblants per callout poden anar a un site o a l'altre.
+- **A train s'acosta a DeepSets** (−2,6), que també hi és fluix.
+
+### Veredicte
+
+**No canvia res: es queda DeepSets.** El context sol no ajuda al site. Els exemples sí, però el
+que encerta és la tria de rondes semblants, que és un k-NN sobre callouts. Clef hi afegeix 1,8
+punts i encara queda 6,8 punts per sota de DeepSets, que ho fa sense LLM i amb la posició
+exacta. Per anar més enllà, amb 16 exemples, caldria `num_ctx 8192` i unes 3 h, i el que
+milloraria més probablement seria la votació, no Clef.
+
+---
+
+## 7. Com reproduir-ho
+
+### Tanda zero-shot (portàtil)
 
 A la branca `arch/clef`, des de `backend/`, amb la base de dades del Docker en marxa. El Clef de
 la biblioteca d'Ollama porta `num_ctx 16384` al Modelfile, i a la RTX 3050 de 4 GB el buffer de
@@ -287,3 +439,33 @@ Dues coses van alentir la tirada:
 - **La memòria.** El model (20 GB) no cap a la RAM (15 GB) i es llegeix del disc a mesura que
   calen les capes. Amb el navegador obert, va passar a 150–270 s per ronda. Tancar-lo no n'hi
   va haver prou: va caldre reiniciar el `llama-server` d'Ollama, que torna a 13 s.
+
+### Tandes amb context i exemples (un altre PC)
+
+La base de dades no té `ORDER BY`: retorna les rondes en l'ordre físic, i restaurada en un altre
+PC en surt un altre, que canviaria les particions. Per això els prompts es construeixen al
+portàtil, **l'altre PC només pregunta**, i es puntua al portàtil:
+
+```bash
+# portàtil: construir els prompts (amb els índexs d'aquí)
+PYTHONPATH=. python scripts/clef_eval.py --stage export --context
+PYTHONPATH=. python scripts/clef_eval.py --stage export --context --shots 8
+```
+
+A l'altre PC (Windows) només cal Ollama amb `clef`. `scripts/clef.ps1` llegeix
+`prompts.jsonl` i `questions.json` de cada variant, crea `clef-4k` si no hi és, pregunta per
+l'API d'Ollama i escriu `answers.jsonl` i `clef-log.txt` al costat. Es pot reprendre i s'atura si
+una resposta guardada no correspon al seu prompt (hash). Mentre corre, el PC no se suspèn.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File clef.ps1            # -Limit 5 per provar
+```
+
+```bash
+# portàtil: puntuar
+PYTHONPATH=. python scripts/clef_eval.py --stage score --context
+PYTHONPATH=. python scripts/clef_eval.py --stage score --context --shots 8
+```
+
+El mateix es pot fer sense PowerShell amb `clef_eval.py --offline` (pregunta a partir de
+l'exportació, sense base de dades). Amb `--shots`, `score` només fa equips no vistos.
