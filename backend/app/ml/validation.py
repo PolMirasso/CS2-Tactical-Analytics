@@ -62,6 +62,35 @@ def fold_teams(
     return team_folds(list(_teams(samples, targets).values()), n_folds)
 
 
+def fold_split(
+    samples: list[dict], targets: list[str], held: list[str]
+) -> tuple[list[int], list[int]]:
+    """Filas (train, test): test = los equipos ``held``, train = el resto menos sus rivales."""
+    teams = _teams(samples, targets)
+    opponents = {i: str(samples[i]["context"].get("opponent") or "?") for i in teams}
+    group = set(held)
+    test = [i for i in teams if teams[i] in group]
+    train = [i for i in teams if teams[i] not in group and opponents[i] not in group]
+    return train, test
+
+
+def train_rows(
+    samples: list[dict],
+    targets: list[str],
+    timing_targets: list[str | None] | None,
+    rows: list[int],
+    config: TrainConfig | None = None,
+) -> SitePredictor:
+    teams = _teams(samples, targets)
+    return SitePredictor.train(
+        [samples[i] for i in rows],
+        [targets[i] for i in rows],
+        {"n_rounds": len(rows), "n_teams": len({teams[i] for i in rows})},
+        [timing_targets[i] for i in rows] if timing_targets is not None else None,
+        config=config,
+    )
+
+
 def fit_fold(
     samples: list[dict],
     targets: list[str],
@@ -71,23 +100,13 @@ def fit_fold(
 ) -> dict:
     """Train without the ``held`` teams (and their opponents' rounds) and score on them.
     A fold that cannot train comes back with a ``reason``."""
-    teams = _teams(samples, targets)
-    opponents = {i: str(samples[i]["context"].get("opponent") or "?") for i in teams}
     ctxs = [s["context"] for s in samples]
-    group = set(held)
-    test = [i for i in teams if teams[i] in group]
-    train = [i for i in teams if teams[i] not in group and opponents[i] not in group]
-    row = {"teams": sorted(group), "n_teams": len(group), "n_train": len(train)}
+    train, test = fold_split(samples, targets, held)
+    row = {"teams": sorted(set(held)), "n_teams": len(set(held)), "n_train": len(train)}
 
     if len(train) < MIN_ROUNDS or not test:
         return {**row, "reason": "too few training rounds"}
-    predictor = SitePredictor.train(
-        [samples[i] for i in train],
-        [targets[i] for i in train],
-        {"n_rounds": len(train), "n_teams": len({teams[i] for i in train})},
-        [timing_targets[i] for i in train] if timing_targets is not None else None,
-        config=config,
-    )
+    predictor = train_rows(samples, targets, timing_targets, train, config)
     if not predictor.trained:
         return {**row, "reason": "no A/B/NoPlant split in the training rounds"}
 
