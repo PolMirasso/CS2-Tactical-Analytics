@@ -14,6 +14,7 @@ from app.ml.explain import (
     sampled_shapley,
     shapley,
     site_value,
+    token_zone,
 )
 from app.ml.features import round_context, round_tokens
 from app.ml.model import SitePredictor, _to_array
@@ -137,3 +138,19 @@ def test_gate_full_coalition_reproduces_the_prediction():
         np.testing.assert_allclose(value(np.ones((1, n), bool))[0], want, atol=1e-10)
         sh = shapley(value, n)
         np.testing.assert_allclose(sh.phi.sum(axis=0), sh.full - sh.base, atol=1e-10)
+
+
+def test_lower_level_grenades_get_the_lower_level_callout():
+    from app.analytics.maps import _CALIBRATION, classify_point, lower_level_threshold
+
+    pos_x, pos_y, scale = _CALIBRATION["de_nuke"]
+    thr = lower_level_threshold("de_nuke")
+    differs = 0
+    for wx, wy in [(-500.0, -700.0), (400.0, -1000.0), (700.0, -600.0), (-300.0, -1300.0)]:
+        x, y = (wx - pos_x) / scale, (pos_y - wy) / scale
+        lower = classify_point("de_nuke", wx, wy, thr - 1.0)
+        upper = classify_point("de_nuke", wx, wy)
+        assert token_zone("de_nuke", x, y, 1.0).id == lower.id
+        assert token_zone("de_nuke", x, y, 0.0).id == upper.id
+        differs += lower.id != upper.id
+    assert differs  # sin el nivel, abajo y arriba caerían en el mismo callout

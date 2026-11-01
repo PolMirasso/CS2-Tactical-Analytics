@@ -18,6 +18,7 @@ from math import factorial
 
 import numpy as np
 
+from app.analytics.maps import Zone, get_map, lower_level_pixel
 from app.domain.weapons import WEAPON_IDS
 from app.ml.deepsets import DeepSets
 from app.ml.features import _OPENING_WINDOW_S, _UTILS, _WEAPON_NEUTRAL, ROUND_TIME_S
@@ -222,3 +223,16 @@ def gate_value(model: SitePredictor, tokens, context: dict) -> tuple[ValueFn, li
         return masked_proba(model.gate_net, t, g_mask, ctx)
 
     return value, [f"g{i}" for i in range(n)] + groups
+
+
+# callouts
+
+def token_radar_px(map_id: str, x: float, y: float, z_lvl: float) -> tuple[float, float]:
+    """Píxel del radar de una granada; las del nivel inferior (nuke) van a su recuadro.
+    El token guarda la posición con la calibración de arriba aunque caiga abajo."""
+    return lower_level_pixel(map_id, x, y) if z_lvl >= 1.0 else (x, y)
+
+
+def token_zone(map_id: str, x: float, y: float, z_lvl: float) -> Zone | None:
+    gm = get_map(map_id)
+    return gm.zone_at(*token_radar_px(map_id, x, y, z_lvl)) if gm is not None else None

@@ -181,6 +181,15 @@ _LOWER_LEVEL: dict[str, tuple[tuple[float, float, float], float]] = {
 }
 
 
+def lower_level_pixel(map_id: str, px: float, py: float) -> tuple[float, float]:
+    """Píxel calibrado con el nivel de arriba → píxel del recuadro del nivel inferior"""
+    cal, lower = _CALIBRATION.get(map_id), _LOWER_LEVEL.get(map_id)
+    if cal is None or lower is None:
+        return px, py
+    pos_x, pos_y, scale = cal
+    return _level_radar_pixel(map_id, px * scale + pos_x, pos_y - py * scale, lower[1] - 1.0)
+
+
 def lower_level_threshold(map_id: str) -> float | None:
     """World-z below which a point is on the lower level (nuke), None for single-level maps"""
     lower = _LOWER_LEVEL.get(map_id)

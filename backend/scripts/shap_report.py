@@ -27,7 +27,14 @@ from app.analytics.maps import get_map, radar_file
 from app.db import _ensure, init_db
 from app.domain.models import User
 from app.ml.dataset import build_dataset
-from app.ml.explain import gate_value, shapley, site_value, timing_value
+from app.ml.explain import (
+    gate_value,
+    shapley,
+    site_value,
+    timing_value,
+    token_radar_px,
+    token_zone,
+)
 from app.ml.features import _UTILS, ROUND_TIME_S
 from app.ml.model import MIN_ROUNDS
 from app.ml.validation import fold_split, fold_teams, train_rows
@@ -264,11 +271,10 @@ def _zone_table(site: list[dict]) -> dict:
     """φ medio hacia B de las granadas que caen en cada callout (≥ MIN_ZONE granadas)."""
     acc: dict[str, dict[str, dict]] = defaultdict(dict)
     for r in site:
-        gm = get_map(r["map"])
-        if gm is None:
+        if get_map(r["map"]) is None:
             continue
         for g, phi in zip(r["grenades"], r["site"]["phi_b"], strict=True):
-            z = gm.zone_at(g["x"], g["y"])
+            z = token_zone(r["map"], g["x"], g["y"], g["z"])
             row = acc[r["map"]].setdefault(z.id, {"zone": z.id, "name": z.name, "phi": []})
             row["phi"].append(phi)
     out = {}
@@ -437,9 +443,10 @@ def plot_examples(site: list[dict], figs: Path) -> None:
         _radar(ax, m)
         scale = 600 / max(np.abs(phi).max(), 1e-9)
         for g, f in zip(r["grenades"], phi, strict=True):
-            ax.scatter(g["x"], g["y"], s=30 + scale * abs(f), marker=_MARKERS[g["type"]],
+            gx, gy = token_radar_px(m, g["x"], g["y"], g["z"])
+            ax.scatter(gx, gy, s=30 + scale * abs(f), marker=_MARKERS[g["type"]],
                        c=_B if f > 0 else _A, edgecolors="white", linewidths=1.5, zorder=3)
-            ax.annotate(f"{f:+.2f} · {g['t']:.0f}s", (g["x"], g["y"]), xytext=(8, -8),
+            ax.annotate(f"{f:+.2f} · {g['t']:.0f}s", (gx, gy), xytext=(8, -8),
                         textcoords="offset points", fontsize=7, color=_INK,
                         bbox={"fc": "white", "ec": "none", "alpha": 0.75, "pad": 0.6})
         handles = [Line2D([], [], marker=_MARKERS[t], ls="", color=_INK2, label=_NAMES[t])
