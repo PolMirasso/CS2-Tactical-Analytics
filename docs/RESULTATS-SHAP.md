@@ -24,7 +24,7 @@
 | Encert deixant només la més important | **0.890** (ronda sencera: 0.890) · a l'atzar: 0.658 |
 | Encert traient-ne les 5 més importants | **0.536** · a l'atzar: 0.857 |
 | Pes d'una granada llançada passats els 60 s, respecte dels primers 15 s | **×3,4** |
-| Callouts que delaten el site: mitjana \|φ\| per callout | 0.053–0.067; **nuke 0.024** |
+| Callouts que delaten el site: mitjana \|φ\| per callout | 0.053–0.067; **nuke 0.040** |
 | Gate: pes de les granades / armes / economia / equip / fase | 62 % / 22 % / 11 % / 4 % / 2 % |
 | Timing: la granada que més pesa és l'última llançada | **63 %** (a l'atzar, 11 %) |
 
@@ -32,8 +32,9 @@
 i segons **on cauen**, no de quin tipus són. SHAP ho diu i el test de borrat ho confirma: traient
 les 5 granades que SHAP marca, el model queda gairebé a l'atzar (0.536); traient-ne 5 qualsevol,
 gairebé no es mou (0.857). Els callouts que surten són els que diria un jugador (B Doors i
-B Default Plant a dust2, Hell i Olof cap a A a train). A nuke no en surt gairebé cap, i és el
-mapa on el model falla més (0.791).
+B Default Plant a dust2, Hell i Olof cap a A a train). A nuke, el mapa on el model falla més
+(0.791), el nivell inferior delata B més que cap altre callout, però el 61 % de les granades
+cauen a A Site i Outside, que no apunten a cap site.
 
 ---
 
@@ -126,7 +127,9 @@ inclou aquesta coalició d'un sol element. «Deixar-ne només k» afavoreix SHAP
 ## 4. Callouts que delaten el site
 
 φ mitjà cap a B de les granades que cauen a cada callout (callouts amb ≥ 15 granades; negatiu =
-cap a A). Les zones són les de `/maps/edit`.
+cap a A). Les zones són les de `/maps/edit`, amb el nivell de la granada a nuke (la primera
+versió d'aquest document, del 31-10, posava les granades del nivell inferior als callouts de dalt i
+en treia que nuke no tenia callouts clars; corregit l'1-11).
 
 | Mapa | Cap a A | Cap a B |
 |---|---|---|
@@ -136,7 +139,7 @@ cap a A). Les zones són les de `/maps/edit`.
 | de_dust2 | Goose −0.11 · A Default Plant −0.11 · Elevator −0.09 | **B Default Plant +0.21** · B Doors +0.15 · Double Stack +0.13 |
 | de_inferno | Graveyard −0.09 · A Site −0.09 · Back Site (A) −0.09 | Garden +0.15 · Coffins +0.14 · CT +0.13 |
 | de_mirage | Default −0.07 · A Site −0.07 · CT −0.07 | **Door +0.21** · Van +0.17 · Bench +0.16 |
-| de_nuke | Heaven −0.09 · Turn Pike −0.08 · Hell −0.04 | Ramp +0.11 · Secret +0.02 · Outside +0.02 |
+| de_nuke | Heaven −0.13 · Hell −0.08 · Turn Pike −0.08 | **Decon +0.29** · **Bottom Ramp +0.26** · **B Site +0.24** |
 | de_overpass | Lobby −0.15 · Upper Park −0.09 · A Site −0.09 | Canal +0.10 · B Site +0.09 · Bridge +0.09 |
 | de_train | Hell −0.13 · Olof −0.12 · Pigeons −0.11 | Yellow +0.18 · CT Spawn +0.17 · Bomb Train (B) +0.13 |
 
@@ -153,12 +156,14 @@ granades) contra l'encert del mapa en aquests mateixos folds:
 | de_anubis | 22 | 4.516 | 0.054 | 0.128 | 0.885 |
 | de_overpass | 16 | 1.924 | 0.054 | 0.146 | 0.907 |
 | de_ancient | 30 | 5.277 | 0.053 | 0.148 | 0.890 |
-| **de_nuke** | 14 | 4.434 | **0.024** | 0.114 | **0.791** |
+| **de_nuke** | 21 | 4.426 | **0.040** | **0.294** | **0.791** |
 
-- A **nuke** els callouts discriminen menys de la meitat que a la resta, i només en surt un de
-  clar (Ramp). A i B queden gairebé un sobre l'altre i, en 2D, la mateixa posició serveix per als
-  dos sites: per això hi falla el model. Ja ho apuntava la comparativa (§5): el problema de nuke
-  no és l'arquitectura.
+- A **nuke** hi ha els callouts més clars de tots els mapes, els del nivell inferior (Decon,
+  Bottom Ramp, B Site, Vent, Window i Doors, de +0.18 a +0.29), però només hi cau el 7,7 % de les
+  granades. El 61 % cauen a A Site (1.216, −0.02) i Outside (1.499, +0.01), que no apunten a cap
+  site. Per això la mitjana del mapa és la més baixa, i probablement per això hi falla el model:
+  la majoria de la utility de nuke es llança a zones que serveixen per als dos sites. Ja ho
+  apuntava la comparativa (§5): el problema de nuke no és l'arquitectura.
 - **Train** és l'altre mapa fluix (0.824), però per un altre motiu: els callouts sí que
   discriminen (el valor més alt, 0.067). Hi falla per alguna altra cosa, que SHAP no explica.
 
