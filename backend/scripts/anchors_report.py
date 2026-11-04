@@ -81,6 +81,7 @@ def run(tau: float, max_size: int) -> None:
         js = np.array([j for j in range(len(plant)) if maps[j] == m])
         js = js[rng.permutation(len(js))]
         halves[(m, 0)], halves[(m, 1)] = js[: len(js) // 2], js[len(js) // 2 :]
+    eval_pos = {int(j): pos for m in set(maps) for pos, j in enumerate(halves[(m, 1)])}
     pools = {
         (k, m, h): Pool.build([cand[j] for j in js], pred[k, js])
         for k in range(len(models)) for (m, h), js in halves.items()
@@ -107,6 +108,8 @@ def run(tau: float, max_size: int) -> None:
             if a is not None:
                 ev = pools[(k, m, 1)]
                 rows = ev.rows(a.predicates)
+                if j in eval_pos:  # la ronda explicada no cuenta para medir su propia regla
+                    rows[eval_pos[j]] = False
                 n = int(rows.sum())
                 ys = y[halves[(m, 1)]]
                 rec.update({
